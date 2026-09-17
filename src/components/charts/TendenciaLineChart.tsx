@@ -44,7 +44,7 @@ const estiloEtiquetaValor = {
 export default function TendenciaLineChart({ data }: Props) {
   return (
     <div>
-      <div style={{ height: 200 }} className="w-full">
+      <div style={{ height: 165 }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 26, right: 4, left: 0, bottom: 0 }}>
             <defs>

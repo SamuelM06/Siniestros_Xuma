@@ -30,7 +30,7 @@ function aFilas(rows: RegistroTabla[]): FilaExcel[] {
 export async function descargarExcel(rows: RegistroTabla[], nombreExtra = ''): Promise<void> {
   const XLSX = await import('xlsx');
   const filas = aFilas(rows.slice(0, 100000));
-  const hoja = XLSX.utils.json_to_sheet(filas, { origin: -1 });
+  const hoja = XLSX.utils.json_to_sheet(filas);
   hoja['!cols'] = [
     { wch: 16 }, { wch: 30 }, { wch: 24 }, { wch: 24 }, { wch: 26 }, { wch: 26 }, { wch: 15 }, { wch: 18 },
   ];
@@ -38,5 +38,16 @@ export async function descargarExcel(rows: RegistroTabla[], nombreExtra = ''): P
   XLSX.utils.book_append_sheet(libro, hoja, 'Siniestros');
   const fecha = new Date().toISOString().slice(0, 10);
   const nombre = `siniestros_xuma_${fecha}${nombreExtra}.xlsx`.replace(/\s+/g, '_');
-  XLSX.writeFile(libro, nombre);
+  const datos = XLSX.write(libro, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  const blob = new Blob([datos], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }

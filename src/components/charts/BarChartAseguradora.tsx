@@ -40,7 +40,7 @@ export default function BarChartAseguradora({ data }: Props) {
   }));
 
   return (
-    <div style={{ height: 200 }} className="w-full">
+    <div style={{ height: 165 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={conTotal} margin={{ top: 22, right: 12, left: 0, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />

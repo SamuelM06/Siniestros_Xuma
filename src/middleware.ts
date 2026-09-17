@@ -63,7 +63,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set(
     'Content-Security-Policy',
     [
-      "default-src 'self'",
+      "default-src 'self' blob:",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",

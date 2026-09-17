@@ -149,27 +149,38 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   return rellenarMeses(rows, f);
 }
 
-function rellenarMeses(rows: { mes: string; total: number; valor: string }[], f: Filters): PuntoTendencia[] {
-  const mapa = new Map(rows.map((r) => [r.mes, r]));
-  const salida: PuntoTendencia[] = [];
-  const [yy = 1, mm = 1] = f.desde!.slice(0, 7).split('-').map((s) => Number(s));
-  let y = yy;
-  let m = mm;
-  const finY = Number(f.hasta!.slice(0, 4));
-  const finM = Number(f.hasta!.slice(5, 7));
-  while (y < finY || (y === finY && m <= finM)) {
-    const key = `${y}-${String(m).padStart(2, '0')}`;
-    const r = mapa.get(key);
-    salida.push({
-      mes: key,
-      label: key,
-      total: r ? Number(r.total) : 0,
-      valorPagado: r ? Number(r.valor) : 0,
-    });
+// Lista de meses (YYYY-MM) del rango filtrado, recortada al último mes con datos.
+function mesesRango(f: Filters, ultimo?: string): string[] {
+  const desdeMes = (f.desde ?? '').slice(0, 7);
+  const hastaMes = (f.hasta ?? '').slice(0, 7);
+  if (!desdeMes || !hastaMes) return [];
+  let tope = hastaMes;
+  if (ultimo && ultimo < tope) tope = ultimo < desdeMes ? desdeMes : ultimo;
+  const [yi = 1, mi = 1] = desdeMes.split('-').map((s) => Number(s));
+  const [yf = 1, mf = 1] = tope.split('-').map((s) => Number(s));
+  const out: string[] = [];
+  let y = yi;
+  let m = mi;
+  while (y < yf || (y === yf && m <= mf)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
     m += 1;
     if (m > 12) { m = 1; y += 1; }
   }
-  return salida;
+  return out;
+}
+
+function rellenarMeses(rows: { mes: string; total: number; valor: string }[], f: Filters): PuntoTendencia[] {
+  const mapa = new Map(rows.map((r) => [r.mes, r]));
+  const ultimo = rows.reduce((mx, r) => (r.mes > mx ? r.mes : mx), '');
+  return mesesRango(f, ultimo || undefined).map((mes) => {
+    const r = mapa.get(mes);
+    return {
+      mes,
+      label: mes,
+      total: r ? Number(r.total) : 0,
+      valorPagado: r ? Number(r.valor) : 0,
+    };
+  });
 }
 
 // ---- Siniestros por aseguradora al mes (matriz) -------------------------------
@@ -186,7 +197,8 @@ export async function getPorAseguradora(f: Filters): Promise<SerieAseguradora[]>
   `;
   const rows = await query<{ mes: string; aseguradora: string; total: number }>(sql, w.params);
   const orden = [...new Set(rows.map((r) => r.aseguradora))];
-  const meses = rellenarMeses([], f).map((p) => p.mes);
+  const ultimo = rows.reduce((mx, r) => (r.mes > mx ? r.mes : mx), '');
+  const meses = mesesRango(f, ultimo || undefined);
   return meses.map((mes) => {
     const por: Record<string, number> = {};
     for (const a of orden) por[a] = 0;
