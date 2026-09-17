@@ -28,12 +28,14 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.3",
     "dotenv": "^17.4.2",
+    "lucide-react": "^1.47.0",
     "motion": "^13.4.0",
     "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.10.1",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

@@ -50,8 +50,8 @@ export default function DonutChart({ data }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-extrabold text-white tabular">{formatNum(total)}</span>
-          <span className="text-[11px] text-white/55">siniestros</span>
+          <span className="tabular text-3xl font-extrabold text-tinta">{formatNum(total)}</span>
+          <span className="text-[11px] text-tinta/55">siniestros</span>
         </div>
       </div>
       <ul className="mt-4 space-y-1.5">
@@ -62,11 +62,11 @@ export default function DonutChart({ data }: Props) {
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
               />
-              <span className="truncate text-white/75">{item.producto}</span>
+              <span className="truncate text-tinta/75">{item.producto}</span>
             </span>
-            <span className="font-semibold text-white/90 tabular">
+            <span className="tabular font-semibold text-tinta/90">
               {formatNum(item.total)}
-              <span className="ml-1.5 text-white/45">
+              <span className="ml-1.5 text-tinta/45">
                 {total > 0 ? `${Math.round((item.total / total) * 1000) / 10}%` : ''}
               </span>
             </span>

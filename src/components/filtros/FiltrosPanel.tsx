@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { CalendarDays, CalendarRange, Fuel, IdCard, Package, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
-import { todayISO } from '../../utils/formatters';
+import { mesLabel, todayISO } from '../../utils/formatters';
+import SelectXuma from '../ui/SelectXuma';
 
 interface Props {
   filtros: Filters;
@@ -12,15 +14,60 @@ interface Props {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder-white/35 outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-white/10';
+  'w-full rounded-xl border border-tinta/15 bg-tinta/5 px-3.5 py-2.5 text-sm text-tinta placeholder-tinta/35 outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-tinta/10';
 
-const selCls =
-  'appearance-none w-full cursor-pointer rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-white/10 [&>option]:text-[#0a1030]';
+const etiquetaCls = 'mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-tinta/60 uppercase';
+
+// Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
+function aISO(v: string | Date | null | undefined): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  return String(v).slice(0, 10);
+}
+
+// Tipos de los meses disponibles según el rango real de los datos.
+function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | null): { valor: string; etiqueta: string }[] {
+  const min = aISO(minRaw);
+  const max = aISO(maxRaw);
+  if (!min || !max) return [];
+  const inicio = min.slice(0, 7);
+  const fin = max.slice(0, 7);
+  const lista: { valor: string; etiqueta: string }[] = [];
+  let y = Number(inicio.split('-')[0] ?? 1);
+  let m = Number(inicio.split('-')[1] ?? 1);
+  const yFin = Number(fin.split('-')[0] ?? 1);
+  const mFin = Number(fin.split('-')[1] ?? 1);
+  while (y < yFin || (y === yFin && m <= mFin)) {
+    const valor = `${y}-${String(m).padStart(2, '0')}`;
+    lista.push({ valor, etiqueta: mesLabel(valor) });
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return lista;
+}
 
 // Panel de filtros con debounce en el input de contrato.
 export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
   const hoy = useMemo(() => todayISO(), []);
+
+  const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
+  const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
+  const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
+
+  const elegirMes = useCallback((v: string) => {
+    onChange({ mes: v || undefined, desde: undefined, hasta: undefined });
+  }, [onChange]);
+
+  const elegirGasera = useCallback((v: string) => {
+    onChange({ gasera: v || undefined });
+  }, [onChange]);
+
+  const elegirProducto = useCallback((v: string) => {
+    onChange({ producto: v || undefined });
+  }, [onChange]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -37,8 +84,9 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       className="glass rounded-3xl p-5"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-base font-bold text-white md:text-lg">
-          <span>🧭</span> Filtros del reporte
+        <h2 className="flex items-center gap-2 text-base font-bold text-tinta md:text-lg">
+          <SlidersHorizontal className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+          Filtros del reporte
         </h2>
         <div className="flex items-center gap-3">
           <AnimatePresence>
@@ -47,7 +95,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-claro"
+                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
               >
                 {activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}
               </motion.span>
@@ -56,16 +104,17 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           <button
             type="button"
             onClick={() => { setTexto(''); onReset(); }}
-            className="cursor-pointer rounded-xl border border-white/15 px-3.5 py-2 text-xs font-semibold text-white/70 transition-colors hover:border-red-300/40 hover:bg-red-500/10 hover:text-red-200"
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-tinta/15 px-3.5 py-2 text-xs font-semibold text-tinta/70 transition-colors hover:border-red-300/40 hover:bg-red-500/10 hover:text-red-200"
           >
-            ⟲ Restablecer (2026)
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restablecer (2026)
           </button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60 uppercase">📇 Contrato</span>
+          <span className={etiquetaCls}><IdCard className="h-3.5 w-3.5" /> Contrato</span>
           <input
             type="text"
             className={inputCls}
@@ -78,53 +127,61 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60 uppercase">📅 Desde</span>
+            <span className={etiquetaCls}><CalendarDays className="h-3.5 w-3.5" /> Desde</span>
             <input
               type="date"
               className={inputCls}
               max={hoy}
               value={filtros.desde ?? ''}
-              onChange={(e) => onChange({ desde: e.target.value || undefined })}
+              onChange={(e) => onChange({ desde: e.target.value || undefined, mes: undefined })}
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60 uppercase">Hasta</span>
+            <span className={etiquetaCls}>Hasta</span>
             <input
               type="date"
               className={inputCls}
               max={hoy}
               value={filtros.hasta ?? ''}
-              onChange={(e) => onChange({ hasta: e.target.value || undefined })}
+              onChange={(e) => onChange({ hasta: e.target.value || undefined, mes: undefined })}
             />
           </label>
         </div>
 
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60 uppercase">⛽ Gasera</span>
-          <select
-            className={selCls}
-            value={filtros.gasera ?? ''}
-            onChange={(e) => onChange({ gasera: e.target.value || undefined })}
-          >
-            <option value="">Todas</option>
-            {metadatos.gaseras.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
+          <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Mes</span>
+          <SelectXuma
+            valor={filtros.mes ?? ''}
+            opciones={meses}
+            alCambiar={elegirMes}
+            placeholder="Filtrar por mes"
+            etiquetaTodo="Todos los meses"
+            icono={<CalendarRange className="h-4 w-4" />}
+          />
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60 uppercase">📦 Producto</span>
-          <select
-            className={selCls}
-            value={filtros.producto ?? ''}
-            onChange={(e) => onChange({ producto: e.target.value || undefined })}
-          >
-            <option value="">Todos</option>
-            {metadatos.productos.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+          <span className={etiquetaCls}><Fuel className="h-3.5 w-3.5" /> Gasera</span>
+          <SelectXuma
+            valor={filtros.gasera ?? ''}
+            opciones={gaseras}
+            alCambiar={elegirGasera}
+            placeholder="Filtrar por gasera"
+            etiquetaTodo="Todas las gaseras"
+            icono={<Fuel className="h-4 w-4" />}
+          />
+        </label>
+
+        <label className="block">
+          <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
+          <SelectXuma
+            valor={filtros.producto ?? ''}
+            opciones={productos}
+            alCambiar={elegirProducto}
+            placeholder="Filtrar por producto"
+            etiquetaTodo="Todos los productos"
+            icono={<Package className="h-4 w-4" />}
+          />
         </label>
       </div>
     </motion.section>

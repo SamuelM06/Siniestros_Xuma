@@ -18,6 +18,25 @@ export function formatNum(value: number | null | undefined): string {
   return NUM.format(value);
 }
 
+const COMPACTO = new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 });
+const COMPACTO_COP = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+// Números y montos en notación compacta (12,3 mil · $2,5 B) para etiquetas de gráficos.
+export function formatNumCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined || value === 0) return '';
+  return COMPACTO.format(value);
+}
+
+export function formatCOPCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined || value === 0) return '';
+  return COMPACTO_COP.format(value);
+}
+
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',

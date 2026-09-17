@@ -4,6 +4,7 @@ export interface Filters {
   contrato?: string;
   desde?: string;   // YYYY-MM-DD
   hasta?: string;   // YYYY-MM-DD
+  mes?: string;     // YYYY-MM (tiene prioridad sobre desde/hasta)
   gasera?: string;
   producto?: string;
 }

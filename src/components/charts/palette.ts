@@ -10,12 +10,13 @@ export const CHART_COLORS = [
   '#b8c0ff', // lavanda apoyo
 ];
 
+// Estilo del tooltip: variables CSS (se adaptan a claro/oscuro).
 export const GLASS_TOOLTIP = {
-  background: 'rgba(10,16,48,0.92)',
-  border: '1px solid rgba(139,123,255,0.4)',
+  background: 'var(--qtooltip-fondo)',
+  border: '1px solid var(--qtooltip-borde)',
   borderRadius: 14,
-  color: '#eef1fb',
-  boxShadow: '0 18px 50px -20px rgba(0,0,0,0.7)',
+  color: 'var(--qtooltip-tinta)',
+  boxShadow: 'var(--qtooltip-sombra)',
   fontSize: 13,
   fontFamily: "'Raleway', sans-serif",
 } as const;

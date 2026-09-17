@@ -1,6 +1,6 @@
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PuntoTendencia } from '../../lib/types';
-import { formatCOP, formatNum, mesCorto, mesLabel } from '../../utils/formatters';
+import { formatCOP, formatCOPCompact, formatNum, mesCorto, mesLabel } from '../../utils/formatters';
 import { GLASS_TOOLTIP } from './palette';
 
 interface Props {
@@ -20,34 +20,48 @@ function TendenTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-// Tendencia mensual: área con degradado de marca + conteo.
+const estiloEtiquetaCont = {
+  fill: 'var(--ctinta)',
+  fontSize: 11,
+  fontWeight: 700,
+  fontFamily: "'Raleway', sans-serif",
+} as const;
+
+const estiloEtiquetaValor = {
+  fill: 'var(--ctinta-dim)',
+  fontSize: 10,
+  fontWeight: 600,
+  fontFamily: "'Raleway', sans-serif",
+} as const;
+
+// Tendencia mensual: área con degradado de marca + puntos y valores siempre visibles.
 export default function TendenciaLineChart({ data }: Props) {
   return (
-    <div style={{ height: 300 }} className="w-full">
+    <div style={{ height: 320 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 24, right: 16, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="gradArea" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#5ae280" stopOpacity={0.45} />
               <stop offset="100%" stopColor="#120180" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.08)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
           <XAxis
             dataKey="mes"
             tickFormatter={mesCorto}
-            tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             tickFormatter={(v: number) => formatNum(v)}
-            tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
             width={44}
           />
-          <Tooltip content={<TendenTooltip />} cursor={{ stroke: 'rgba(139,123,255,0.5)', strokeWidth: 1.5 }} />
+          <Tooltip content={<TendenTooltip />} cursor={{ stroke: 'var(--ccurtina)', strokeWidth: 2, strokeDasharray: '4 4' }} />
           <Area
             type="monotone"
             dataKey="total"
@@ -57,8 +71,17 @@ export default function TendenciaLineChart({ data }: Props) {
             fill="url(#gradArea)"
             animationDuration={1500}
             animationEasing="ease-out"
-            activeDot={{ r: 6, fill: '#5ae280', stroke: '#0a1030', strokeWidth: 2 }}
-          />
+            dot={{ r: 4, fill: '#5ae280', stroke: 'var(--qtooltip-fondo)', strokeWidth: 2 }}
+            activeDot={{ r: 7, fill: '#5ae280', stroke: '#ffffff', strokeWidth: 2 }}
+          >
+            <LabelList
+              dataKey="total"
+              position="top"
+              offset={8}
+              formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
+              style={estiloEtiquetaCont}
+            />
+          </Area>
           <Area
             type="monotone"
             dataKey="valorPagado"
@@ -69,9 +92,17 @@ export default function TendenciaLineChart({ data }: Props) {
             fill="none"
             animationDuration={1800}
             animationEasing="ease-out"
-            hide={false}
-            dot={false}
-          />
+            dot={{ r: 3, fill: '#00cd93', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
+            activeDot={{ r: 6, fill: '#00cd93', stroke: '#ffffff', strokeWidth: 2 }}
+          >
+            <LabelList
+              dataKey="valorPagado"
+              position="bottom"
+              offset={6}
+              formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
+              style={estiloEtiquetaValor}
+            />
+          </Area>
         </AreaChart>
       </ResponsiveContainer>
     </div>

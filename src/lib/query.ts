@@ -50,6 +50,16 @@ export function parseFilters(url: URL): Filters {
   return { contrato, gasera, producto, desde: rango.desde, hasta: rango.hasta };
 }
 
+// Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
+function aISO(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) {
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  const s = String(v);
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
 export function filtrosPorDefecto(): Filters {
   return { desde: `${ANIO_REPORTE}-01-01`, hasta: `${ANIO_REPORTE}-12-31` };
 }
@@ -279,6 +289,6 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     productos: prodR.map((r) => r.producto),
     estados: estR.map((r) => ({ estado: r.estado, total: Number(r.total) })),
     anios: aniosR.map((r) => Number(r.anio)),
-    rangoFechas: { min: rangoR?.min ?? null, max: rangoR?.max ?? null },
+    rangoFechas: { min: aISO(rangoR?.min), max: aISO(rangoR?.max) },
   };
 }
