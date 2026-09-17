@@ -14,9 +14,9 @@ interface Props {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-tinta/15 bg-tinta/5 px-3.5 py-2.5 text-sm text-tinta placeholder-tinta/35 outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-tinta/10';
+  'w-full min-w-0 rounded-xl border border-tinta/15 bg-tinta/5 px-3 py-2 text-sm text-tinta placeholder-tinta/35 outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-tinta/10';
 
-const etiquetaCls = 'mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-tinta/60 uppercase';
+const etiquetaCls = 'mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-tinta/60 uppercase';
 
 // Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
 function aISO(v: string | Date | null | undefined): string | null {
@@ -81,11 +81,11 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       layout
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass rounded-3xl p-5"
+      className="glass rounded-3xl p-4"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-base font-bold text-tinta md:text-lg">
-          <SlidersHorizontal className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-tinta md:text-base">
+          <SlidersHorizontal className="h-4 w-4 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
           Filtros del reporte
         </h2>
         <div className="flex items-center gap-3">
@@ -112,8 +112,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <label className="block">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+        <label className="block sm:col-span-2 xl:col-span-2">
           <span className={etiquetaCls}><IdCard className="h-3.5 w-3.5" /> Contrato</span>
           <input
             type="text"
@@ -125,8 +125,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block">
+        <div className="grid grid-cols-2 gap-2 sm:col-span-2 xl:col-span-2">
+          <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarDays className="h-3.5 w-3.5" /> Desde</span>
             <input
               type="date"
@@ -136,7 +136,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
               onChange={(e) => onChange({ desde: e.target.value || undefined, mes: undefined })}
             />
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className={etiquetaCls}>Hasta</span>
             <input
               type="date"
@@ -148,7 +148,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           </label>
         </div>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Mes</span>
           <SelectXuma
             valor={filtros.mes ?? ''}
@@ -160,7 +160,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className={etiquetaCls}><Fuel className="h-3.5 w-3.5" /> Gasera</span>
           <SelectXuma
             valor={filtros.gasera ?? ''}
@@ -172,7 +172,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block">
+        <label className="block min-w-0">
           <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
           <SelectXuma
             valor={filtros.producto ?? ''}

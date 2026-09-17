@@ -19,7 +19,7 @@ CASE
   WHEN c.estado ILIKE '%NEGAD%' OR c.estado ILIKE '%ANULAD%' OR c.estado ILIKE '%NO FALLECID%' OR c.estado ILIKE '%NO PRESTAD%' OR c.estado ILIKE '%RETORNO%' OR c.estado ILIKE '%VOLTEO%' THEN 'Negado / Anulado'
   WHEN c.estado ILIKE '%REVISION%' THEN 'En revisión'
   WHEN c.estado IS NULL OR btrim(c.estado) = '' THEN 'Sin estado'
-  ELSE NULLIF(btrim(c.estado),'')
+  ELSE initcap(NULLIF(btrim(c.estado),''))
 END`;
 
 // ---- GASERA → alias canónico -------------------------------------------------
@@ -37,7 +37,7 @@ CASE
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%ENERG%' THEN 'Compañía Energética de Occidente'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%PROEXEQUIAL%' THEN 'Proexequial (aliado)'
   WHEN btrim(COALESCE(c.gasera,'')) = '' THEN 'Sin gasera'
-  ELSE NULLIF(btrim(c.gasera),'')
+  ELSE initcap(NULLIF(btrim(c.gasera),''))
 END`;
 
 // ---- PRODUCTO → etiqueta canónica --------------------------------------------
@@ -46,13 +46,13 @@ END`;
 export const PRODUCTO_SQL = `
 CASE
   WHEN btrim(COALESCE(c.datos_originales->>'Ramo_Desc','')) ILIKE '%VIDA DE GRUPO%' THEN 'Vida Grupo'
-  WHEN NULLIF(btrim(c.datos_originales->>'Ramo_Desc'),'') IS NOT NULL THEN btrim(c.datos_originales->>'Ramo_Desc')
+  WHEN NULLIF(btrim(c.datos_originales->>'Ramo_Desc'),'') IS NOT NULL THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Ramo_Desc'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
   WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%GRUPO DEUDORES%' THEN 'Grupo Deudores'
   WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%FUTURO PROTEGIDO%' THEN 'Seguro Futuro Protegido'
   WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%VIDA%' THEN 'Seguro de Vida'
-  WHEN NULLIF(btrim(c.datos_originales->>'PRODUCTO'),'') IS NOT NULL THEN btrim(c.datos_originales->>'PRODUCTO')
+  WHEN NULLIF(btrim(c.datos_originales->>'PRODUCTO'),'') IS NOT NULL THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PRODUCTO'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
   WHEN NULLIF(btrim(c.datos_originales->>'Nomproducto'),'') IS NOT NULL
-       THEN regexp_replace(btrim(c.datos_originales->>'Nomproducto'), '^[0-9]+\s*-\s*', '', 'g')
+       THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Nomproducto'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
   ELSE 'Sin producto'
 END`;
 

@@ -89,17 +89,15 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
   const { kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos } = data;
 
   return (
-    <div className="space-y-6">
-      <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} />
-
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-2xl font-extrabold text-tinta md:text-3xl">
-            <LayoutDashboard className="h-7 w-7 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+          <h1 className="flex items-center gap-2 text-xl font-extrabold text-tinta md:text-2xl">
+            <LayoutDashboard className="h-6 w-6 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
             Tablero de siniestros <span className="texto-brillo">2026</span>
           </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-tinta/55">
-            <Database className="h-4 w-4 text-tinta-dim" />
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-tinta/55">
+            <Database className="h-3.5 w-3.5 text-tinta-dim" />
             Fuente: <code className="rounded bg-tinta/10 px-1.5 py-0.5 text-[11px] text-xuma-verde-oscuro dark:text-xuma-verde-claro">siniestros.casos</code> · Datos al cierre de agosto
           </p>
         </div>
@@ -118,11 +116,13 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         </AnimatePresence>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} />
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           titulo="Total siniestros"
           valor={kpis.total}
-          icono={<Trophy className="h-6 w-6" />}
+          icono={<Trophy className="h-5 w-5" />}
           acento="azul"
           delay={0}
           sub={
@@ -131,17 +131,17 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
               : 'Comparativo sin datos'
           }
         />
-        <KpiCard titulo="Pagados" valor={kpis.pagados} icono={<CheckCircle2 className="h-6 w-6" />} acento="verde-claro" delay={0.06} sub={`${Math.round((kpis.pagados / Math.max(1, kpis.total)) * 1000) / 10}% del total`} />
-        <KpiCard titulo="Objetados" valor={kpis.objetados} icono={<OctagonX className="h-6 w-6" />} acento="violeta" delay={0.12} sub={`${Math.round((kpis.objetados / Math.max(1, kpis.total)) * 1000) / 10}% del total`} />
-        <KpiCard titulo="Solicitud de documentos" valor={kpis.solicitudDocs} icono={<FileText className="h-6 w-6" />} acento="ambar" delay={0.18} sub="Documentos pendientes" />
-        <KpiCard titulo="En trámite" valor={kpis.enTramite} icono={<RefreshCw className="h-6 w-6" />} acento="azul" delay={0.24} sub="Seguimiento / suspenso" />
+        <KpiCard titulo="Pagados" valor={kpis.pagados} icono={<CheckCircle2 className="h-5 w-5" />} acento="verde-claro" delay={0.06} sub={`${Math.round((kpis.pagados / Math.max(1, kpis.total)) * 1000) / 10}% del total`} />
+        <KpiCard titulo="Objetados" valor={kpis.objetados} icono={<OctagonX className="h-5 w-5" />} acento="violeta" delay={0.12} sub={`${Math.round((kpis.objetados / Math.max(1, kpis.total)) * 1000) / 10}% del total`} />
+        <KpiCard titulo="Solicitud de documentos" valor={kpis.solicitudDocs} icono={<FileText className="h-5 w-5" />} acento="ambar" delay={0.18} sub="Documentos pendientes" />
+        <KpiCard titulo="En trámite" valor={kpis.enTramite} icono={<RefreshCw className="h-5 w-5" />} acento="azul" delay={0.24} sub="Seguimiento / suspenso" />
       </section>
 
       {/* Tarjeta grande: total pagado en COP */}
       <KpiCard
         titulo="Total pagado a la fecha"
         valor={kpis.totalPagado}
-        icono={<Coins className="h-7 w-7" />}
+        icono={<Coins className="h-6 w-6" />}
         acento="verde-oscuro"
         delay={0.15}
         moneda
@@ -156,7 +156,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         </p>
       )}
 
-      <section className="grid gap-5 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-3">
         <Panel titulo="Tendencia mensual" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} className="lg:col-span-2" delay={0.05}>
           <TendenciaLineChart data={tendencia} />
         </Panel>
@@ -165,7 +165,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         </Panel>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-3">
+      <section className="grid gap-4 lg:grid-cols-3">
         <Panel titulo="Siniestros por aseguradora al mes" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} className="lg:col-span-2" delay={0.05}>
           <BarChartAseguradora data={porAseguradora} />
         </Panel>

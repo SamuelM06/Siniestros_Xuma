@@ -40,9 +40,9 @@ export default function BarChartAseguradora({ data }: Props) {
   }));
 
   return (
-    <div style={{ height: 320 }} className="w-full">
+    <div style={{ height: 200 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={conTotal} margin={{ top: 24, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
+        <ComposedChart data={conTotal} margin={{ top: 22, right: 12, left: 0, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
           <XAxis
             dataKey="label"
@@ -94,14 +94,14 @@ export default function BarChartAseguradora({ data }: Props) {
         </ComposedChart>
       </ResponsiveContainer>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
         {aseguradoras.map((a, i) => (
-          <span key={a} className="flex items-center gap-1.5 text-xs text-tinta/70">
+          <span key={a} className="flex items-center gap-1.5 text-[11px] text-tinta/70">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
             {a}
           </span>
         ))}
-        <span className="flex items-center gap-1.5 text-xs font-bold text-tinta/80">
+        <span className="flex items-center gap-1.5 text-[11px] font-bold text-tinta/80">
           <span className="h-0.5 w-4 rounded-full" style={{ background: '#5ae280' }} />
           Total
         </span>

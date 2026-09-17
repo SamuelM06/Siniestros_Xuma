@@ -54,10 +54,10 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`glass glass-hover relative overflow-hidden rounded-3xl p-6 md:p-7 ${cfg.glow}`}
+        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${cfg.glow}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
-        <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-semibold text-tinta/70">
               <span className={`drop-shadow ${icCls[acento]}`}>{icono}</span>
@@ -67,7 +67,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
           </div>
           <span
             ref={ref}
-            className={`tabular text-4xl font-extrabold tracking-tight md:text-5xl ${cfg.num}`}
+            className={`tabular text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
           >
             {moneda ? formatCOP(0) : formatNum(0)}
           </span>
@@ -81,16 +81,16 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       initial={{ opacity: 0, y: 26 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 ${cfg.glow}`}
+      className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${cfg.glow}`}
     >
       <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.barra}`} />
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-semibold text-tinta/70">{titulo}</p>
-        <span className={`text-2xl drop-shadow ${icCls[acento]}`}>{icono}</span>
+        <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
       </div>
       <span
         ref={ref}
-        className={`tabular mt-3 block text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
+        className={`tabular mt-2 block text-2xl font-extrabold tracking-tight md:text-3xl ${cfg.num}`}
       >
         {moneda ? formatCOP(0) : formatNum(0)}
       </span>
