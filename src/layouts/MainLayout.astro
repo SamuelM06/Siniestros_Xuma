@@ -1,0 +1,28 @@
+---
+import '../styles/global.css';
+import '@fontsource/raleway/400.css';
+import '@fontsource/raleway/500.css';
+import '@fontsource/raleway/600.css';
+import '@fontsource/raleway/700.css';
+import AnimatedBackground from '../components/ui/AnimatedBackground.astro';
+
+interface Props {
+  title?: string;
+}
+const { title = 'Siniestros Xuma 2026' } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="dark" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <AnimatedBackground />
+    <slot />
+  </body>
+</html>

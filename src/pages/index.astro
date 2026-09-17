@@ -1,0 +1,113 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+
+const pilares = [
+  {
+    icon: '🏆',
+    titulo: 'KPIs del periodo',
+    desc: 'Total de siniestros, pagados, objetados, solicitud de documentos y total pagado en pesos.',
+  },
+  {
+    icon: '📈',
+    titulo: 'Tendencias mensuales',
+    desc: 'Evolución de los siniestros y montos mes a mes con gráficos animados.',
+  },
+  {
+    icon: '🍩',
+    titulo: 'Participación',
+    desc: 'Porciones por aseguradora, gasera y producto para ver quién concentra la operación.',
+  },
+  {
+    icon: '🔎',
+    titulo: 'Filtros y detalle',
+    desc: 'Contrato, fechas, gasera y producto con tabla de detalle paginada.',
+  },
+];
+---
+<DashboardLayout title="Inicio · Siniestros Xuma 2026">
+  <section class="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+    <div class="show fade-up" style="animation-delay:0.05s">
+      <p class="mb-3 inline-flex items-center gap-2 rounded-full border border-xuma-verde-claro/30 bg-xuma-verde-claro/10 px-4 py-1.5 text-xs font-bold tracking-widest text-xuma-verde-claro uppercase">
+        <span class="h-2 w-2 animate-pulse rounded-full bg-xuma-verde-claro"></span>
+        Reporte anual · 2026
+      </p>
+      <h1 class="text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
+        Siniestros <span class="texto-brillo">Xuma</span>
+        <br />
+        <span class="text-white/85">al alcance de un vistazo</span>
+      </h1>
+      <p class="mt-6 max-w-xl text-base leading-relaxed text-white/65 md:text-lg">
+        Este portal consolida los siniestros reportados durante
+        <strong class="text-white"> 2026</strong> por las aseguradoras aliadas
+        <strong class="text-white"> (Alfa, Cardif BNP Paribas, SURA, HDI y Proexequial)</strong>,
+        organizados por gasera y producto, para tomar decisiones más rápidas.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-4">
+        <a
+          href="/dashboard"
+          class="group inline-flex items-center gap-2 rounded-2xl bg-xuma-verde-claro px-7 py-3.5 font-bold text-[#0a1030] shadow-xl shadow-xuma-verde-claro/25 transition-all duration-300 hover:scale-105 hover:bg-xuma-verde-oscuro"
+        >
+          Ver tablero interactivo
+          <span class="transition-transform duration-300 group-hover:translate-x-1">→</span>
+        </a>
+        <span class="text-xs text-white/45">🗓️ Datos actualizados a agosto 2026</span>
+      </div>
+    </div>
+
+    <div class="hidden justify-center lg:flex">
+      <div class="show scale-in relative" style="animation-delay:0.2s">
+        <img
+          src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
+          alt="Xuma"
+          class="w-72 opacity-90 drop-shadow-[0_0_60px_rgba(90,226,128,0.35)]"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    {pilares.map((p, i) => (
+      <article
+        class="glass glass-hover show fade-up rounded-3xl p-6"
+        style={`animation-delay:${0.15 + i * 0.12}s`}
+      >
+        <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-2xl">
+          {p.icon}
+        </div>
+        <h3 class="text-lg font-bold text-white">{p.titulo}</h3>
+        <p class="mt-2 text-sm leading-relaxed text-white/60">{p.desc}</p>
+      </article>
+    ))}
+  </section>
+
+  <section class="mt-14 glass rounded-3xl p-8">
+    <div class="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+      <div class="max-w-2xl">
+        <h2 class="text-2xl font-bold text-white">🔍 ¿Cómo leer este reporte?</h2>
+        <p class="mt-3 text-sm leading-relaxed text-white/65">
+          Los datos provienen de la base corporativa <code class="rounded-md bg-white/10 px-2 py-0.5 text-xuma-verde-claro">DataCenter_Promigas · esquema siniestros</code>.
+          El reporte se centra en la fecha de radicación del siniestro dentro de 2026. Cada estado del
+          proceso (pagado, objetado, solicitud de documentos, trámite…) se agrupa en categorías
+          internas para facilitar la lectura.
+        </p>
+      </div>
+      <a
+        href="/dashboard"
+        class="glass glass-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 font-semibold text-white"
+      >
+        📊 Ir al dashboard
+      </a>
+    </div>
+  </section>
+
+  <style>
+    .show { opacity: 0; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      .show { opacity: 1; }
+    }
+    .fade-up { animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .scale-in { animation: scaleIn 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  </style>
+</DashboardLayout>

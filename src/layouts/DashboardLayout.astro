@@ -1,0 +1,60 @@
+---
+import MainLayout from './MainLayout.astro';
+import LogoutButton from '../components/ui/LogoutButton.tsx';
+
+interface Props {
+  title?: string;
+}
+const { title = 'Siniestros Xuma 2026' } = Astro.props;
+
+const nav = [
+  { href: '/', label: 'Inicio', icon: '🏠' },
+  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
+];
+const actual = Astro.url.pathname;
+---
+<MainLayout title={title}>
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-[#070b22]/70 backdrop-blur-xl">
+    <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-8">
+      <a href="/" class="flex items-center gap-3" aria-label="Volver al inicio">
+        <img
+          src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
+          alt="Xuma"
+          class="h-10 w-auto md:h-12"
+        />
+        <span class="hidden text-sm font-bold tracking-wide text-white/85 sm:block">
+          Reporte de Siniestros <span class="text-xuma-verde-claro">2026</span>
+        </span>
+      </a>
+
+      <nav class="flex items-center gap-1 rounded-2xl glass p-1">
+        {
+          nav.map((item) => (
+            <a
+              href={item.href}
+              class={`rounded-xl px-3 py-1.5 text-sm font-semibold transition-all duration-300 md:px-4 ${
+                actual === item.href || (actual === '/dashboard/' && item.href === '/dashboard')
+                  ? 'bg-xuma-verde-claro/90 text-[#0a1030] shadow-lg shadow-xuma-verde-claro/25'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <span class="mr-1">{item.icon}</span>{item.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <span class="hidden items-center gap-2 rounded-xl glass px-3 py-1.5 text-xs text-white/70 md:flex">
+          <span class="h-2 w-2 rounded-full bg-xuma-verde-claro shadow-[0_0_10px_rgba(90,226,128,0.9)]"></span>
+          Sesión segura
+        </span>
+        <LogoutButton client:load />
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-8">
+    <slot />
+  </main>
+</MainLayout>

@@ -1,0 +1,20 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import LoginForm from '../components/ui/LoginForm.tsx';
+---
+<MainLayout title="Acceso · Siniestros Xuma 2026">
+  <main class="flex min-h-[100dvh] flex-col items-center justify-center gap-8 px-4 py-16">
+    <div class="flex flex-col items-center">
+      <img
+        src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
+        alt="Xuma"
+        class="h-16 w-auto drop-shadow-[0_0_35px_rgba(139,123,255,0.5)]"
+      />
+    </div>
+    <LoginForm client:load />
+    <p class="max-w-md text-center text-xs leading-relaxed text-white/45">
+      Portal interno de análisis de siniestros. Solo personal autorizado de Xuma.
+      El acceso se audita y los intentos fallidos quedan registrados.
+    </p>
+  </main>
+</MainLayout>
