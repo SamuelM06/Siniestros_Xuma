@@ -77,6 +77,7 @@
   --ctinta-suave: rgba(20, 26, 61, 0.72);
   --ctinta-dim: rgba(20, 26, 61, 0.48);
   --csuelo: #e9edf8;
+  --cpanel-fondo: rgba(246, 248, 253, 0.96);
   --cglass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.74));
   --cglass-borde: rgba(13, 17, 48, 0.14);
   --csombra-panel: 0 18px 50px -24px rgba(20, 26, 61, 0.35);
@@ -109,6 +110,7 @@
   --ctinta-suave: rgba(238, 241, 251, 0.72);
   --ctinta-dim: rgba(238, 241, 251, 0.48);
   --csuelo: #060a1f;
+  --cpanel-fondo: rgba(9, 14, 40, 0.96);
   --cglass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
   --cglass-borde: rgba(255, 255, 255, 0.14);
   --csombra-panel: 0 18px 50px -24px rgba(0, 0, 0, 0.55);
@@ -228,7 +230,8 @@ body {
 
 /* ---------- Tarjetas glass ---------- */
 .glass {
-  background: var(--cglass-bg);
+  background-color: var(--cpanel-fondo);
+  background-image: var(--cglass-bg);
   border: 1px solid var(--cglass-borde);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);

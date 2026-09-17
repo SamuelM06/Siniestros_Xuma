@@ -1,0 +1,11 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import DetalleApp from '../components/detalle/DetalleApp.tsx';
+import { filtrosPorDefecto, getMetadatos } from '../lib/query';
+
+const f = filtrosPorDefecto();
+const metadatos = await getMetadatos(f);
+---
+<DashboardLayout title="Detalle · Siniestros Xuma 2026">
+  <DetalleApp client:load metadatos={metadatos} filtrosIniciales={f} />
+</DashboardLayout>

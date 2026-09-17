@@ -1,5 +1,11 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { filtrosPorDefecto, getMetadatos } from '../lib/query';
+import { mesLabel } from '../utils/formatters';
+
+const f = filtrosPorDefecto();
+const metadatos = await getMetadatos(f);
+const actualizado = mesLabel((metadatos.rangoFechas.max ?? '2026-08-31').slice(0, 7));
 
 const iconos = {
   trofeo:
@@ -11,11 +17,13 @@ const iconos = {
   busqueda:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
   tablero:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>',
+  lista:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
   calendario:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>',
   ayuda:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
 };
 
 const pilares = [
@@ -42,93 +50,104 @@ const pilares = [
 ];
 ---
 <DashboardLayout title="Inicio · Siniestros Xuma 2026">
-  <section class="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-    <div class="show fade-up" style="animation-delay:0.05s">
-      <p class="mb-3 inline-flex items-center gap-2 rounded-full border border-xuma-verde-claro/30 bg-xuma-verde-claro/10 px-4 py-1.5 text-xs font-bold tracking-widest text-xuma-verde-oscuro uppercase dark:text-xuma-verde-claro">
-        <span class="h-2 w-2 animate-pulse rounded-full bg-xuma-verde-oscuro dark:bg-xuma-verde-claro"></span>
-        Reporte anual · 2026
-      </p>
-      <h1 class="text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
-        Siniestros <span class="texto-brillo">Xuma</span>
-        <br />
-        <span class="text-tinta/85">al alcance de un vistazo</span>
-      </h1>
-      <p class="mt-6 max-w-xl text-base leading-relaxed text-tinta/65 md:text-lg">
-        Este portal consolida los siniestros reportados durante
-        <strong class="text-tinta"> 2026</strong> por las aseguradoras aliadas
-        <strong class="text-tinta"> (Alfa, Cardif BNP Paribas, SURA, HDI y Proexequial)</strong>,
-        organizados por gasera y producto, para tomar decisiones más rápidas.
-      </p>
-      <div class="mt-8 flex flex-wrap items-center gap-4">
+  <div class="flex min-h-[calc(100dvh-8rem)] flex-col justify-center gap-6">
+    <section class="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div class="show fade-up" style="animation-delay:0.05s">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <p class="inline-flex items-center gap-2 rounded-full border border-xuma-verde-claro/30 bg-xuma-verde-claro/10 px-4 py-1.5 text-xs font-bold tracking-widest text-xuma-verde-oscuro uppercase dark:text-xuma-verde-claro">
+            <span class="h-2 w-2 animate-pulse rounded-full bg-xuma-verde-oscuro dark:bg-xuma-verde-claro"></span>
+            Reporte anual · 2026
+          </p>
+          <p class="inline-flex items-center gap-2 rounded-full border border-xuma-violeta/40 bg-xuma-violeta/10 px-4 py-1.5 text-xs font-bold text-[#5b3df0] dark:text-[#b8c0ff]">
+            <span set:html={iconos.calendario} />
+            Última actualización: {actualizado}
+          </p>
+        </div>
+        <h1 class="text-3xl font-extrabold leading-tight md:text-4xl lg:text-5xl">
+          Siniestros <span class="texto-brillo">Xuma</span>
+          <br />
+          <span class="text-tinta/85">al alcance de un vistazo</span>
+        </h1>
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-tinta/65 md:text-base">
+          Este portal consolida los siniestros reportados durante
+          <strong class="text-tinta"> 2026</strong> por las aseguradoras aliadas
+          <strong class="text-tinta"> (Alfa, Cardif BNP Paribas, SURA, HDI y Proexequial)</strong>,
+          organizados por gasera y producto, para tomar decisiones más rápidas.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <a
+            href="/dashboard"
+            class="group inline-flex h-12 items-center gap-2 rounded-2xl bg-xuma-verde-claro px-6 font-bold text-[#0a1030] shadow-xl shadow-xuma-verde-claro/25 transition-all duration-300 hover:scale-105 hover:bg-xuma-verde-oscuro"
+          >
+            <span set:html={iconos.tablero} />
+            Ver tablero interactivo
+            <span class="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          </a>
+          <a
+            href="/detalle"
+            class="glass glass-hover inline-flex h-12 items-center gap-2 rounded-2xl px-6 font-semibold text-tinta"
+          >
+            <span set:html={iconos.lista} />
+            Ver detalle
+          </a>
+        </div>
+      </div>
+
+      <div class="hidden justify-center lg:flex">
+        <div class="show scale-in relative" style="animation-delay:0.2s">
+          <img
+            src="/logos/Transparente_Logo_azul_letra_azul.svg"
+            alt="Xuma"
+            class="w-56 opacity-90 drop-shadow-[0_0_60px_rgba(18,1,128,0.25)] md:w-64 dark:hidden"
+          />
+          <img
+            src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
+            alt="Xuma"
+            class="hidden w-56 opacity-90 drop-shadow-[0_0_60px_rgba(90,226,128,0.35)] md:w-64 dark:block"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {pilares.map((p, i) => (
+        <article
+          class="glass glass-hover show fade-up rounded-3xl p-5"
+          style={`animation-delay:${0.15 + i * 0.12}s`}
+        >
+          <div class="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-tinta/10 text-xuma-verde-oscuro dark:text-xuma-verde-claro">
+            <span set:html={p.icon} />
+          </div>
+          <h3 class="text-base font-bold text-tinta">{p.titulo}</h3>
+          <p class="mt-1.5 text-xs leading-relaxed text-tinta/60">{p.desc}</p>
+        </article>
+      ))}
+    </section>
+
+    <section class="glass rounded-3xl p-5 md:p-6">
+      <div class="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <div class="max-w-2xl">
+          <h2 class="flex items-center gap-2 text-lg font-bold text-tinta">
+            <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro" set:html={iconos.ayuda} />
+            ¿Cómo leer este reporte?
+          </h2>
+          <p class="mt-2 text-xs leading-relaxed text-tinta/65 md:text-sm">
+            Los datos provienen de la base corporativa <code class="rounded-md bg-tinta/10 px-2 py-0.5 text-xuma-verde-oscuro dark:text-xuma-verde-claro">DataCenter_Promigas · esquema siniestros</code>.
+            El reporte se centra en la fecha de radicación del siniestro dentro de 2026. Cada estado del
+            proceso (pagado, objetado, solicitud de documentos, trámite…) se agrupa en categorías
+            internas para facilitar la lectura.
+          </p>
+        </div>
         <a
           href="/dashboard"
-          class="group inline-flex items-center gap-2 rounded-2xl bg-xuma-verde-claro px-7 py-3.5 font-bold text-[#0a1030] shadow-xl shadow-xuma-verde-claro/25 transition-all duration-300 hover:scale-105 hover:bg-xuma-verde-oscuro"
+          class="glass glass-hover inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-tinta"
         >
           <span set:html={iconos.tablero} />
-          Ver tablero interactivo
-          <span class="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          Ir al dashboard
         </a>
-        <span class="flex items-center gap-1.5 text-xs text-tinta/45">
-          <span set:html={iconos.calendario} />
-          Datos actualizados a agosto 2026
-        </span>
       </div>
-    </div>
-
-    <div class="hidden justify-center lg:flex">
-      <div class="show scale-in relative" style="animation-delay:0.2s">
-        <img
-          src="/logos/Transparente_Logo_azul_letra_azul.svg"
-          alt="Xuma"
-          class="w-72 opacity-90 drop-shadow-[0_0_60px_rgba(18,1,128,0.25)] dark:hidden"
-        />
-        <img
-          src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
-          alt="Xuma"
-          class="hidden w-72 opacity-90 drop-shadow-[0_0_60px_rgba(90,226,128,0.35)] dark:block"
-        />
-      </div>
-    </div>
-  </section>
-
-  <section class="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-    {pilares.map((p, i) => (
-      <article
-        class="glass glass-hover show fade-up rounded-3xl p-6"
-        style={`animation-delay:${0.15 + i * 0.12}s`}
-      >
-        <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-tinta/10 text-xuma-verde-oscuro dark:text-xuma-verde-claro">
-          <span set:html={p.icon} />
-        </div>
-        <h3 class="text-lg font-bold text-tinta">{p.titulo}</h3>
-        <p class="mt-2 text-sm leading-relaxed text-tinta/60">{p.desc}</p>
-      </article>
-    ))}
-  </section>
-
-  <section class="glass mt-14 rounded-3xl p-8">
-    <div class="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-      <div class="max-w-2xl">
-        <h2 class="flex items-center gap-2 text-2xl font-bold text-tinta">
-          <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro" set:html={iconos.ayuda} />
-          ¿Cómo leer este reporte?
-        </h2>
-        <p class="mt-3 text-sm leading-relaxed text-tinta/65">
-          Los datos provienen de la base corporativa <code class="rounded-md bg-tinta/10 px-2 py-0.5 text-xuma-verde-oscuro dark:text-xuma-verde-claro">DataCenter_Promigas · esquema siniestros</code>.
-          El reporte se centra en la fecha de radicación del siniestro dentro de 2026. Cada estado del
-          proceso (pagado, objetado, solicitud de documentos, trámite…) se agrupa en categorías
-          internas para facilitar la lectura.
-        </p>
-      </div>
-      <a
-        href="/dashboard"
-        class="glass glass-hover inline-flex items-center gap-2 rounded-2xl px-6 py-3 font-semibold text-tinta"
-      >
-        <span set:html={iconos.tablero} />
-        Ir al dashboard
-      </a>
-    </div>
-  </section>
+    </section>
+  </div>
 
   <style>
     .show { opacity: 0; }

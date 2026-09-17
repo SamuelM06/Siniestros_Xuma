@@ -46,7 +46,7 @@ export default function ThemeToggle() {
       whileTap={{ scale: 0.9 }}
       aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       title={oscuro ? 'Modo claro' : 'Modo oscuro'}
-      className="glass cursor-pointer rounded-xl p-2.5 text-tinta/80"
+      className="glass inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-tinta/85 transition-colors hover:bg-tinta/10"
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
@@ -55,7 +55,7 @@ export default function ThemeToggle() {
           animate={{ rotate: 0, opacity: 1, scale: 1 }}
           exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="block h-5 w-5"
+          className="block h-4 w-4"
         >
           {oscuro ? (
             // Luna
@@ -86,6 +86,7 @@ export default function ThemeToggle() {
           )}
         </motion.span>
       </AnimatePresence>
+      Tema
     </motion.button>
   );
 }

@@ -13,7 +13,6 @@ import DonutChart from '../charts/DonutChart';
 import BarChartGasera from '../charts/BarChartGasera';
 import BarChartAseguradora from '../charts/BarChartAseguradora';
 import FiltrosPanel from '../filtros/FiltrosPanel';
-import TablaSiniestros from '../tabla/TablaSiniestros';
 
 interface Props {
   datosIniciales: DashboardData;
@@ -174,8 +173,6 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
           <BarChartGasera data={porGasera} />
         </Panel>
       </section>
-
-      <TablaSiniestros filtros={filtros} />
     </div>
   );
 }
