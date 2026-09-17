@@ -1,6 +1,40 @@
 @import "tailwindcss";
 
 /* ==========================================================================
+   TIPOGRAFÍA CORPORATIVA — RALEWAY (Manual de Marca Xuma 2024)
+   Fuentes auto-hospedadas en /fonts (woff2, sin CDN).
+   Pesos oficiales: Regular 400 · Medium 500 · Bold 700 (+600 para la UI).
+   ========================================================================== */
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Raleway-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Raleway-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Raleway-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Raleway-700.woff2') format('woff2');
+}
+
+/* ==========================================================================
    TOKENS DE MARCA XUMA (Manual de Marca 2024)
    Azul Reflex #120180 · Verde Claro #5AE280 · Verde Oscuro #00CD93 · Gris #333333
    Tipografía corporativa: Raleway

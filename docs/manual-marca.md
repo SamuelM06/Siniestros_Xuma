@@ -18,8 +18,8 @@ Paleta generada (tonos de apoyo derivados, para gradientes sin romper la identid
 
 ## Tipografía
 
-- Familia: **Raleway** — pesos **Regular (400), Medium (500), Bold (700)**.
-- Estrategia: paquete `@fontsource/raleway` (woff2 empaquetado, sin CDN externo).
+- Familia: **Raleway** — pesos **Regular (400), Medium (500), Bold (700)** (+600 para UI).
+- Estrategia: woff2 **auto-hospedados en `/fonts`** (`@font-face` en `global.css`, sin CDN ni npm).
 - Jerarquía: display 48px Bold (hero), H1 32px, H2 24px, cuerpo 15–16px, tabular para cifras.
 - Cifras de KPIs: Raleway Bold + `font-variant-numeric: tabular-nums`.
 
