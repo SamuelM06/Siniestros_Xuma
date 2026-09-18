@@ -32,17 +32,17 @@ const actual = Astro.url.pathname;
 
 <MainLayout title={title}>
   <header class="topbar sticky top-0 z-40 backdrop-blur-xl">
-    <div class="flex items-center justify-between gap-4 px-4 py-2 md:px-8">
-      <a href="/" class="flex items-center gap-3" aria-label="Volver al inicio">
+    <div class="flex items-center justify-between gap-3 px-3 py-1.5 md:px-6">
+      <a href="/" class="flex items-center gap-2.5" aria-label="Volver al inicio">
         <img
           src="/logos/Transparente_Logo_azul_letra_azul.svg"
           alt="Xuma"
-          class="h-10 w-auto md:h-12 dark:hidden"
+          class="h-9 w-auto md:h-10 dark:hidden"
         />
         <img
           src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
           alt="Xuma"
-          class="hidden h-10 w-auto md:h-12 dark:block"
+          class="hidden h-9 w-auto md:h-10 dark:block"
         />
         <span class="hidden text-sm font-bold tracking-wide text-tinta/85 sm:block">
           Gestión de Siniestros <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">| Promigas</span>
@@ -54,7 +54,7 @@ const actual = Astro.url.pathname;
           nav.map((item) => (
             <a
               href={item.href}
-              class={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition-all duration-300 md:px-4 ${
+              class={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-300 md:text-sm md:px-3.5 ${
                 actual === item.href || actual === `${item.href}/`
                   ? 'bg-xuma-verde-claro/90 text-[#0a1030] shadow-lg shadow-xuma-verde-claro/25'
                   : 'text-tinta/75 hover:bg-tinta/10 hover:text-tinta'
@@ -73,7 +73,7 @@ const actual = Astro.url.pathname;
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-4 py-3 md:px-8 md:py-4">
+  <main class="mx-auto w-full max-w-[1720px] px-2.5 py-2 sm:px-4">
     <slot />
   </main>
 </MainLayout>

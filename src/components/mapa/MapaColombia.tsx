@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Building2, CheckCircle2, ChevronRight, Coins, Eye, HelpCircle, MapPin, RefreshCw, X, OctagonX } from 'lucide-react';
-import { COLOMBIA_DEPTOS } from './colombiaPaths';
-import type { ItemDepartamento, MapaData } from '../../lib/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Building2, CheckCircle2, ChevronRight, Coins,
+  Eye, HelpCircle, Layers, MapPin, RefreshCw, X, OctagonX, Maximize2, Search,
+} from 'lucide-react';
+import type { ItemDepartamento, ItemMunicipio, MapaData } from '../../lib/types';
 import { formatCOP, formatNum } from '../../utils/formatters';
 
 interface Props {
@@ -11,312 +12,597 @@ interface Props {
   onSelectDepto: (depto: string | null) => void;
 }
 
+function norm(s: string | null | undefined): string {
+  return (s ?? '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function matchDeptoName(geoName: string, deptoTarget: string): boolean {
+  const g = norm(geoName);
+  const t = norm(deptoTarget);
+  if (g === t) return true;
+  if (g.includes('SANTAFE DE BOGOTA') && t.includes('BOGOTA')) return true;
+  if (g.includes('ARCHIPIELAGO') && t.includes('ANDRES')) return true;
+  if (g.includes('VALLE') && t.includes('VALLE')) return true;
+  if (g.includes('GUAJIRA') && t.includes('GUAJIRA')) return true;
+  return g.includes(t) || t.includes(g);
+}
+
+function matchMunicipio(geoMpio: string, listaMpios: ItemMunicipio[]): ItemMunicipio | undefined {
+  const gm = norm(geoMpio);
+  return listaMpios.find((m) => {
+    const lm = norm(m.municipio);
+    if (gm === lm) return true;
+    if (gm.includes('CARTAGENA') && lm.includes('CARTAGENA')) return true;
+    if (gm.includes('BARRANQUILLA') && lm.includes('BARRANQUILLA')) return true;
+    if (gm.includes('CALI') && lm.includes('CALI')) return true;
+    if (gm.includes('BOGOTA') && lm.includes('BOGOTA')) return true;
+    if (gm.includes('POPAYAN') && lm.includes('POPAYAN')) return true;
+    if (gm.includes('MANIZALES') && lm.includes('MANIZALES')) return true;
+    return gm.includes(lm) || lm.includes(gm);
+  });
+}
+
+function getColorMpio(total: number, isSelected: boolean): string {
+  if (isSelected) return '#f59e0b'; // Ámbar dorado brillante
+  if (total >= 500) return '#047857'; // Verde esmeralda intenso
+  if (total >= 100) return '#059669'; // Verde esmeralda medio
+  if (total >= 20) return '#0d9488'; // Teal
+  if (total >= 5) return '#0284c7'; // Azul cielo
+  if (total > 0) return '#38bdf8'; // Celeste
+  return '#94a3b8'; // Gris sin casos
+}
+
+function getColorDepto(total: number, isSelected: boolean): string {
+  if (isSelected) return '#f59e0b';
+  if (total >= 1500) return '#047857';
+  if (total >= 500) return '#059669';
+  if (total >= 50) return '#0d9488';
+  if (total >= 10) return '#0284c7';
+  if (total > 0) return '#38bdf8';
+  return '#94a3b8';
+}
+
 export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }: Props) {
-  const [hovered, setHovered] = useState<{ depto: string; x: number; y: number } | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const geojsonLayerRef = useRef<any>(null);
 
-  const deptoMap = useMemo(() => {
-    const map = new Map<string, ItemDepartamento>();
-    for (const d of data.departamentos) {
-      map.set(d.departamento.toLowerCase(), d);
-      // Normalizaciones comunes
-      if (d.departamento === 'Valle del Cauca') map.set('valle', d);
-      if (d.departamento === 'Bogotá D.C.') map.set('bogota', d);
+  const [geoDeptos, setGeoDeptos] = useState<any>(null);
+  const [geoMpios, setGeoMpios] = useState<any>(null);
+  const [cargandoGeo, setCargandoGeo] = useState(true);
+
+  // Modo de visualización: 'departamentos' o 'municipios'
+  const [modoVista, setModoVista] = useState<'departamentos' | 'municipios'>('departamentos');
+  const [mpioSeleccionado, setMpioSeleccionado] = useState<string | null>(null);
+  const [filtroTexto, setFiltroTexto] = useState('');
+
+  // Cargar ambos GeoJSONs en paralelo
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/colombia.geo.json').then((r) => r.json()).catch(() => null),
+      fetch('/data/colombia_municipios.geojson').then((r) => r.json()).catch(() => null),
+    ])
+      .then(([deptos, mpios]) => {
+        setGeoDeptos(deptos);
+        setGeoMpios(mpios);
+        setCargandoGeo(false);
+      })
+      .catch((err) => {
+        console.error('Error cargando geometrías territoriales:', err);
+        setCargandoGeo(false);
+      });
+  }, []);
+
+  // Inicializar Leaflet map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const L = (window as any).L;
+    if (!L) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
-    return map;
-  }, [data]);
 
-  const maxCasos = useMemo(() => {
-    return Math.max(1, ...data.departamentos.map((d) => d.total));
-  }, [data]);
+    const map = L.map(mapContainerRef.current, {
+      center: [4.5709, -74.2973],
+      zoom: 5,
+      zoomControl: true,
+      attributionControl: false,
+    });
 
-  // Color de calor del departamento
-  const getColor = (total: number, isSelected: boolean) => {
-    if (isSelected) return '#5ae280'; // Verde eléctrico de selección
-    if (total === 0) return 'rgba(150, 160, 180, 0.12)';
-    const ratio = total / maxCasos;
-    if (ratio > 0.6) return '#059669'; // Verde esmeralda intenso
-    if (ratio > 0.25) return '#10b981'; // Verde medio
-    if (ratio > 0.08) return '#34d399'; // Verde claro
-    return '#6ee7b7'; // Verde suave
+    // Capa base Carto Voyager (limpia, moderna, muestra relieve, costas y ciudades)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 18,
+      subdomains: 'abcd',
+    }).addTo(map);
+
+    L.control.attribution({ position: 'bottomright', prefix: false })
+      .addAttribution('&copy; CartoDB &copy; DANE &copy; OpenStreetMap')
+      .addTo(map);
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Cambiar a modo municipios automáticamente cuando se selecciona un departamento
+  useEffect(() => {
+    if (deptoSeleccionado) {
+      setModoVista('municipios');
+      setMpioSeleccionado(null);
+    }
+  }, [deptoSeleccionado]);
+
+  // Renderizar o actualizar la capa geográfica
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const L = (window as any).L;
+    if (!map || !L) return;
+
+    if (geojsonLayerRef.current) {
+      map.removeLayer(geojsonLayerRef.current);
+      geojsonLayerRef.current = null;
+    }
+
+    // Decidir qué GeoJSON renderizar
+    const esModoMpio = modoVista === 'municipios' && geoMpios != null;
+
+    if (esModoMpio && geoMpios) {
+      // Filtrar municipios si hay un departamento seleccionado, o mostrar todos
+      const features = deptoSeleccionado
+        ? geoMpios.features.filter((f: any) => matchDeptoName(f.properties.DPTO_CNMBR, deptoSeleccionado))
+        : geoMpios.features;
+
+      const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: (feature: any) => {
+          const dptoName = feature.properties.DPTO_CNMBR ?? '';
+          const mpioName = feature.properties.MPIO_CNMBR ?? '';
+          const deptoItem = data.departamentos.find((d) => matchDeptoName(dptoName, d.departamento));
+          const mpioItem = deptoItem ? matchMunicipio(mpioName, deptoItem.municipios) : undefined;
+          const total = mpioItem?.total ?? 0;
+          const isSelected = mpioSeleccionado != null && norm(mpioName) === norm(mpioSeleccionado);
+
+          return {
+            fillColor: getColorMpio(total, isSelected),
+            fillOpacity: isSelected ? 0.9 : total > 0 ? 0.72 : 0.1,
+            color: isSelected ? '#f59e0b' : total > 0 ? '#047857' : '#94a3b8',
+            weight: isSelected ? 3 : total > 0 ? 1.5 : 0.6,
+            dashArray: total === 0 ? '2, 2' : undefined,
+          };
+        },
+        onEachFeature: (feature: any, featLayer: any) => {
+          const dptoName = feature.properties.DPTO_CNMBR ?? '';
+          const mpioName = feature.properties.MPIO_CNMBR ?? '';
+          const deptoItem = data.departamentos.find((d) => matchDeptoName(dptoName, d.departamento));
+          const mpioItem = deptoItem ? matchMunicipio(mpioName, deptoItem.municipios) : undefined;
+          const total = mpioItem?.total ?? 0;
+          const pagado = mpioItem?.pagado ?? 0;
+
+          const tooltipHtml = `
+            <div style="font-family: inherit; font-size: 12px; color: #0f172a; min-width: 130px; padding: 2px;">
+              <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 2px;">${mpioName}</div>
+              <div style="font-size: 10px; color: #475569; margin-bottom: 4px;">${dptoName}</div>
+              <div style="margin-bottom: 2px;">Siniestros: <b style="color: #047857;">${formatNum(total)}</b></div>
+              ${total > 0 ? `<div style="font-size: 11px; font-weight: 600; color: #0284c7;">Pagado: ${formatCOP(pagado)}</div>` : '<div style="font-size: 10px; color: #64748b;">Sin siniestros registrados</div>'}
+            </div>
+          `;
+
+          featLayer.bindTooltip(tooltipHtml, { sticky: true, opacity: 0.95 });
+
+          featLayer.on({
+            mouseover: (e: any) => {
+              e.target.setStyle({ weight: 2.5, color: '#38bdf8', fillOpacity: 0.9 });
+              e.target.bringToFront();
+            },
+            mouseout: (e: any) => {
+              if (geojsonLayerRef.current) geojsonLayerRef.current.resetStyle(e.target);
+            },
+            click: (e: any) => {
+              setMpioSeleccionado(mpioName);
+              if (deptoItem && !deptoSeleccionado) {
+                onSelectDepto(deptoItem.departamento);
+              }
+              try {
+                map.fitBounds(e.target.getBounds(), { maxZoom: 11, padding: [30, 30] });
+              } catch {}
+            },
+          });
+        },
+      }).addTo(map);
+
+      geojsonLayerRef.current = layer;
+
+      try {
+        if (features.length > 0) {
+          map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        }
+      } catch {}
+
+    } else if (geoDeptos) {
+      // Modo Departamentos (Macro)
+      const layer = L.geoJSON(geoDeptos, {
+        style: (feature: any) => {
+          const dptoName = feature.properties.NOMBRE_DPT ?? '';
+          const match = data.departamentos.find((d) => matchDeptoName(dptoName, d.departamento));
+          const total = match?.total ?? 0;
+          const isSelected = deptoSeleccionado != null && match != null &&
+            norm(match.departamento) === norm(deptoSeleccionado);
+
+          return {
+            fillColor: getColorDepto(total, isSelected),
+            fillOpacity: isSelected ? 0.85 : total > 0 ? 0.70 : 0.12,
+            color: isSelected ? '#f59e0b' : total > 0 ? '#047857' : '#94a3b8',
+            weight: isSelected ? 3.5 : total > 0 ? 1.8 : 1,
+            dashArray: total === 0 ? '3, 3' : undefined,
+          };
+        },
+        onEachFeature: (feature: any, featLayer: any) => {
+          const dptoName = feature.properties.NOMBRE_DPT ?? '';
+          const match = data.departamentos.find((d) => matchDeptoName(dptoName, d.departamento));
+          const nombreDisplay = match ? match.departamento : dptoName;
+          const total = match?.total ?? 0;
+
+          const tooltipHtml = `
+            <div style="font-family: inherit; font-size: 12px; color: #0f172a; min-width: 140px; padding: 2px;">
+              <div style="font-weight: 700; font-size: 13px; margin-bottom: 3px; color: #0f172a;">${nombreDisplay}</div>
+              <div style="margin-bottom: 2px;">Siniestros: <b style="color: #047857;">${formatNum(total)}</b></div>
+              ${match ? `<div style="font-size: 11px; font-weight: 600; color: #0284c7;">Pagado: ${formatCOP(match.totalPagado)}</div>` : '<div style="font-size: 11px; color: #64748b;">Sin siniestros registrados</div>'}
+              ${match ? `<div style="font-size: 10px; color: #475569; margin-top: 3px;">Municipios con siniestros: ${match.municipios.length}</div>` : ''}
+            </div>
+          `;
+
+          featLayer.bindTooltip(tooltipHtml, { sticky: true, opacity: 0.95 });
+
+          featLayer.on({
+            mouseover: (e: any) => {
+              e.target.setStyle({ weight: 3, color: '#38bdf8', fillOpacity: 0.88 });
+              e.target.bringToFront();
+            },
+            mouseout: (e: any) => {
+              if (geojsonLayerRef.current) geojsonLayerRef.current.resetStyle(e.target);
+            },
+            click: (e: any) => {
+              if (match) {
+                onSelectDepto(match.departamento);
+                setModoVista('municipios');
+                try {
+                  map.fitBounds(e.target.getBounds(), { maxZoom: 8, padding: [25, 25] });
+                } catch {}
+              } else {
+                onSelectDepto(null);
+              }
+            },
+          });
+        },
+      }).addTo(map);
+
+      geojsonLayerRef.current = layer;
+
+      if (!deptoSeleccionado) {
+        try {
+          map.fitBounds(layer.getBounds(), { padding: [10, 10] });
+        } catch {}
+      }
+    }
+  }, [geoDeptos, geoMpios, modoVista, deptoSeleccionado, mpioSeleccionado, data, onSelectDepto]);
+
+  // Resetear a vista nacional
+  const resetVista = () => {
+    onSelectDepto(null);
+    setMpioSeleccionado(null);
+    setModoVista('departamentos');
+    setFiltroTexto('');
+    const map = mapInstanceRef.current;
+    if (map && geojsonLayerRef.current) {
+      try {
+        map.fitBounds(geojsonLayerRef.current.getBounds(), { padding: [10, 10] });
+      } catch {
+        map.setView([4.5709, -74.2973], 5);
+      }
+    }
   };
 
   const itemSeleccionado = useMemo(() => {
     if (!deptoSeleccionado) return null;
-    return data.departamentos.find((d) => d.departamento.toLowerCase() === deptoSeleccionado.toLowerCase()) ?? null;
+    return data.departamentos.find((d) => norm(d.departamento) === norm(deptoSeleccionado)) ?? null;
   }, [data, deptoSeleccionado]);
 
+  // Municipios filtrados en la lista lateral
+  const municipiosFiltrados = useMemo(() => {
+    if (!itemSeleccionado) return [];
+    if (!filtroTexto.trim()) return itemSeleccionado.municipios;
+    const q = norm(filtroTexto);
+    return itemSeleccionado.municipios.filter((m) => norm(m.municipio).includes(q));
+  }, [itemSeleccionado, filtroTexto]);
+
+  // Departamentos filtrados en la lista lateral
+  const departamentosFiltrados = useMemo(() => {
+    if (!filtroTexto.trim()) return data.departamentos;
+    const q = norm(filtroTexto);
+    return data.departamentos.filter((d) => norm(d.departamento).includes(q));
+  }, [data.departamentos, filtroTexto]);
+
   return (
-    <div className="grid gap-4 lg:grid-cols-12">
-      {/* Columna Izquierda: Mapa Interactivo SVG */}
-      <div className="relative flex flex-col items-center justify-center rounded-3xl glass p-4 md:p-6 lg:col-span-7 xl:col-span-7 min-h-[500px]">
-        <div className="mb-2 flex w-full items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold text-tinta">
-            <MapPin className="h-4 w-4 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
-            <span>Mapa Territorial de Colombia</span>
+    <div className="grid h-full w-full gap-2.5 overflow-hidden lg:grid-cols-12">
+      {/* Columna Izquierda: Mapa Interactivo DANE de Colombia */}
+      <div className="relative flex flex-col rounded-2xl glass p-2 lg:col-span-8 overflow-hidden">
+        {/* Barra superior de controles del mapa */}
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0 px-1">
+          {/* Breadcrumb de navegación territorial */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <button
+              type="button"
+              onClick={resetVista}
+              className="flex items-center gap-1 font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro hover:underline cursor-pointer"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span>Colombia</span>
+            </button>
+
+            {deptoSeleccionado && (
+              <>
+                <ChevronRight className="h-3 w-3 text-tinta/40" />
+                <button
+                  type="button"
+                  onClick={() => setMpioSeleccionado(null)}
+                  className="font-bold text-tinta hover:underline cursor-pointer"
+                >
+                  {deptoSeleccionado}
+                </button>
+              </>
+            )}
+
+            {mpioSeleccionado && (
+              <>
+                <ChevronRight className="h-3 w-3 text-tinta/40" />
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {mpioSeleccionado}
+                </span>
+              </>
+            )}
           </div>
-          <span className="text-[11px] font-semibold text-tinta/50">
-            {data.departamentos.length} departamentos con presencia
-          </span>
+
+          {/* Selector de nivel (Departamentos / Municipios) y Botón Reset */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center rounded-lg border border-tinta/15 bg-tinta/5 p-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setModoVista('departamentos')}
+                className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  modoVista === 'departamentos'
+                    ? 'bg-xuma-verde-claro text-[#0a1030] font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+              >
+                Departamentos
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoVista('municipios')}
+                className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  modoVista === 'municipios'
+                    ? 'bg-xuma-verde-claro text-[#0a1030] font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+              >
+                Municipios ({geoMpios ? geoMpios.features.length : '1.122'})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetVista}
+              title="Restablecer encuadre nacional"
+              className="flex items-center gap-1 rounded-lg border border-tinta/15 bg-tinta/5 px-2 py-1 text-[11px] font-medium text-tinta/70 hover:bg-tinta/10 hover:text-tinta transition-colors cursor-pointer"
+            >
+              <Maximize2 className="h-3 w-3" />
+              <span className="hidden sm:inline">Ver todo</span>
+            </button>
+          </div>
         </div>
 
-        <div className="relative w-full max-w-[520px] aspect-[4/5] flex items-center justify-center">
-          <svg
-            viewBox="110 15 480 735"
-            className="h-full w-full drop-shadow-md select-none"
-          >
-            <defs>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
-
-            {COLOMBIA_DEPTOS.map((dep) => {
-              const item = deptoMap.get(dep.nombre.toLowerCase());
-              const total = item?.total ?? 0;
-              const isSelected = deptoSeleccionado?.toLowerCase() === dep.nombre.toLowerCase();
-              const fill = getColor(total, isSelected);
-
-              return (
-                <g key={dep.id}>
-                  <path
-                    d={dep.d}
-                    fill={fill}
-                    stroke={isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.35)'}
-                    strokeWidth={isSelected ? 3 : 1}
-                    className="cursor-pointer transition-all duration-200 hover:opacity-85 hover:stroke-white hover:stroke-[2]"
-                    filter={isSelected ? 'url(#glow)' : undefined}
-                    onClick={() => {
-                      onSelectDepto(isSelected ? null : dep.nombre);
-                    }}
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setHovered({
-                        depto: dep.nombre,
-                        x: rect.left + rect.width / 2,
-                        y: rect.top - 10,
-                      });
-                    }}
-                    onMouseLeave={() => setHovered(null)}
-                  />
-                  {total > 0 && (
-                    <text
-                      x={dep.cx}
-                      y={dep.cy}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      className="pointer-events-none fill-slate-900 text-[10px] font-black tracking-tighter drop-shadow dark:fill-white"
-                    >
-                      {total > 999 ? `${Math.round(total / 100) / 10}k` : total}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Tooltip flotante al pasar el cursor */}
-          {hovered && (
-            <div
-              className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-2xl border border-white/20 bg-[#0c102a]/95 p-3 text-xs text-white shadow-2xl backdrop-blur-xl"
-              style={{ left: hovered.x, top: hovered.y }}
-            >
-              {(() => {
-                const item = deptoMap.get(hovered.depto.toLowerCase());
-                const total = item?.total ?? 0;
-                const pct = data.totalNacional > 0 ? ((total / data.totalNacional) * 100).toFixed(1) : '0';
-                return (
-                  <div className="space-y-1">
-                    <p className="font-extrabold text-sm text-xuma-verde-claro">{hovered.depto}</p>
-                    <p className="text-slate-300">
-                      <span className="font-bold text-white">{formatNum(total)}</span> siniestros ({pct}%)
-                    </p>
-                    {item && item.totalPagado > 0 && (
-                      <p className="text-[11px] text-emerald-400 font-semibold">
-                        Pagado: {formatCOP(item.totalPagado)}
-                      </p>
-                    )}
-                    {item && (
-                      <div className="flex gap-2 text-[10px] text-slate-400 pt-0.5 border-t border-white/10">
-                        <span>Pag: {item.pagados}</span>
-                        <span>Trám: {item.enTramite}</span>
-                        <span>Obj: {item.objetados}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+        {/* Contenedor Leaflet */}
+        <div className="relative flex-1 w-full min-h-[350px] rounded-xl overflow-hidden border border-tinta/15 shadow-inner">
+          {cargandoGeo && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-fondo/75 backdrop-blur-sm">
+              <RefreshCw className="h-7 w-7 animate-spin text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+              <p className="mt-2 text-xs font-semibold text-tinta/70">Cargando cartografía municipal y departamental…</p>
             </div>
           )}
-        </div>
 
-        {/* Leyenda de escala de calor */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-[11px] font-medium text-tinta/70">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#6ee7b7]" /> Menor
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" /> Medio
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Mayor concentración
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#5ae280]" /> Seleccionado
-          </span>
+          <div ref={mapContainerRef} className="h-full w-full z-10" />
+
+          {/* Leyenda de concentración de siniestros */}
+          <div className="absolute bottom-2 left-2 z-20 rounded-xl glass px-2.5 py-1 text-[10px] text-tinta/80 shadow-lg border border-tinta/10 backdrop-blur-md">
+            <div className="font-bold text-tinta text-[9px] uppercase tracking-wide mb-0.5">Siniestros</div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#047857]" />
+                <span>&gt;500</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#059669]" />
+                <span>&gt;100</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#0d9488]" />
+                <span>&gt;20</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#0284c7]" />
+                <span>&gt;5</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#38bdf8]" />
+                <span>1-5</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-[#94a3b8] opacity-50" />
+                <span>0</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Columna Derecha: Detalle del Departamento o Ranking Nacional */}
-      <div className="flex flex-col gap-4 lg:col-span-5 xl:col-span-5">
-        <AnimatePresence mode="wait">
-          {itemSeleccionado ? (
-            /* Vista del Departamento Seleccionado con Municipios */
-            <motion.div
-              key={itemSeleccionado.departamento}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="flex h-full flex-col rounded-3xl glass p-5 md:p-6"
-            >
-              <div className="mb-4 flex items-center justify-between border-b border-tinta/10 pb-3">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-tinta/50">Departamento</span>
-                  <h3 className="text-xl font-extrabold text-tinta">{itemSeleccionado.departamento}</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectDepto(null)}
-                  className="flex items-center gap-1 rounded-xl border border-tinta/15 bg-tinta/5 px-2.5 py-1.5 text-xs font-semibold text-tinta/70 transition-colors hover:bg-tinta/10"
-                >
-                  <X className="h-3.5 w-3.5" /> Cerrar
-                </button>
+      {/* Columna Derecha: Panel de Detalle Territorial y Explorador de Municipios */}
+      <div className="flex flex-col rounded-2xl glass p-2.5 lg:col-span-4 overflow-hidden h-full">
+        {itemSeleccionado ? (
+          /* Departamento Seleccionado: Explorador de Municipios */
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="mb-2 flex items-center justify-between border-b border-tinta/10 pb-1.5 shrink-0">
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-xuma-verde-oscuro dark:text-xuma-verde-claro">
+                  Departamento Seleccionado
+                </span>
+                <h3 className="text-sm font-extrabold text-tinta">{itemSeleccionado.departamento}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={resetVista}
+                className="flex cursor-pointer items-center gap-1 rounded-lg border border-tinta/15 bg-tinta/5 px-2 py-0.5 text-[10px] font-semibold text-tinta/70 hover:bg-tinta/10 hover:text-tinta"
+              >
+                <X className="h-3 w-3" />
+                <span>Cerrar</span>
+              </button>
+            </div>
+
+            {/* Micro métricas del departamento */}
+            <div className="grid grid-cols-2 gap-1.5 mb-2 shrink-0">
+              <div className="rounded-lg border border-tinta/10 bg-tinta/5 p-1.5">
+                <span className="text-[9px] font-semibold text-tinta/50">Total Siniestros</span>
+                <p className="text-sm font-black text-tinta">{formatNum(itemSeleccionado.total)}</p>
+                <span className="text-[9px] text-tinta/50">
+                  {((itemSeleccionado.total / Math.max(1, data.totalNacional)) * 100).toFixed(1)}% nacional
+                </span>
               </div>
 
-              {/* Estadísticas del departamento */}
-              <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-2xl bg-tinta/5 p-3">
-                  <span className="text-[10px] font-semibold text-tinta/60">Total siniestros</span>
-                  <p className="mt-1 text-lg font-black text-tinta">{formatNum(itemSeleccionado.total)}</p>
-                  <span className="text-[10px] text-tinta/50">
-                    {data.totalNacional > 0
-                      ? `${((itemSeleccionado.total / data.totalNacional) * 100).toFixed(1)}% nacional`
-                      : ''}
-                  </span>
-                </div>
-                <div className="rounded-2xl bg-emerald-500/10 p-3">
-                  <span className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300">Total pagado</span>
-                  <p className="mt-1 text-base font-black text-emerald-800 dark:text-xuma-verde-claro">
-                    {formatCOP(itemSeleccionado.totalPagado)}
-                  </p>
-                </div>
+              <div className="rounded-lg border border-tinta/10 bg-tinta/5 p-1.5">
+                <span className="text-[9px] font-semibold text-tinta/50">Total Pagado</span>
+                <p className="text-xs font-black text-xuma-verde-oscuro dark:text-xuma-verde-claro truncate" title={formatCOP(itemSeleccionado.totalPagado)}>
+                  {formatCOP(itemSeleccionado.totalPagado)}
+                </p>
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400">
+                  {itemSeleccionado.pagados} pagados
+                </span>
               </div>
+            </div>
 
-              {/* Estados en este departamento */}
-              <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2">
-                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">Pagados</span>
-                  <p className="font-extrabold text-tinta">{formatNum(itemSeleccionado.pagados)}</p>
-                </div>
-                <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-2">
-                  <span className="text-[10px] text-sky-700 dark:text-sky-400 font-bold">En trámite</span>
-                  <p className="font-extrabold text-tinta">{formatNum(itemSeleccionado.enTramite)}</p>
-                </div>
-                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-2">
-                  <span className="text-[10px] text-red-700 dark:text-red-400 font-bold">Objetados</span>
-                  <p className="font-extrabold text-tinta">{formatNum(itemSeleccionado.objetados)}</p>
-                </div>
-              </div>
+            {/* Buscador de municipio */}
+            <div className="relative mb-2 shrink-0">
+              <input
+                type="text"
+                className="w-full rounded-lg border border-tinta/15 bg-tinta/5 px-2 py-1 pl-6 text-xs text-tinta placeholder-tinta/35 outline-none focus:border-xuma-verde-claro/70"
+                placeholder="Buscar municipio en este dpto…"
+                value={filtroTexto}
+                onChange={(e) => setFiltroTexto(e.target.value)}
+              />
+              <Search className="absolute left-1.5 top-2 h-3 w-3 text-tinta/40" />
+            </div>
 
-              {/* Lista de Municipios / Localidades */}
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-tinta/80">
-                  <Building2 className="h-3.5 w-3.5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
-                  Municipios y Localidades ({itemSeleccionado.municipios.length})
-                </h4>
+            {/* Cabecera de lista */}
+            <div className="flex items-center justify-between mb-1 shrink-0 px-1 text-[10px] font-bold text-tinta/70">
+              <span>Municipio ({municipiosFiltrados.length})</span>
+              <span>Siniestros / Pagado</span>
+            </div>
 
-                <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 max-h-[280px]">
-                  {itemSeleccionado.municipios.map((mun, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-xl border border-tinta/10 bg-tinta/[0.02] px-3 py-2 text-xs transition-colors hover:bg-tinta/[0.05]"
-                    >
-                      <span className="font-semibold text-tinta/90">{mun.municipio}</span>
-                      <div className="text-right">
-                        <span className="font-bold text-tinta">{formatNum(mun.total)}</span>
-                        {mun.pagado > 0 && (
-                          <span className="block text-[10px] text-emerald-800 dark:text-xuma-verde-claro font-semibold">
-                            {formatCOP(mun.pagado)}
-                          </span>
-                        )}
-                      </div>
+            {/* Listado con scroll interno de municipios */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1 min-h-0 divide-y divide-tinta/5">
+              {municipiosFiltrados.map((m) => {
+                const isSelected = mpioSeleccionado != null && norm(m.municipio) === norm(mpioSeleccionado);
+                return (
+                  <div
+                    key={m.municipio}
+                    onClick={() => setMpioSeleccionado(m.municipio)}
+                    className={`flex items-center justify-between py-1.5 px-1.5 rounded-lg transition-colors cursor-pointer text-xs ${
+                      isSelected
+                        ? 'bg-amber-500/15 border border-amber-500/30 font-bold'
+                        : 'hover:bg-tinta/5'
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <span className="font-semibold text-tinta block truncate text-xs">{m.municipio}</span>
+                      <span className="text-[10px] text-tinta/50">{m.total} caso{m.total > 1 ? 's' : ''}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            /* Ranking General de Departamentos */
-            <motion.div
-              key="ranking"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="flex h-full flex-col rounded-3xl glass p-5 md:p-6"
-            >
-              <div className="mb-3 border-b border-tinta/10 pb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-tinta/50">Concentración territorial</span>
-                <h3 className="text-lg font-extrabold text-tinta">Ranking de Departamentos</h3>
-                <p className="text-xs text-tinta/60">Haz clic en cualquier departamento para ver sus municipios.</p>
-              </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 block text-xs">
+                        {m.pagado > 0 ? formatCOP(m.pagado) : '$0'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Panorama Nacional: Explorador de Departamentos */
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="mb-1.5 shrink-0 border-b border-tinta/10 pb-1.5">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-xuma-verde-oscuro dark:text-xuma-verde-claro">
+                Panorama Nacional
+              </span>
+              <h3 className="text-xs font-extrabold text-tinta">Departamentos con Siniestralidad</h3>
+              <p className="text-[10px] text-tinta/50">Selecciona un departamento para explorar todos sus municipios.</p>
+            </div>
 
-              <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[460px]">
-                {data.departamentos.map((dept, i) => {
-                  const pct = data.totalNacional > 0 ? ((dept.total / data.totalNacional) * 100).toFixed(1) : '0';
-                  return (
-                    <button
-                      key={dept.departamento}
-                      type="button"
-                      onClick={() => onSelectDepto(dept.departamento)}
-                      className="w-full text-left rounded-2xl border border-tinta/10 bg-tinta/[0.02] p-3 text-xs transition-all hover:border-xuma-verde-claro/50 hover:bg-tinta/[0.06] group"
-                    >
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-tinta/10 text-[10px] font-black text-tinta">
-                            {i + 1}
-                          </span>
-                          <span className="font-bold text-tinta group-hover:text-xuma-verde-oscuro dark:group-hover:text-xuma-verde-claro">
-                            {dept.departamento}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-extrabold text-tinta">{formatNum(dept.total)}</span>
-                          <span className="text-[10px] text-tinta/50">({pct}%)</span>
-                          <ChevronRight className="h-3.5 w-3.5 text-tinta/40 group-hover:translate-x-0.5 transition-transform" />
-                        </div>
-                      </div>
+            {/* Buscador de departamento */}
+            <div className="relative mb-2 shrink-0">
+              <input
+                type="text"
+                className="w-full rounded-lg border border-tinta/15 bg-tinta/5 px-2 py-1 pl-6 text-xs text-tinta placeholder-tinta/35 outline-none focus:border-xuma-verde-claro/70"
+                placeholder="Buscar departamento…"
+                value={filtroTexto}
+                onChange={(e) => setFiltroTexto(e.target.value)}
+              />
+              <Search className="absolute left-1.5 top-2 h-3 w-3 text-tinta/40" />
+            </div>
 
-                      {/* Barra de progreso */}
-                      <div className="h-1.5 w-full rounded-full bg-tinta/10 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 dark:bg-xuma-verde-claro transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.max(5, (dept.total / maxCasos) * 100))}%` }}
-                        />
-                      </div>
+            {/* Lista scrollable de departamentos */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1 min-h-0">
+              {departamentosFiltrados.map((d, idx) => (
+                <button
+                  key={d.departamento}
+                  type="button"
+                  onClick={() => onSelectDepto(d.departamento)}
+                  className="w-full flex items-center justify-between p-1.5 rounded-lg border border-tinta/10 bg-tinta/5 hover:bg-tinta/10 hover:border-xuma-verde-claro/50 transition-all text-left cursor-pointer group"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-tinta/10 text-[9px] font-bold text-tinta/70">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-bold text-xs text-tinta block truncate group-hover:text-xuma-verde-oscuro dark:group-hover:text-xuma-verde-claro">
+                        {d.departamento}
+                      </span>
+                      <span className="text-[9px] text-tinta/50">
+                        {d.municipios.length} municipios · {d.pagados} pagados
+                      </span>
+                    </div>
+                  </div>
 
-                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-tinta/60">
-                        <span>{dept.municipios.length} municipios/zonas</span>
-                        <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                          {formatCOP(dept.totalPagado)}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <div className="text-right shrink-0 pl-1.5">
+                    <span className="font-extrabold text-xs text-tinta block">
+                      {formatNum(d.total)}
+                    </span>
+                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 block">
+                      {formatCOP(d.totalPagado)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

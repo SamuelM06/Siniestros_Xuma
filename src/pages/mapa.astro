@@ -12,5 +12,8 @@ const [metadatos, mapaInicial] = await Promise.all([
 ]);
 ---
 <DashboardLayout title="Mapa de Siniestralidad · Gestión de Siniestros | Promigas">
-  <MapaApp client:load metadatos={metadatos} filtrosIniciales={f} mapaInicial={mapaInicial} />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <script is:inline src="/vendor/leaflet/leaflet.js"></script>
+
+  <MapaApp client:only="react" metadatos={metadatos} filtrosIniciales={f} mapaInicial={mapaInicial} />
 </DashboardLayout>
