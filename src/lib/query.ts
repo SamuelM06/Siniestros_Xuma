@@ -108,7 +108,7 @@ export async function getKpis(f: Filters): Promise<KpisData> {
         count(*) FILTER (WHERE estado_norm = 'Solicitud de documentos')::int AS solicitud_docs,
         count(*) FILTER (WHERE estado_norm = 'En trámite')::int    AS en_tramite,
         count(*) FILTER (WHERE estado_norm = 'Sin estado')::int    AS sin_estado,
-        COALESCE(sum(monto), 0)::numeric                           AS total_pagado
+        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS total_pagado
       FROM base
       WHERE ${w.cond}
     )
@@ -156,7 +156,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
     WITH base AS (${BASE})
     SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
            count(*)::int            AS total,
-           COALESCE(sum(monto),0)::numeric AS valor
+           COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
     FROM base
     WHERE ${w.cond}
     GROUP BY 1 ORDER BY 1

@@ -11,10 +11,10 @@
 // ---- ESTADO → categoría canónica -------------------------------------------
 export const ESTADO_SQL = `
 CASE
-  WHEN c.estado ILIKE '%PAGAD%' OR c.estado ILIKE '%PAGO CERRADO%' OR c.estado ILIKE '%PROCESO PAGO%' THEN 'Pagado'
+  WHEN c.estado ILIKE '%PAGAD%' OR c.estado ILIKE '%PAGO%' THEN 'Pagado'
   WHEN c.estado ILIKE '%OBJETAD%' THEN 'Objetado'
   WHEN c.estado ILIKE '%DOCUMENTO%' OR c.estado ILIKE '%PENDIENTE%' OR c.estado ILIKE '%LLAMADA%' THEN 'Solicitud de documentos'
-  WHEN c.estado ILIKE '%TRAMIT%' OR c.estado ILIKE '%SEGUIMIENTO%' OR c.estado ILIKE '%ABIERT%' OR c.estado ILIKE '%SUSPENSO%' OR c.estado ILIKE '%COORDINAR%' OR c.estado ILIKE '%APERTUR%' THEN 'En trámite'
+  WHEN c.estado ILIKE '%TRAMIT%' OR c.estado ILIKE '%TRÁMIT%' OR c.estado ILIKE '%SEGUIMIENTO%' OR c.estado ILIKE '%ABIERT%' OR c.estado ILIKE '%SUSPENSO%' OR c.estado ILIKE '%COORDINAR%' OR c.estado ILIKE '%APERTUR%' THEN 'En trámite'
   WHEN c.estado ILIKE '%CONCLU%' OR c.estado ILIKE '%CERRADO%' OR c.estado ILIKE '%DIRECTO%' OR c.estado ILIKE '%EXHUMACION%' THEN 'Concluido'
   WHEN c.estado ILIKE '%NEGAD%' OR c.estado ILIKE '%ANULAD%' OR c.estado ILIKE '%NO FALLECID%' OR c.estado ILIKE '%NO PRESTAD%' OR c.estado ILIKE '%RETORNO%' OR c.estado ILIKE '%VOLTEO%' THEN 'Negado / Anulado'
   WHEN c.estado ILIKE '%REVISION%' THEN 'En revisión'
