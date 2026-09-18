@@ -7,22 +7,10 @@ interface Props {
   data: PuntoTendencia[];
 }
 
+// Etiquetas de valores con fondo transparente: usan la tinta del tema
+// (azul marino en claro, casi blanca en oscuro) para leerse sin ningún halo.
 const estiloEtiqueta = {
-  fill: 'var(--qtooltip-tinta)',
-  fontSize: 12,
-  fontWeight: 800,
-  fontFamily: "'Raleway', sans-serif",
-} as const;
-
-// Halo suave detrás de cada número para que resalte sobre la línea y el área.
-// La tinta es azul marino fijo (contrasta en tema claro y oscuro) sobre un fondo
-// casi blanco, para que los valores siempre se lean.
-const estiloHalo = {
-  fill: 'var(--qtooltip-fondo)',
-  stroke: 'var(--qtooltip-fondo)',
-  strokeWidth: 5.5,
-  paintOrder: 'stroke',
-  strokeLinejoin: 'round' as const,
+  fill: 'var(--ctinta)',
   fontSize: 12,
   fontWeight: 800,
   fontFamily: "'Raleway', sans-serif",
@@ -79,13 +67,6 @@ export default function TendenciaLineChart({ data }: Props) {
                   position="top"
                   offset={8}
                   formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
-                  style={estiloHalo}
-                />
-                <LabelList
-                  dataKey="total"
-                  position="top"
-                  offset={8}
-                  formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
                   style={estiloEtiqueta}
                 />
               </Area>
@@ -137,13 +118,6 @@ export default function TendenciaLineChart({ data }: Props) {
                 dot={{ r: 3.5, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
                 activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }}
               >
-                <LabelList
-                  dataKey="valorPagado"
-                  position="top"
-                  offset={8}
-                  formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
-                  style={estiloHalo}
-                />
                 <LabelList
                   dataKey="valorPagado"
                   position="top"

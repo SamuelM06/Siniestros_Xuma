@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarDays, CalendarRange, Fuel, IdCard, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, CalendarRange, Fuel, IdCard, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
 import { mesLabel, todayISO } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
@@ -56,7 +56,6 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
   const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
-  const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
 
   const elegirMes = useCallback((v: string) => {
     onChange({ mes: v || undefined, desde: undefined, hasta: undefined });
@@ -64,10 +63,6 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   const elegirGasera = useCallback((v: string) => {
     onChange({ gasera: v || undefined });
-  }, [onChange]);
-
-  const elegirProducto = useCallback((v: string) => {
-    onChange({ producto: v || undefined });
   }, [onChange]);
 
   useEffect(() => {
@@ -126,7 +121,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
       </div>
 
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-7">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-6">
         <label className="block sm:col-span-2 xl:col-span-2">
           <span className={etiquetaCls}><IdCard className="h-3.5 w-3.5" /> Contrato</span>
           <input
@@ -183,19 +178,6 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             placeholder="Filtrar por gasera"
             etiquetaTodo="Todas las gaseras"
             icono={<Fuel className="h-4 w-4" />}
-          />
-        </label>
-
-        <label className="block min-w-0">
-          <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
-          <SelectXuma
-            valor={filtros.producto ?? ''}
-            opciones={productos}
-            alCambiar={elegirProducto}
-            placeholder="Filtrar por producto"
-            etiquetaTodo="Todos los productos"
-            icono={<Package className="h-4 w-4" />}
-            desplegableClase="w-max min-w-96 max-w-[85vw] right-0"
           />
         </label>
       </div>
