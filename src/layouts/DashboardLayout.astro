@@ -23,17 +23,17 @@ const nav = [
     svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
   },
   { href: '/dashboard', label: 'Dashboard', svg: svgTablero },
-  { href: '/detalle', label: 'Detalle', svg: svgLista },
-  { href: '/estatus', label: 'Estatus Siniestros', svg: svgEstatus },
   { href: '/mapa', label: 'Mapa Siniestros', svg: svgMapa },
+  { href: '/estatus', label: 'Estatus Siniestros', svg: svgEstatus },
+  { href: '/detalle', label: 'Detalle', svg: svgLista },
 ];
 const actual = Astro.url.pathname;
 ---
 
 <MainLayout title={title}>
   <header class="topbar sticky top-0 z-40 backdrop-blur-xl">
-    <div class="flex items-center justify-between gap-3 px-3 py-1.5 md:px-6">
-      <a href="/" class="flex items-center gap-2.5" aria-label="Volver al inicio">
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 md:px-6">
+      <a href="/" class="flex items-center gap-2.5 justify-self-start" aria-label="Volver al inicio">
         <img
           src="/logos/Transparente_Logo_azul_letra_azul.svg"
           alt="Xuma"
@@ -49,7 +49,7 @@ const actual = Astro.url.pathname;
         </span>
       </a>
 
-      <nav class="flex items-center gap-1 rounded-2xl glass p-1">
+      <nav class="flex min-w-0 items-center justify-self-center gap-1 rounded-2xl glass p-1">
         {
           nav.map((item) => (
             <a
@@ -67,7 +67,7 @@ const actual = Astro.url.pathname;
         }
       </nav>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center justify-end gap-2 justify-self-end">
         <ThemeToggle client:load />
       </div>
     </div>
