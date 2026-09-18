@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  CheckCircle2, Coins, Database, FileText, Fuel, Landmark, LayoutDashboard,
+  CheckCircle2, Coins, FileText, Fuel, Landmark,
   OctagonX, PieChart, RefreshCw, TrendingUp, Trophy,
 } from 'lucide-react';
 import type { DashboardData, Filters } from '../../lib/types';
@@ -21,7 +21,6 @@ interface Props {
 
 const DEFAULT_DESDE = '2026-01-01';
 const DEFAULT_HASTA = '2026-12-31';
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
@@ -88,53 +87,11 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);
 
   const { kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos } = data;
-  const cierreMes = (() => {
-    const max = metadatos?.rangoFechas?.max;
-    return max ? (MESES[Number(max.slice(5, 7)) - 1] ?? max.slice(0, 7)) : 'agosto';
-  })();
 
   return (
     <div className="space-y-3">
-      {/* Encabezado: título a la izquierda y total pagado a la derecha */}
-      <div className="flex flex-wrap items-stretch justify-between gap-4">
-        <div className="flex min-w-[260px] flex-1 flex-col justify-center">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="flex items-center gap-2 text-xl font-extrabold text-tinta md:text-2xl">
-              <LayoutDashboard className="h-6 w-6 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
-              Tablero de siniestros <span className="texto-brillo">2026</span>
-            </h1>
-            <AnimatePresence>
-              {cargando && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex items-center gap-2 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
-                >
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Actualizando…
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-tinta/55">
-            <Database className="h-3.5 w-3.5 text-tinta-dim" />
-            Fuente: <code className="rounded bg-tinta/10 px-1.5 py-0.5 text-[11px] text-xuma-verde-oscuro dark:text-xuma-verde-claro">siniestros.casos</code> · Datos al cierre de {cierreMes}
-          </p>
-        </div>
-        <div className="w-full max-w-lg">
-          <KpiCard
-            titulo="Total pagado a la fecha"
-            valor={kpis.totalPagado}
-            icono={<Coins className="h-6 w-6" />}
-            acento="verde-oscuro"
-            delay={0.15}
-            moneda
-            grande
-            sub="Suma de los valores pagados de los siniestros del periodo filtrado"
-          />
-        </div>
-      </div>
+      {/* Título accesible (screen reader) para SEO/a11y */}
+      <h1 className="sr-only">Tablero de siniestros 2026</h1>
 
       <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} />
 
@@ -157,20 +114,49 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         <KpiCard titulo="En trámite" valor={kpis.enTramite} icono={<RefreshCw className="h-5 w-5" />} acento="azul" delay={0.24} sub="Seguimiento / suspenso" />
       </section>
 
+      {/* Total pagado + badge de actualización */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="w-full max-w-xl">
+          <KpiCard
+            titulo="Total pagado a la fecha"
+            valor={kpis.totalPagado}
+            icono={<Coins className="h-6 w-6" />}
+            acento="verde-oscuro"
+            delay={0.15}
+            moneda
+            grande
+            sub="Suma de los valores pagados de los siniestros del periodo filtrado"
+          />
+        </div>
+        <AnimatePresence>
+          {cargando && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-2 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+            >
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              Actualizando…
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {kpis.sinEstado > 0 && (
         <p className="flex items-center gap-1.5 text-xs text-tinta/45">
           <OctagonX className="h-3.5 w-3.5 text-amber-400" />
-          {kpis.sinEstado.toLocaleString('es-CO')} siniestros sin estado asignado en la fuente (se muestran en “Sin estado”).
+          {kpis.sinEstado.toLocaleString('es-CO')} siniestros sin estado asignado en la fuente (se muestran en "Sin estado").
         </p>
       )}
 
-      {/* Gráficos distribuidos a los lados: 2 columnas x 2 filas */}
-      <section className="grid gap-3 lg:grid-cols-2">
-        <div className="space-y-3">
-          <Panel titulo="Tendencia mensual" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
+      {/* Gráficos distribuidos: tendencia y aseguradoras a la izquierda (2/3); dona y gasera a la derecha */}
+      <section className="grid gap-3 lg:grid-cols-3">
+        <div className="space-y-3 lg:col-span-2">
+          <Panel titulo="Tendencia mensual de siniestros y pagos" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
             <TendenciaLineChart data={tendencia} />
           </Panel>
-          <Panel titulo="Siniestros por aseguradora al mes" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
+          <Panel titulo="Siniestros por aseguradora (total del periodo)" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
             <BarChartAseguradora data={porAseguradora} />
           </Panel>
         </div>

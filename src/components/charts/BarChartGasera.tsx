@@ -12,7 +12,7 @@ export default function BarChartGasera({ data }: Props) {
   const anchoEjes = Math.min(230, 40 + Math.max(0, ...data.map((d) => d.gasera.length)) * 7.2);
 
   return (
-    <div style={{ height: 165 }} className="w-full">
+    <div style={{ height: 180 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 6, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" horizontal={false} />
@@ -47,7 +47,7 @@ export default function BarChartGasera({ data }: Props) {
           </defs>
           <Bar dataKey="total" radius={[0, 9, 9, 0]} animationDuration={1200} animationEasing="ease-out" barSize={16}>
             {data.map((item, i) => (
-              <Cell key={item.gasera} fill={CHART_COLORS[i % (CHART_COLORS.length - 2)] ?? '#5ae280'} />
+              <Cell key={item.gasera} fill={CHART_COLORS[i % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
             ))}
           </Bar>
         </BarChart>

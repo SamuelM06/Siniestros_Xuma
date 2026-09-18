@@ -1,14 +1,22 @@
 // Paleta de gráficos derivada de la marca Xuma (azules + verdes + apoyo).
+// Usa variables CSS para adaptarse al tema claro/oscuro: en claro son tonos
+// más saturados y con contraste legible sobre fondo claro.
 export const CHART_COLORS = [
-  '#5ae280', // verde claro
-  '#00cd93', // verde oscuro
-  '#8b7bff', // violeta apoyo
-  '#3d22c8', // azul profundo 2
-  '#f0b429', // ámbar apoyo
-  '#ef7a6b', // coral apoyo
-  '#4cc9f0', // cian apoyo
-  '#b8c0ff', // lavanda apoyo
+  'var(--cgraf-1)', // verde claro
+  'var(--cgraf-2)', // verde oscuro
+  'var(--cgraf-3)', // violeta apoyo
+  'var(--cgraf-4)', // azul profundo 2
+  'var(--cgraf-5)', // ámbar apoyo
+  'var(--cgraf-6)', // coral apoyo
+  'var(--cgraf-7)', // cian apoyo
+  'var(--cgraf-8)', // lavanda apoyo
 ];
+
+// Color genérico para categorías agregadas (Ej. "Otros").
+export const COLOR_OTROS = 'var(--cgraf-otro)';
+
+// Color del total (se adapta al tema: texto principal).
+export const COLOR_TOTAL = 'var(--ctinta)';
 
 // Estilo del tooltip: variables CSS (se adaptan a claro/oscuro).
 export const GLASS_TOOLTIP = {

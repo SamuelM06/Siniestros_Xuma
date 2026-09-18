@@ -1,110 +1,87 @@
-import { Bar, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { SerieAseguradora } from '../../lib/types';
-import { formatNum, mesCorto, mesLabel } from '../../utils/formatters';
+import { formatNum } from '../../utils/formatters';
 import { CHART_COLORS, GLASS_TOOLTIP } from './palette';
 
 interface Props {
   data: SerieAseguradora[];
 }
 
-function AsiTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) {
+interface Total {
+  aseguradora: string;
+  total: number;
+  totalFmt: string;
+  pct: number;
+}
+
+function AsegTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: Total }> }) {
   if (!active || !payload || payload.length === 0) return null;
-  const ver = [...payload].filter((p) => p.value > 0 && p.name !== 'Total');
-  const total = payload.find((p) => p.name === 'Total')?.value ?? ver.reduce((a, b) => a + b.value, 0);
+  const d = payload[0]?.payload;
+  if (!d) return null;
   return (
     <div style={GLASS_TOOLTIP as React.CSSProperties}>
-      <p style={{ marginBottom: 6, fontWeight: 700 }}>{mesLabel(label ?? '')}</p>
-      {[...ver]
-        .sort((a, b) => b.value - a.value)
-        .map((p) => (
-          <p key={p.name} style={{ margin: 0 }}>
-            <span
-              style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 3, marginRight: 6, background: p.color }}
-            />
-            {p.name}: <b>{formatNum(p.value)}</b>
-          </p>
-        ))}
-      <p style={{ margin: 0, borderTop: '1px solid var(--qtooltip-borde)', paddingTop: 6, marginTop: 6 }}>
-        Total: <b>{formatNum(total)}</b>
-      </p>
+      <p style={{ margin: 0, fontWeight: 700 }}>{d.aseguradora}</p>
+      <p style={{ margin: 0 }}>Total: <b>{d.totalFmt}</b> ({d.pct}%)</p>
     </div>
   );
 }
 
-// Barras apiladas por aseguradora + línea de total con valores visibles.
+// Gráfico de columnas (barras verticales) con el total de siniestros por aseguradora
+// en el periodo filtrado; ordenado de mayor a menor para lectura rápida.
 export default function BarChartAseguradora({ data }: Props) {
   const aseguradoras = data.length > 0 ? Object.keys(data[0]!.porAseguradora) : [];
-  const conTotal = data.map((m) => ({
-    ...m,
-    total: Object.values(m.porAseguradora).reduce((a, b) => a + b, 0),
+
+  const totalPorAseg = aseguradoras
+    .map((a) => ({ aseguradora: a, total: data.reduce((s, m) => s + (m.porAseguradora[a] ?? 0), 0) }))
+    .filter((t) => t.total > 0)
+    .sort((x, y) => y.total - x.total);
+
+  const granTotal = totalPorAseg.reduce((s, t) => s + t.total, 0);
+  const totales: Total[] = totalPorAseg.map((t) => ({
+    ...t,
+    totalFmt: formatNum(t.total),
+    pct: granTotal > 0 ? Math.round((t.total / granTotal) * 1000) / 10 : 0,
   }));
 
   return (
-    <div style={{ height: 165 }} className="w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={conTotal} margin={{ top: 22, right: 12, left: 0, bottom: 0 }} barCategoryGap="28%">
-          <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tickFormatter={mesCorto}
-            tick={{ fill: 'var(--ctinta-suave)', fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tickFormatter={(v: number) => formatNum(v)}
-            tick={{ fill: 'var(--ctinta-suave)', fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-            width={44}
-          />
-          <Tooltip content={<AsiTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
-          {aseguradoras.map((aseguradora, i) => (
-            <Bar
-              key={aseguradora}
-              dataKey={aseguradora}
-              stackId="s"
-              fill={CHART_COLORS[i % CHART_COLORS.length]}
-              radius={i === aseguradoras.length - 1 ? [6, 6, 0, 0] : undefined}
-              animationDuration={1100 + i * 120}
-              animationEasing="ease-out"
-              maxBarSize={42}
+    <div>
+      <div style={{ height: 190 }} className="w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={totales} margin={{ top: 28, right: 8, left: 4, bottom: 0 }} barCategoryGap="22%">
+            <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
+            <XAxis
+              dataKey="aseguradora"
+              tick={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 600 }}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              angle={-35}
+              textAnchor="end"
+              height={72}
             />
-          ))}
-          <Line
-            type="monotone"
-            dataKey="total"
-            name="Total"
-            stroke="#5ae280"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            dot={{ r: 4, fill: '#5ae280', stroke: 'var(--qtooltip-fondo)', strokeWidth: 2 }}
-            activeDot={{ r: 7, fill: '#5ae280', stroke: '#ffffff', strokeWidth: 2 }}
-            animationDuration={1500}
-            animationEasing="ease-out"
-          >
-            <LabelList
-              dataKey="total"
-              position="top"
-              offset={8}
-              formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
-              style={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 700, fontFamily: "'Raleway', sans-serif" }}
+            <YAxis
+              tickFormatter={(v: number) => formatNum(v)}
+              tick={{ fill: 'var(--ctinta-suave)', fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={40}
             />
-          </Line>
-        </ComposedChart>
-      </ResponsiveContainer>
-
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-        {aseguradoras.map((a, i) => (
-          <span key={a} className="flex items-center gap-1.5 text-[11px] text-tinta/70">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-            {a}
+            <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
+            <Bar dataKey="total" radius={[7, 7, 0, 0]} animationDuration={1200} animationEasing="ease-out" maxBarSize={56}>
+              {totales.map((item) => (
+                <Cell key={item.aseguradora} fill={CHART_COLORS[totales.indexOf(item) % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-tinta/65">
+        {totales.map((t, i) => (
+          <span key={t.aseguradora} className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+            {t.aseguradora} · {t.totalFmt}
           </span>
         ))}
-        <span className="flex items-center gap-1.5 text-[11px] font-bold text-tinta/80">
-          <span className="h-0.5 w-4 rounded-full" style={{ background: '#5ae280' }} />
-          Total
-        </span>
       </div>
     </div>
   );

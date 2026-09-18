@@ -102,6 +102,15 @@
   --qtooltip-tinta: #141a3d;
   --qtooltip-borde: rgba(18, 1, 128, 0.35);
   --qtooltip-sombra: 0 18px 50px -20px rgba(20, 26, 61, 0.45);
+  --cgraf-1: #0f9d5c;
+  --cgraf-2: #007a54;
+  --cgraf-3: #6c5ce7;
+  --cgraf-4: #2a12a3;
+  --cgraf-5: #d97f06;
+  --cgraf-6: #d9533f;
+  --cgraf-7: #098aa8;
+  --cgraf-8: #6f7ad8;
+  --cgraf-otro: #8e97a8;
 }
 
 .dark {
@@ -135,6 +144,15 @@
   --qtooltip-tinta: #eef1fb;
   --qtooltip-borde: rgba(139, 123, 255, 0.4);
   --qtooltip-sombra: 0 18px 50px -20px rgba(0, 0, 0, 0.7);
+  --cgraf-1: #5ae280;
+  --cgraf-2: #00cd93;
+  --cgraf-3: #8b7bff;
+  --cgraf-4: #3d22c8;
+  --cgraf-5: #f0b429;
+  --cgraf-6: #ef7a6b;
+  --cgraf-7: #4cc9f0;
+  --cgraf-8: #b8c0ff;
+  --cgraf-otro: #7c8494;
 }
 
 /* ---------- Base ---------- */

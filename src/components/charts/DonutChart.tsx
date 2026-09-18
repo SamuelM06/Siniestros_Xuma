@@ -43,7 +43,7 @@ export default function DonutChart({ data }: Props) {
               animationEasing="ease-out"
             >
               {data.map((_, i) => (
-                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length] ?? '#5ae280'} />
+                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
               ))}
             </Pie>
             <Tooltip content={<DonutTooltip />} />
