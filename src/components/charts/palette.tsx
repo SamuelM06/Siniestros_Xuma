@@ -28,3 +28,13 @@ export const GLASS_TOOLTIP = {
   fontSize: 13,
   fontFamily: "'Raleway', sans-serif",
 } as const;
+
+// Tick del eje Y (categorías) alineado a la izquierda y con mayor tamaño,
+// para que los nombres de gaseras/aseguradoras se lean completos y grandes.
+export function EjeIzquierdoTick({ y, payload }: { y?: number; payload?: { value?: string } }) {
+  return (
+    <text x={6} y={y} textAnchor="start" dominantBaseline="central" fill="var(--ctinta)" fontSize={12} fontWeight={700}>
+      {payload?.value}
+    </text>
+  );
+}

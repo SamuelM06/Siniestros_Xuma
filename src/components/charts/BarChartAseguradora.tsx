@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { SerieAseguradora } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
-import { CHART_COLORS, GLASS_TOOLTIP } from './palette';
+import { CHART_COLORS, EjeIzquierdoTick, GLASS_TOOLTIP } from './palette';
 
 interface Props {
   data: SerieAseguradora[];
@@ -43,12 +43,12 @@ export default function BarChartAseguradora({ data }: Props) {
     pct: granTotal > 0 ? Math.round((t.total / granTotal) * 1000) / 10 : 0,
   }));
 
-  const anchoEjes = Math.min(210, 40 + Math.max(0, ...totales.map((t) => t.aseguradora.length)) * 6.3);
+  const anchoEjes = Math.min(210, 40 + Math.max(0, ...totales.map((t) => t.aseguradora.length)) * 6.6);
 
   return (
     <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={totales} layout="vertical" margin={{ top: 4, right: 28, left: 6, bottom: 4 }} barCategoryGap="26%">
+        <BarChart data={totales} layout="vertical" margin={{ top: 4, right: 28, left: 0, bottom: 4 }} barCategoryGap="26%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" horizontal={false} />
           <XAxis
             type="number"
@@ -60,12 +60,11 @@ export default function BarChartAseguradora({ data }: Props) {
           <YAxis
             type="category"
             dataKey="aseguradora"
-            tick={{ fill: 'var(--ctinta)', fontSize: 11, fontWeight: 600 }}
             axisLine={false}
             tickLine={false}
             width={anchoEjes}
             interval={0}
-            tickMargin={6}
+            tick={<EjeIzquierdoTick />}
           />
           <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
           <Bar dataKey="total" radius={[0, 7, 7, 0]} animationDuration={1200} animationEasing="ease-out" barSize={15}>

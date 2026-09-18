@@ -140,10 +140,10 @@
   --alfa-orbe-2: 1;
   --alfa-orbe-3: 1;
   --alfa-linea: 0.3;
-  --qtooltip-fondo: rgba(10, 16, 48, 0.94);
-  --qtooltip-tinta: #eef1fb;
-  --qtooltip-borde: rgba(139, 123, 255, 0.4);
-  --qtooltip-sombra: 0 18px 50px -20px rgba(0, 0, 0, 0.7);
+  --qtooltip-fondo: rgba(255, 255, 255, 0.97);
+  --qtooltip-tinta: #141a3d;
+  --qtooltip-borde: rgba(18, 1, 128, 0.28);
+  --qtooltip-sombra: 0 18px 50px -20px rgba(20, 26, 61, 0.4);
   --cgraf-1: #5ae280;
   --cgraf-2: #00cd93;
   --cgraf-3: #8b7bff;
