@@ -69,11 +69,15 @@ function getColorDepto(total: number, isSelected: boolean): string {
 export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
   const geojsonLayerRef = useRef<any>(null);
 
   const [geoDeptos, setGeoDeptos] = useState<any>(null);
   const [geoMpios, setGeoMpios] = useState<any>(null);
   const [cargandoGeo, setCargandoGeo] = useState(true);
+
+  // Tipo de mapa base: 'google' (predeterminado), 'google-sat', 'osm', 'carto'
+  const [tipoMapa, setTipoMapa] = useState<'google' | 'google-sat' | 'osm' | 'carto'>('google');
 
   // Modo de visualización: 'departamentos' o 'municipios'
   const [modoVista, setModoVista] = useState<'departamentos' | 'municipios'>('departamentos');
@@ -115,14 +119,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
       attributionControl: false,
     });
 
-    // Capa base Carto Voyager (limpia, moderna, muestra relieve, costas y ciudades)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 18,
-      subdomains: 'abcd',
-    }).addTo(map);
-
     L.control.attribution({ position: 'bottomright', prefix: false })
-      .addAttribution('&copy; CartoDB &copy; DANE &copy; OpenStreetMap')
       .addTo(map);
 
     mapInstanceRef.current = map;
@@ -134,6 +131,45 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
       }
     };
   }, []);
+
+  // Actualizar capa base de azulejos (Google Maps / OpenStreetMap / Satelital / Carto)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const L = (window as any).L;
+    if (!map || !L) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+
+    let layer: any;
+    if (tipoMapa === 'google') {
+      layer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps',
+      });
+    } else if (tipoMapa === 'google-sat') {
+      layer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        attribution: '&copy; Google Maps Satelital',
+      });
+    } else if (tipoMapa === 'osm') {
+      layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      });
+    } else {
+      layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        subdomains: 'abcd',
+        attribution: '&copy; CARTO &copy; OpenStreetMap',
+      });
+    }
+
+    layer.addTo(map);
+    tileLayerRef.current = layer;
+  }, [tipoMapa]);
 
   // Cambiar a modo municipios automáticamente cuando se selecciona un departamento
   useEffect(() => {
@@ -372,9 +408,62 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
             )}
           </div>
 
-          {/* Selector de nivel (Departamentos / Municipios) y Botón Reset */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center rounded-lg border border-tinta/15 bg-tinta/5 p-0.5 text-[11px]">
+          {/* Selector de capa de mapa (Google / OSM / Satélite / Carto), nivel y Botón Reset */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Switcher de Mapa Base */}
+            <div className="flex items-center rounded-lg border border-tinta/15 bg-tinta/5 p-0.5 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setTipoMapa('google')}
+                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  tipoMapa === 'google'
+                    ? 'bg-blue-600 text-white font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+                title="Mapa de calles de Google Maps"
+              >
+                Google Maps
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoMapa('google-sat')}
+                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  tipoMapa === 'google-sat'
+                    ? 'bg-blue-600 text-white font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+                title="Google Maps con vista satelital híbrida"
+              >
+                Satélite
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoMapa('osm')}
+                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  tipoMapa === 'osm'
+                    ? 'bg-blue-600 text-white font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+                title="Mapa estándar OpenStreetMap"
+              >
+                OpenStreetMap
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoMapa('carto')}
+                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  tipoMapa === 'carto'
+                    ? 'bg-blue-600 text-white font-bold shadow-sm'
+                    : 'text-tinta/70 hover:text-tinta'
+                }`}
+                title="CartoDB Voyager de alta legibilidad"
+              >
+                Carto
+              </button>
+            </div>
+
+            {/* Selector de nivel (Departamentos / Municipios) */}
+            <div className="flex items-center rounded-lg border border-tinta/15 bg-tinta/5 p-0.5 text-[10px]">
               <button
                 type="button"
                 onClick={() => setModoVista('departamentos')}
@@ -395,7 +484,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
                     : 'text-tinta/70 hover:text-tinta'
                 }`}
               >
-                Municipios ({geoMpios ? geoMpios.features.length : '1.122'})
+                Municipios
               </button>
             </div>
 
