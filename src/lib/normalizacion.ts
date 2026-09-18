@@ -44,32 +44,82 @@ CASE
 END`;
 
 // ---- PRODUCTO → etiqueta canónica --------------------------------------------
-// Alfa/HDI/Proexequial/SURA(interacción) usan `PRODUCTO`; Cardif usa
-// `Nomproducto` (con prefijos de código tipo "6202-"); SURA usa `Ramo_Desc`.
+// Se analizan los campos reales de cada aseguradora (RAMO, Nomproducto, MODALIDAD,
+// SEGURO, Ramo_Desc, PRODUCTO, etc.) y se descartan valores espurios puramente numéricos.
 export const PRODUCTO_SQL = `
 CASE
+  -- 1. Vida Deudor / Grupo Deudores (archivos, ramos o valores explícitos)
+  WHEN c.nombre_archivo_origen ILIKE '%vida deudor%' THEN 'Grupo Deudores'
+  WHEN btrim(COALESCE(c.datos_originales->>'RAMO','')) ILIKE '%DEUDOR%' THEN 'Grupo Deudores'
+  WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%DEUDOR%' THEN 'Grupo Deudores'
+
+  -- 2. Salvafactura
+  WHEN c.nombre_archivo_origen ILIKE '%salvafactura%' THEN 'Salvafactura'
+  WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%SALVAFACTURA%' THEN 'Salvafactura'
+
+  -- 3. Cardif (Nomproducto comercial)
+  WHEN btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%ACCID%' THEN 'Accidentes Personales'
+  WHEN btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%CANCER%' OR btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%C_NCER%' THEN 'Cáncer'
+  WHEN btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%VIDA GRUPO%' OR btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%VIDA%' THEN 'Vida Grupo'
+  WHEN btrim(COALESCE(c.datos_originales->>'Nomproducto','')) ILIKE '%DEUDOR%' THEN 'Grupo Deudores'
+  WHEN NULLIF(btrim(c.datos_originales->>'Nomproducto'),'') IS NOT NULL 
+   AND (c.datos_originales->>'Nomproducto') !~ '^[0-9.,[:space:]]+$'
+   THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Nomproducto'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
+
+  -- 4. HDI (Modalidad / Amparo)
+  WHEN btrim(COALESCE(c.datos_originales->>'MODALIDAD','')) ILIKE '%FUTURO PROTEGIDO%' THEN 'Seguro Futuro Protegido'
+  WHEN btrim(COALESCE(c.datos_originales->>'MODALIDAD','')) ILIKE '%FUNERARIO%' 
+    OR btrim(COALESCE(c.datos_originales->>'AMPARO','')) ILIKE '%EXEQUIAS%' THEN 'Seguro Funerario'
+  WHEN btrim(COALESCE(c.datos_originales->>'MODALIDAD','')) ILIKE '%ENFERMEDADES GRAVES%' 
+    OR btrim(COALESCE(c.datos_originales->>'AMPARO','')) ILIKE '%ENFERMEDADES GRAVES%' THEN 'Enfermedades Graves'
+
+  -- 5. SURA (Ramo_Desc / SEGURO / Nombre_plan)
   WHEN btrim(COALESCE(c.datos_originales->>'Ramo_Desc','')) ILIKE '%VIDA DE GRUPO%' THEN 'Vida Grupo'
-  WHEN NULLIF(btrim(c.datos_originales->>'Ramo_Desc'),'') IS NOT NULL THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Ramo_Desc'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
-  WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%GRUPO DEUDORES%' THEN 'Grupo Deudores'
-  WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%FUTURO PROTEGIDO%' THEN 'Seguro Futuro Protegido'
-  WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%VIDA%' THEN 'Seguro de Vida'
-  WHEN NULLIF(btrim(c.datos_originales->>'PRODUCTO'),'') IS NOT NULL THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PRODUCTO'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
-  WHEN NULLIF(btrim(c.datos_originales->>'Nomproducto'),'') IS NOT NULL
-       THEN initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Nomproducto'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
+  WHEN btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%MERCADO ASEGURADO%' THEN 'Mercado Asegurado'
+  WHEN btrim(COALESCE(c.datos_originales->>'Nombre_plan','')) ILIKE '%VIDA%' THEN 'Vida Grupo'
+
+  -- 6. Campo SEGURO (Alfa / HDI / SURA)
+  WHEN btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%PRACTISEGURO%' THEN 'Practiseguro'
+  WHEN btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%FUTURO PROTEGIDO%' THEN 'Seguro Futuro Protegido'
+  WHEN btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%PAZ Y SALVO%' OR btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%LIBERTY%' THEN 'Seguro de Vida'
+  WHEN btrim(COALESCE(c.datos_originales->>'SEGURO','')) ILIKE '%ENFERMEDADES GRAVES%' THEN 'Enfermedades Graves'
+
+  -- 7. Campo PRODUCTO descriptivo (DESCARTA VALORES PURAMENTE NUMÉRICOS)
+  WHEN (c.datos_originales->>'PRODUCTO') IS NOT NULL 
+   AND (c.datos_originales->>'PRODUCTO') !~ '^[0-9.,[:space:]]+$'
+   AND btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) <> '' THEN
+    CASE
+      WHEN btrim(c.datos_originales->>'PRODUCTO') ILIKE '%FUTURO PROTEGIDO%' THEN 'Seguro Futuro Protegido'
+      WHEN btrim(c.datos_originales->>'PRODUCTO') ILIKE '%FUNERARIO%' THEN 'Seguro Funerario'
+      WHEN btrim(c.datos_originales->>'PRODUCTO') ILIKE '%PRACTISEGURO%' THEN 'Practiseguro'
+      WHEN btrim(c.datos_originales->>'PRODUCTO') ILIKE '%PROTECTOR%' THEN 'Seguro Protector'
+      WHEN btrim(c.datos_originales->>'PRODUCTO') ILIKE '%VIDA%' THEN 'Seguro de Vida'
+      ELSE initcap(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PRODUCTO'), '^[0-9]+[[:space:]]*-[[:space:]]*', '', 'g'), '_', ' ', 'g'))
+    END
+
+  -- 8. Otros campos secundarios (RAMO, Nombre_plan)
+  WHEN btrim(COALESCE(c.datos_originales->>'RAMO','')) ILIKE '%VIDA%' THEN 'Vida Grupo'
+  WHEN btrim(COALESCE(c.datos_originales->>'RAMO','')) ILIKE '%EXEQUI%' OR btrim(COALESCE(c.datos_originales->>'RAMO','')) ILIKE '%FUNERARI%' THEN 'Seguro Funerario'
+
   ELSE 'Sin producto'
 END`;
 
 // ---- MONTO (Total Pagado) ----------------------------------------------------
-// Cada aseguradora trae el valor pagado bajo una llave distinta del JSONB:
-//   HDI  → 'VALOR PAGOS'   Cardif → 'Valor_Pagos'   Alfa → 'VALOR'
-// Se sanean a número puro de enteros (los valores son pesos colombianos).
+// Captura todas las variantes de columnas usadas por aseguradoras (Cardif, HDI, Alfa, etc.)
+// y sanea centavos ([,.]\\d{2}$) para evitar que valores con decimales se multipliquen por 100.
 export const MONTO_SQL = `
 COALESCE(
-  NULLIF(regexp_replace(btrim(c.datos_originales->>'VALOR PAGOS'), '[^0-9]', '', 'g'), '')::numeric,
-  NULLIF(regexp_replace(btrim(c.datos_originales->>'Valor_Pagos'), '[^0-9]', '', 'g'), '')::numeric,
-  NULLIF(regexp_replace(btrim(c.datos_originales->>'VALOR'), '[^0-9]', '', 'g'), '')::numeric,
-  NULLIF(regexp_replace(btrim(c.datos_originales->>'PagoReal'), '[^0-9]', '', 'g'), '')::numeric,
-  NULLIF(regexp_replace(btrim(c.datos_originales->>'Pagocomercial'), '[^0-9]', '', 'g'), '')::numeric
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGOS'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Valor_Pagos'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'MONTO PAGADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR -PAGADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGADO '), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR_SOLICITUD_GIRO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PagoReal'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Pagocomercial'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR_TOTAL'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric
 )`;
 
 // ---- Estados canónicos para la UI (badges, leyendas) --------------------------

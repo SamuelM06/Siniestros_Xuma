@@ -73,20 +73,20 @@
    ========================================================================== */
 :root {
   color-scheme: light;
-  --ctinta: #141a3d;
-  --ctinta-suave: rgba(20, 26, 61, 0.72);
-  --ctinta-dim: rgba(20, 26, 61, 0.48);
+  --ctinta: #0c102a;
+  --ctinta-suave: rgba(12, 16, 42, 0.86);
+  --ctinta-dim: rgba(12, 16, 42, 0.65);
   --csuelo: #e9edf8;
   --cpanel-fondo: rgba(246, 248, 253, 0.96);
-  --cglass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.74));
-  --cglass-borde: rgba(13, 17, 48, 0.14);
-  --csombra-panel: 0 18px 50px -24px rgba(20, 26, 61, 0.35);
+  --cglass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+  --cglass-borde: rgba(12, 16, 42, 0.16);
+  --csombra-panel: 0 18px 50px -24px rgba(12, 16, 42, 0.35);
   --chorver-borde: rgba(18, 1, 128, 0.5);
-  --csk: rgba(20, 26, 61, 0.08);
-  --csk-shine: rgba(20, 26, 61, 0.12);
-  --topbarbg: rgba(233, 237, 248, 0.78);
-  --ccurtina: rgba(20, 26, 61, 0.14);
-  --csombra-cursor: rgba(20, 26, 61, 0.06);
+  --csk: rgba(12, 16, 42, 0.08);
+  --csk-shine: rgba(12, 16, 42, 0.12);
+  --topbarbg: rgba(233, 237, 248, 0.82);
+  --ccurtina: rgba(12, 16, 42, 0.16);
+  --csombra-cursor: rgba(12, 16, 42, 0.06);
   --brillo-1: #120180;
   --brillo-2: #00cd93;
   --brillo-3: #8b7bff;
@@ -98,12 +98,12 @@
   --alfa-orbe-2: 0.55;
   --alfa-orbe-3: 0.5;
   --alfa-linea: 0.45;
-  --qtooltip-fondo: rgba(255, 255, 255, 0.96);
-  --qtooltip-tinta: #141a3d;
+  --qtooltip-fondo: rgba(255, 255, 255, 0.98);
+  --qtooltip-tinta: #0c102a;
   --qtooltip-borde: rgba(18, 1, 128, 0.35);
-  --qtooltip-sombra: 0 18px 50px -20px rgba(20, 26, 61, 0.45);
-  --cgraf-1: #0f9d5c;
-  --cgraf-2: #007a54;
+  --qtooltip-sombra: 0 18px 50px -20px rgba(12, 16, 42, 0.45);
+  --cgraf-1: #00875a;
+  --cgraf-2: #120180;
   --cgraf-3: #6c5ce7;
   --cgraf-4: #2a12a3;
   --cgraf-5: #d97f06;
@@ -145,7 +145,7 @@
   --qtooltip-borde: rgba(18, 1, 128, 0.28);
   --qtooltip-sombra: 0 18px 50px -20px rgba(20, 26, 61, 0.4);
   --cgraf-1: #5ae280;
-  --cgraf-2: #00cd93;
+  --cgraf-2: #818cf8;
   --cgraf-3: #8b7bff;
   --cgraf-4: #3d22c8;
   --cgraf-5: #f0b429;

@@ -12,13 +12,13 @@ interface Props {
 }
 
 const ESTADO_STYLE: Record<string, string> = {
-  verde: 'bg-xuma-verde-claro/15 text-xuma-verde-oscuro border-xuma-verde-claro/40 dark:text-xuma-verde-claro',
-  rojo: 'bg-red-500/15 text-red-300 border-red-400/40',
-  ambar: 'bg-amber-400/15 text-amber-300 border-amber-300/40',
-  azul: 'bg-sky-400/15 text-sky-300 border-sky-300/40',
-  cyan: 'bg-cyan-300/15 text-cyan-200 border-cyan-300/40',
-  morado: 'bg-violet-400/15 text-violet-300 border-violet-300/40',
-  gris: 'bg-tinta/10 text-tinta/60 border-tinta/20',
+  verde: 'bg-emerald-100/80 text-emerald-800 border-emerald-300/80 dark:bg-xuma-verde-claro/15 dark:text-xuma-verde-claro dark:border-xuma-verde-claro/40',
+  rojo: 'bg-red-500/15 text-red-700 border-red-300/70 dark:text-red-300 dark:border-red-400/40',
+  ambar: 'bg-amber-400/15 text-amber-800 border-amber-300/70 dark:text-amber-300 dark:border-amber-300/40',
+  azul: 'bg-sky-400/15 text-sky-800 border-sky-300/70 dark:text-sky-300 dark:border-sky-300/40',
+  cyan: 'bg-cyan-300/15 text-cyan-800 border-cyan-300/70 dark:text-cyan-200 dark:border-cyan-300/40',
+  morado: 'bg-violet-400/15 text-violet-800 border-violet-300/70 dark:text-violet-300 dark:border-violet-300/40',
+  gris: 'bg-tinta/10 text-tinta/75 border-tinta/20',
 };
 
 type ModoExport = 'pagina' | 'rango' | 'todo';
@@ -139,7 +139,7 @@ export default function TablaSiniestros({ filtros }: Props) {
             type="button"
             onClick={abrirExportar}
             disabled={!data || data.total === 0 || cargando}
-            className="flex cursor-pointer items-center gap-2 rounded-xl border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3.5 py-2 text-xs font-bold text-xuma-verde-oscuro transition-colors hover:bg-xuma-verde-claro/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-xuma-verde-claro"
+            className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-xuma-verde-claro/40 dark:bg-xuma-verde-claro/10 dark:text-xuma-verde-claro dark:hover:bg-xuma-verde-claro/20"
           >
             <Download className="h-3.5 w-3.5" />
             Exportar Excel
@@ -154,18 +154,18 @@ export default function TablaSiniestros({ filtros }: Props) {
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl">
+      <div className="overflow-x-auto rounded-2xl border border-tinta/15 bg-white/40 dark:bg-transparent">
         <table className="w-full min-w-[880px] border-collapse text-sm">
-          <thead>
-            <tr className="text-left text-xs tracking-wide text-tinta/55 uppercase">
-              <th className="py-3 pr-4 font-semibold">Contrato</th>
-              <th className="py-3 pr-4 font-semibold">Asegurado</th>
-              <th className="py-3 pr-4 font-semibold">Aseguradora</th>
-              <th className="py-3 pr-4 font-semibold">Gasera</th>
-              <th className="py-3 pr-4 font-semibold">Producto</th>
-              <th className="py-3 pr-4 font-semibold">Estado</th>
-              <th className="py-3 pr-4 font-semibold">Radicación</th>
-              <th className="py-3 pr-2 text-right font-semibold">Monto</th>
+          <thead className="border-b border-tinta/15 bg-slate-200/90 dark:bg-white/[0.06]">
+            <tr className="text-left text-[11px] font-extrabold tracking-wider text-slate-800 uppercase dark:text-slate-200">
+              <th className="py-3.5 pr-4 pl-4">Contrato</th>
+              <th className="py-3.5 pr-4">Asegurado</th>
+              <th className="py-3.5 pr-4">Aseguradora</th>
+              <th className="py-3.5 pr-4">Gasera</th>
+              <th className="py-3.5 pr-4">Producto</th>
+              <th className="py-3.5 pr-4">Estado</th>
+              <th className="py-3.5 pr-4">Radicación</th>
+              <th className="py-3.5 pr-4 text-right">Monto</th>
             </tr>
           </thead>
           <tbody>
@@ -173,7 +173,7 @@ export default function TablaSiniestros({ filtros }: Props) {
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {Array.from({ length: 8 }).map((__, j) => (
-                    <td key={j} className="px-2 py-3 last:pr-2 first:pl-0">
+                    <td key={j} className="px-4 py-3">
                       <div className="skeleton h-4" />
                     </td>
                   ))}
@@ -191,20 +191,20 @@ export default function TablaSiniestros({ filtros }: Props) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
-                      className="border-t border-tinta/5 transition-colors hover:bg-tinta/5"
+                      className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
                     >
-                      <td className="py-3 pr-4 font-semibold text-tinta/90">{r.numero_contrato ?? '—'}</td>
-                      <td className="py-3 pr-4 text-tinta/70">{r.nombre_asegurado ?? '—'}</td>
-                      <td className="py-3 pr-4 text-tinta/70">{r.aseguradora}</td>
-                      <td className="py-3 pr-4 text-tinta/70">{r.gasera}</td>
-                      <td className="max-w-[180px] truncate py-3 pr-4 text-tinta/70" title={r.producto}>{r.producto}</td>
-                      <td className="py-3 pr-4">
+                      <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
+                      <td className="py-3.5 pr-4 font-medium text-tinta/90">{r.nombre_asegurado ?? '—'}</td>
+                      <td className="py-3.5 pr-4 text-tinta/80">{r.aseguradora}</td>
+                      <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
+                      <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
+                      <td className="py-3.5 pr-4">
                         <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${ESTADO_STYLE[cat] ?? ESTADO_STYLE.gris}`}>
                           {r.estado}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap py-3 pr-4 text-tinta/60">{formatFecha(r.fecha_radicacion)}</td>
-                      <td className="py-3 pr-2 text-right font-semibold text-xuma-verde-oscuro tabular dark:text-xuma-verde-claro">
+                      <td className="whitespace-nowrap py-3.5 pr-4 text-xs text-tinta/75">{formatFecha(r.fecha_radicacion)}</td>
+                      <td className="py-3.5 pr-4 text-right font-bold text-emerald-800 tabular dark:text-xuma-verde-claro">
                         {r.monto != null ? formatCOP(r.monto) : '—'}
                       </td>
                     </motion.tr>
