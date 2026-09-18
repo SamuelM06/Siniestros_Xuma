@@ -94,7 +94,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
 
       <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} />
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <KpiCard
           titulo="Total siniestros"
           valor={kpis.total}
@@ -119,7 +119,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
           delay={0.15}
           moneda
           grande
-          className="sm:col-span-2 lg:col-span-3 xl:col-span-3"
+          className="sm:col-span-2 lg:col-span-3 xl:col-span-2"
           sub="Suma de los valores pagados de los siniestros del periodo filtrado"
         />
       </section>

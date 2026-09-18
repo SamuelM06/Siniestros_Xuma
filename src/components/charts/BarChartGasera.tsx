@@ -7,47 +7,42 @@ interface Props {
   data: ItemGasera[];
 }
 
-// Columnas verticales: cantidad de siniestros por gasera con los nombres
-// horizontales abajo; las cantidades van completas (etiqueta sobre la barra
-// y eje izquierdo) para que nunca se corten.
+// Columnas invertidas: el nombre de cada gasera queda arriba de su columna y la
+// cantidad se muestra abajo, así los nombres salen completos y sin cortar.
 export default function BarChartGasera({ data }: Props) {
   return (
     <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 18, right: 8, left: 4, bottom: 0 }} barCategoryGap="28%">
+        <BarChart data={data} margin={{ top: 44, right: 8, left: 4, bottom: 4 }} barCategoryGap="28%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
           <XAxis
             dataKey="gasera"
-            tick={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 600 }}
+            type="category"
+            orientation="top"
+            tick={{ fill: 'var(--ctinta)', fontSize: 11, fontWeight: 600 }}
             axisLine={false}
             tickLine={false}
             interval={0}
-            height={40}
-            tickMargin={4}
+            height={44}
+            tickMargin={6}
           />
-          <YAxis
-            tickFormatter={(v: number) => formatNum(v)}
-            tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }}
-            axisLine={false}
-            tickLine={false}
-            width={42}
-          />
+          <YAxis reversed domain={[0, (d: number) => Math.ceil(d * 1.15)]} hide />
           <Tooltip
             contentStyle={GLASS_TOOLTIP as React.CSSProperties}
             cursor={{ fill: 'var(--csombra-cursor)' }}
             formatter={(v) => [formatNum(Number(v)), 'Siniestros']}
             labelStyle={{ color: 'var(--qtooltip-tinta)', fontWeight: 700 }}
           />
-          <Bar dataKey="total" radius={[6, 6, 2, 2]} animationDuration={1200} animationEasing="ease-out" maxBarSize={52}>
+          <Bar dataKey="total" radius={[0, 0, 6, 6]} animationDuration={1200} animationEasing="ease-out" maxBarSize={52}>
             {data.map((item, i) => (
               <Cell key={item.gasera} fill={CHART_COLORS[i % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
             ))}
             <LabelList
               dataKey="total"
-              position="top"
-              offset={5}
+              position="insideBottom"
+              offset={6}
               formatter={(v) => formatNum(Number(v))}
-              style={{ fill: 'var(--ctinta)', fontSize: 10, fontWeight: 800 }}
+              style={{ fill: '#ffffff', fontSize: 10.5, fontWeight: 800 }}
             />
           </Bar>
         </BarChart>
