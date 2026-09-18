@@ -55,7 +55,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${hero ? 'flex h-full min-h-56 flex-col justify-between gap-6 @container' : ''} ${cfg.glow}`}
+        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${hero ? 'flex h-full min-h-48 flex-col justify-between gap-4 @container' : ''} ${cfg.glow}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
         {hero ? (
@@ -66,7 +66,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
             </p>
             <span
               ref={ref}
-              className={`tabular block text-[clamp(1.9rem,14cqw,3.5rem)] font-extrabold leading-none tracking-tight ${cfg.num}`}
+              className={`tabular block text-[clamp(1.75rem,14cqw,3rem)] font-extrabold leading-none tracking-tight ${cfg.num}`}
             >
               {moneda ? formatCOP(0) : formatNum(0)}
             </span>
@@ -100,20 +100,20 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       initial={{ opacity: 0, y: 26 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 ${cfg.glow}`}
+      className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${cfg.glow}`}
     >
-      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
+      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.barra}`} />
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[15px] font-semibold text-tinta/70">{titulo}</p>
-        <span className={`text-2xl drop-shadow ${icCls[acento]}`}>{icono}</span>
+        <p className="text-sm font-semibold text-tinta/70">{titulo}</p>
+        <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
       </div>
       <span
         ref={ref}
-        className={`tabular mt-3 block text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
+        className={`tabular mt-2 block text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
       >
         {moneda ? formatCOP(0) : formatNum(0)}
       </span>
-      {sub && <p className="mt-2.5 text-xs text-tinta/50">{sub}</p>}
+      {sub && <p className="mt-2 text-xs text-tinta/50">{sub}</p>}
     </motion.article>
   );
 }

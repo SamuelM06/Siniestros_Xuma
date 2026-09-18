@@ -25,7 +25,7 @@ export default function DonutChart({ data }: Props) {
   const total = data.reduce((a, b) => a + b.total, 0);
   return (
     <div>
-      <div style={{ height: 140 }} className="relative w-full">
+      <div style={{ height: 110 }} className="relative w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -50,16 +50,16 @@ export default function DonutChart({ data }: Props) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="tabular text-xl font-extrabold text-tinta">{formatNum(total)}</span>
-          <span className="text-[10px] text-tinta/55">siniestros</span>
+          <span className="tabular text-lg font-extrabold text-tinta">{formatNum(total)}</span>
+          <span className="text-[9px] text-tinta/55">siniestros</span>
         </div>
       </div>
-      <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+      <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0">
         {data.map((item, i) => (
-          <li key={item.producto} className="flex items-center justify-between gap-2 text-xs">
-            <span className="flex min-w-0 items-center gap-2">
+          <li key={item.producto} className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="flex min-w-0 items-center gap-1.5">
               <span
-                className="h-2 w-2 shrink-0 rounded-full"
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
                 style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
               />
               <span className="truncate text-tinta/75">{item.producto}</span>

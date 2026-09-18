@@ -44,37 +44,37 @@ export default function BarChartAseguradora({ data }: Props) {
   }));
 
   return (
-    <div style={{ height: 210 }} className="w-full">
+    <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={totales} margin={{ top: 30, right: 8, left: 4, bottom: 0 }} barCategoryGap="28%">
+        <BarChart data={totales} margin={{ top: 18, right: 8, left: 4, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
           <XAxis
             dataKey="aseguradora"
-            tick={{ fill: 'var(--ctinta)', fontSize: 11.5, fontWeight: 600 }}
+            tick={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 600 }}
             axisLine={false}
             tickLine={false}
             interval={0}
-            height={46}
-            tickMargin={8}
+            height={38}
+            tickMargin={4}
           />
           <YAxis
             tickFormatter={(v: number) => formatNum(v)}
-            tick={{ fill: 'var(--ctinta-suave)', fontSize: 11 }}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }}
             axisLine={false}
             tickLine={false}
-            width={46}
+            width={42}
           />
           <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
-          <Bar dataKey="total" radius={[8, 8, 2, 2]} animationDuration={1200} animationEasing="ease-out" maxBarSize={64}>
+          <Bar dataKey="total" radius={[6, 6, 2, 2]} animationDuration={1200} animationEasing="ease-out" maxBarSize={56}>
             {totales.map((item) => (
               <Cell key={item.aseguradora} fill={CHART_COLORS[totales.indexOf(item) % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
             ))}
             <LabelList
               dataKey="pct"
               position="top"
-              offset={10}
+              offset={5}
               formatter={(v) => `${v}%`}
-              style={{ fill: 'var(--ctinta)', fontSize: 11.5, fontWeight: 800 }}
+              style={{ fill: 'var(--ctinta)', fontSize: 10, fontWeight: 800 }}
             />
           </Bar>
         </BarChart>

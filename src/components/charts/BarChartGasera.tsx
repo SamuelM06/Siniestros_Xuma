@@ -9,29 +9,29 @@ interface Props {
 
 // Barras horizontales: cantidad de siniestros por gasera (nombres completos).
 export default function BarChartGasera({ data }: Props) {
-  const anchoEjes = Math.min(230, 40 + Math.max(0, ...data.map((d) => d.gasera.length)) * 7.2);
+  const anchoEjes = Math.min(230, 40 + Math.max(0, ...data.map((d) => d.gasera.length)) * 6.5);
 
   return (
-    <div style={{ height: 200 }} className="w-full">
+    <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 6, bottom: 0 }} barCategoryGap="22%">
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 6, bottom: 0 }} barCategoryGap="24%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" horizontal={false} />
           <XAxis
             type="number"
             tickFormatter={(v: number) => formatNum(v)}
-            tick={{ fill: 'var(--ctinta-suave)', fontSize: 12 }}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             type="category"
             dataKey="gasera"
-            tick={{ fill: 'var(--ctinta)', fontSize: 11.5, fontWeight: 600 }}
+            tick={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 600 }}
             axisLine={false}
             tickLine={false}
             width={anchoEjes}
             interval={0}
-            tickMargin={8}
+            tickMargin={6}
           />
           <Tooltip
             contentStyle={GLASS_TOOLTIP as React.CSSProperties}
@@ -45,7 +45,7 @@ export default function BarChartGasera({ data }: Props) {
               <stop offset="100%" stopColor="#00cd93" />
             </linearGradient>
           </defs>
-          <Bar dataKey="total" radius={[0, 9, 9, 0]} animationDuration={1200} animationEasing="ease-out" barSize={16}>
+          <Bar dataKey="total" radius={[0, 7, 7, 0]} animationDuration={1200} animationEasing="ease-out" barSize={13}>
             {data.map((item, i) => (
               <Cell key={item.gasera} fill={CHART_COLORS[i % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
             ))}

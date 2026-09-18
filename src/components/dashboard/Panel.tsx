@@ -19,7 +19,7 @@ export default function Panel({ titulo, icono, children, className = '', delay =
       className={`glass rounded-3xl p-4 ${className}`}
     >
       {titulo && (
-        <header className="mb-3 flex items-center gap-2">
+        <header className="mb-2 flex items-center gap-2">
           {icono && <span className="text-lg">{icono}</span>}
           <h2 className="text-sm font-bold text-tinta md:text-base">{titulo}</h2>
         </header>

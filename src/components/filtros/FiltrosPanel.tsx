@@ -17,7 +17,7 @@ interface Props {
 const inputCls =
   'w-full min-w-0 rounded-xl border border-tinta/15 bg-tinta/5 px-3 py-2 text-sm text-tinta placeholder-tinta/35 outline-none transition-colors focus:border-xuma-verde-claro/70 focus:bg-tinta/10';
 
-const etiquetaCls = 'mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-tinta/60 uppercase';
+const etiquetaCls = 'mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-tinta/60 uppercase';
 
 // Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
 function aISO(v: string | Date | null | undefined): string | null {
@@ -82,10 +82,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       layout
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass rounded-3xl p-4"
+      className="glass rounded-3xl p-3"
     >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-tinta md:text-base">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-tinta">
           <SlidersHorizontal className="h-4 w-4 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
           Filtros del reporte
         </h2>
@@ -96,9 +96,9 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1.5 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+                className="flex items-center gap-1.5 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2.5 py-0.5 text-[11px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
               >
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <RefreshCw className="h-3 w-3 animate-spin" />
                 Actualizando…
               </motion.span>
             )}
@@ -109,7 +109,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2.5 py-0.5 text-[11px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
               >
                 {activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}
               </motion.span>
@@ -118,7 +118,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           <button
             type="button"
             onClick={() => { setTexto(''); onReset(); }}
-            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-tinta/15 px-3.5 py-2 text-xs font-semibold text-tinta/70 transition-colors hover:border-red-300/40 hover:bg-red-500/10 hover:text-red-200"
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-tinta/15 px-3.5 py-1.5 text-xs font-semibold text-tinta/70 transition-colors hover:border-red-300/40 hover:bg-red-500/10 hover:text-red-200"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Restablecer (2026)
@@ -126,7 +126,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-7">
         <label className="block sm:col-span-2 xl:col-span-2">
           <span className={etiquetaCls}><IdCard className="h-3.5 w-3.5" /> Contrato</span>
           <input
@@ -174,7 +174,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block min-w-0 xl:col-span-2">
+        <label className="block min-w-0">
           <span className={etiquetaCls}><Fuel className="h-3.5 w-3.5" /> Gasera</span>
           <SelectXuma
             valor={filtros.gasera ?? ''}
@@ -186,7 +186,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block min-w-0 sm:col-span-1 xl:col-span-7">
+        <label className="block min-w-0">
           <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
           <SelectXuma
             valor={filtros.producto ?? ''}
@@ -195,6 +195,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             placeholder="Filtrar por producto"
             etiquetaTodo="Todos los productos"
             icono={<Package className="h-4 w-4" />}
+            desplegableClase="w-max min-w-96 max-w-[85vw] right-0"
           />
         </label>
       </div>

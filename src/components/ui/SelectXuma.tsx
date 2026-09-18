@@ -16,10 +16,11 @@ interface Props {
   etiquetaTodo?: string;
   icono?: ReactNode;
   deshabilitado?: boolean;
+  desplegableClase?: string;
 }
 
 // Selector desplegable con estética glass (evita los options nativos de fondo blanco).
-export default function SelectXuma({ valor, opciones, alCambiar, placeholder, etiquetaTodo = 'Todos', icono, deshabilitado = false }: Props) {
+export default function SelectXuma({ valor, opciones, alCambiar, placeholder, etiquetaTodo = 'Todos', icono, deshabilitado = false, desplegableClase = 'w-full' }: Props) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const actual = opciones.find((o) => o.valor === valor);
@@ -71,7 +72,7 @@ export default function SelectXuma({ valor, opciones, alCambiar, placeholder, et
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="glass absolute z-30 mt-2 max-h-64 w-full overflow-auto rounded-2xl p-1.5 shadow-2xl"
+            className={`glass absolute z-30 mt-2 max-h-64 overflow-auto rounded-2xl p-1.5 shadow-2xl ${desplegableClase}`}
           >
             <li role="option" aria-selected={valor === ''}>
               <button

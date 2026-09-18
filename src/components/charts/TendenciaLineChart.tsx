@@ -9,7 +9,7 @@ interface Props {
 
 const estiloEtiqueta = {
   fill: 'var(--ctinta)',
-  fontSize: 10,
+  fontSize: 9.5,
   fontWeight: 700,
   fontFamily: "'Raleway', sans-serif",
 } as const;
@@ -19,11 +19,11 @@ const estiloEtiqueta = {
 export default function TendenciaLineChart({ data }: Props) {
   return (
     <div>
-      <div className="flex h-52 flex-col gap-2">
+      <div className="flex h-40 flex-col gap-2">
         {/* Siniestros por mes */}
         <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 24, right: 4, left: 0, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 16, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradAreaTotal" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--cgraf-1)" stopOpacity={0.45} />
@@ -70,7 +70,7 @@ export default function TendenciaLineChart({ data }: Props) {
                 <LabelList
                   dataKey="total"
                   position="top"
-                  offset={7}
+                  offset={3}
                   formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
                   style={estiloEtiqueta}
                 />
@@ -82,7 +82,7 @@ export default function TendenciaLineChart({ data }: Props) {
         {/* Total pagado por mes */}
         <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 24, right: 4, left: 0, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 16, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradAreaValor" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--cgraf-2)" stopOpacity={0.38} />
@@ -133,7 +133,7 @@ export default function TendenciaLineChart({ data }: Props) {
                 <LabelList
                   dataKey="valorPagado"
                   position="top"
-                  offset={7}
+                  offset={3}
                   formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
                   style={estiloEtiqueta}
                 />
@@ -142,7 +142,7 @@ export default function TendenciaLineChart({ data }: Props) {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-tinta/70">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/70">
         <span className="flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-1)' }} />
           Siniestros
