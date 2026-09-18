@@ -7,16 +7,25 @@ import type {
 // ============================================================================
 // CTE base: agrega las columnas normalizadas + aseguradora canónica.
 // Alias de la tabla origen: SIEMPRE `c`. Join a catálogo de aseguradoras.
+// Promigas no es una gasera (dato escrito mal en la fuente): se excluye para
+// que no aparezca en ningún gráfico, filtro ni total.
 // ============================================================================
 const BASE = `
-  SELECT c.*,
-    ${ESTADO_SQL}   AS estado_norm,
-    ${GASERA_SQL}   AS gasera_norm,
-    ${PRODUCTO_SQL} AS producto_norm,
-    ${MONTO_SQL}    AS monto,
-    a.nombre        AS aseguradora_norm
-  FROM siniestros.casos c
-  JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
+  SELECT sub.*
+  FROM (
+    SELECT c.*,
+      ${ESTADO_SQL}   AS estado_norm,
+      ${GASERA_SQL}   AS gasera_norm,
+      ${PRODUCTO_SQL} AS producto_norm,
+      ${MONTO_SQL}    AS monto,
+      CASE
+        WHEN a.nombre ILIKE 'Cardif%' THEN 'Cardif'
+        ELSE a.nombre
+      END               AS aseguradora_norm
+    FROM siniestros.casos c
+    JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
+  ) sub
+  WHERE sub.gasera_norm <> 'Promigas'
 `;
 
 const ANIO_REPORTE = 2026;
@@ -127,7 +136,14 @@ export async function getKpis(f: Filters): Promise<KpisData> {
 
 async function getTotalAnio(anio: number): Promise<number | null> {
   const r = await queryOne<{ n: number }>(
-    `SELECT count(*)::int AS n FROM siniestros.casos WHERE fecha_radicacion BETWEEN $1::date AND $2::date`,
+    `
+    SELECT count(*)::int AS n
+    FROM (
+      SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+      FROM siniestros.casos c
+    ) sub
+    WHERE sub.fecha_radicacion BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
+    `,
     [`${anio}-01-01`, `${anio}-12-31`],
   );
   return r ? Number(r.n) : null;
@@ -295,7 +311,13 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     queryOne<{ min: string; max: string }>(`WITH base AS (${BASE}) SELECT min(fecha_radicacion) AS min, max(fecha_radicacion) AS max FROM base WHERE ${w.cond}`, w.params),
   ]);
   const aniosR = await query<{ anio: number }>(
-    `SELECT DISTINCT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio FROM siniestros.casos WHERE fecha_radicacion IS NOT NULL ORDER BY 1 DESC`,
+    `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_radicacion)::int AS anio
+  FROM (
+    SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+    FROM siniestros.casos c
+  ) sub
+  WHERE sub.fecha_radicacion IS NOT NULL AND sub.gasera_norm <> 'Promigas'
+  ORDER BY 1 DESC`,
   );
   return {
     gaseras: gasR.map((r) => r.gasera),

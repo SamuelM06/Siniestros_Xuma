@@ -25,19 +25,19 @@ END`;
 // ---- GASERA → alias canónico -------------------------------------------------
 export const GASERA_SQL = `
 CASE
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GDO%' THEN 'Gases de Occidente (GDO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES DE OCCIDENTE%' THEN 'Gases de Occidente (GDO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES DEL OCCIDENTE%' THEN 'Gases de Occidente (GDO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES%OCCIDENTE%' THEN 'Gases de Occidente (GDO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GDO PROEXEQUIAL%' THEN 'Gases de Occidente (GDO)'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GDO%' THEN 'Gdo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES DE OCCIDENTE%' THEN 'Gdo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES DEL OCCIDENTE%' THEN 'Gdo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'GASES%OCCIDENTE%' THEN 'Gdo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GDO PROEXEQUIAL%' THEN 'Gdo'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%CARIBE%' THEN 'Gases del Caribe'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'SURTIGAS%' THEN 'Surtigas'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'EFIGAS%' THEN 'Efigas'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GUAJIRA%' THEN 'Gases de La Guajira'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'PROMIGAS%' THEN 'Promigas'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'CEO' THEN 'Compañía Energética de Occidente (CEO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'COMPAÑIA ENERGETICA DE%' THEN 'Compañía Energética de Occidente (CEO)'
-  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%ENERG%' THEN 'Compañía Energética de Occidente (CEO)'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'CEO' THEN 'Ceo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE 'COMPAÑIA ENERGETICA DE%' THEN 'Ceo'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%ENERG%' THEN 'Ceo'
   WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%PROEXEQUIAL%' THEN 'Proexequial (aliado)'
   WHEN btrim(COALESCE(c.gasera,'')) = '' THEN 'Sin gasera'
   ELSE initcap(NULLIF(btrim(c.gasera),''))

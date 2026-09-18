@@ -8,20 +8,22 @@ interface Props {
 }
 
 const estiloEtiqueta = {
-  fill: 'var(--ctinta)',
-  fontSize: 11.5,
+  fill: 'var(--qtooltip-tinta)',
+  fontSize: 12,
   fontWeight: 800,
   fontFamily: "'Raleway', sans-serif",
 } as const;
 
 // Halo suave detrás de cada número para que resalte sobre la línea y el área.
+// La tinta es azul marino fijo (contrasta en tema claro y oscuro) sobre un fondo
+// casi blanco, para que los valores siempre se lean.
 const estiloHalo = {
   fill: 'var(--qtooltip-fondo)',
   stroke: 'var(--qtooltip-fondo)',
-  strokeWidth: 4,
+  strokeWidth: 5.5,
   paintOrder: 'stroke',
   strokeLinejoin: 'round' as const,
-  fontSize: 11.5,
+  fontSize: 12,
   fontWeight: 800,
   fontFamily: "'Raleway', sans-serif",
 } as const;

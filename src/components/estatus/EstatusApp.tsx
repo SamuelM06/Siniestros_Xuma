@@ -100,6 +100,13 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
 
   const maxCelda = matriz ? Math.max(1, ...matriz.filas.flatMap((f) => f.meses)) : 1;
 
+  // Solo se muestran los meses ya transcurridos del año en curso (Ene…mes actual);
+  // los años completos (ej. 2025) muestran sus 12 meses.
+  const ahora = new Date();
+  const anioActual = ahora.getFullYear();
+  const mesActual = ahora.getMonth() + 1;
+  const mesesVisibles = filtros.anio === anioActual ? MESES_CORTOS.slice(0, mesActual) : MESES_CORTOS;
+
   const activos =
     (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
@@ -246,7 +253,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                 <th className="sticky left-0 z-10 bg-transparent py-3 pr-4 font-semibold">
                   Gasera
                 </th>
-                {MESES_CORTOS.map((m) => (
+                {mesesVisibles.map((m) => (
                   <th key={m} className="px-2 py-3 text-center font-semibold">{m}</th>
                 ))}
                 <th className="px-3 py-3 text-center font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro">Total</th>
@@ -259,7 +266,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                     <td className="py-3 pr-4">
                       <div className="skeleton h-4 w-40" />
                     </td>
-                    {Array.from({ length: 13 }).map((__, j) => (
+                    {Array.from({ length: mesesVisibles.length + 1 }).map((__, j) => (
                       <td key={j} className="px-2 py-3 text-center">
                         <div className="skeleton mx-auto h-4 w-8" />
                       </td>
@@ -284,8 +291,9 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                             {fila.gasera}
                           </span>
                         </td>
-                        {fila.meses.map((n, j) => {
+                        {fila.meses.slice(0, mesesVisibles.length).map((n, j) => {
                           const ratio = n > 0 ? Math.sqrt(n / maxCelda) : 0;
+                          const mes = mesesVisibles[j] ?? '';
                           return (
                             <td
                               key={j}
@@ -293,7 +301,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                               style={{
                                 background: n > 0 ? `color-mix(in srgb, var(--cgraf-2) ${Math.round(ratio * 38)}%, transparent)` : undefined,
                               }}
-                              title={`${fila.gasera} · ${MESES_CORTOS[j]}: ${formatNum(n)}`}
+                              title={`${fila.gasera} · ${mes}: ${formatNum(n)}`}
                             >
                               <span className={n === 0 ? 'text-tinta/25' : 'font-semibold'}>{n === 0 ? '·' : formatNum(n)}</span>
                             </td>
@@ -307,7 +315,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                 </AnimatePresence>
               ) : (
                 <tr>
-                  <td colSpan={14} className="py-12 text-center text-tinta/50">
+                  <td colSpan={mesesVisibles.length + 2} className="py-12 text-center text-tinta/50">
                     <span className="mx-auto mb-2 block h-10 w-10 text-tinta-dim">
                       <CalendarRange className="h-10 w-10" />
                     </span>
@@ -322,7 +330,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                   <td className="sticky left-0 z-10 py-3 pr-4 text-base uppercase tracking-wide text-tinta/70">
                     Total
                   </td>
-                  {matriz.totalesMes.map((n, j) => (
+                  {matriz.totalesMes.slice(0, mesesVisibles.length).map((n, j) => (
                     <td key={j} className="px-2 py-3 text-center tabular font-bold text-tinta/90">
                       {n > 0 ? formatNum(n) : '·'}
                     </td>
