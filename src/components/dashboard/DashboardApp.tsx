@@ -94,7 +94,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
 
       <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} />
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8">
         <KpiCard
           titulo="Total siniestros"
           valor={kpis.total}
@@ -111,6 +111,17 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         <KpiCard titulo="Objetados" valor={kpis.objetados} icono={<OctagonX className="h-6 w-6" />} acento="violeta" delay={0.12} sub={`${Math.round((kpis.objetados / Math.max(1, kpis.total)) * 1000) / 10}% del total`} />
         <KpiCard titulo="Solicitud de documentos" valor={kpis.solicitudDocs} icono={<FileText className="h-6 w-6" />} acento="ambar" delay={0.18} sub="Documentos pendientes" />
         <KpiCard titulo="En trámite" valor={kpis.enTramite} icono={<RefreshCw className="h-6 w-6" />} acento="azul" delay={0.24} sub="Seguimiento / suspenso" />
+        <KpiCard
+          titulo="Total pagado a la fecha"
+          valor={kpis.totalPagado}
+          icono={<Coins className="h-6 w-6" />}
+          acento="verde-oscuro"
+          delay={0.15}
+          moneda
+          grande
+          className="sm:col-span-2 lg:col-span-3 xl:col-span-3"
+          sub="Suma de los valores pagados de los siniestros del periodo filtrado"
+        />
       </section>
 
       {kpis.sinEstado > 0 && (
@@ -120,41 +131,24 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
         </p>
       )}
 
-      {/* Total pagado como tarjeta héroe lateral para no ocupar filas de altura */}
-      <section className="grid gap-3 lg:grid-cols-4">
-        <div className="space-y-3 lg:col-span-3">
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="space-y-3 lg:col-span-2">
-              <Panel titulo="Tendencia mensual de siniestros y pagos" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
-                <TendenciaLineChart data={tendencia} />
-              </Panel>
-              <Panel titulo="Siniestros por aseguradora (total del periodo)" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
-                <BarChartAseguradora data={porAseguradora} />
-              </Panel>
-            </div>
-            <div className="space-y-3">
-              <Panel titulo="Porciones por producto" icono={<PieChart className="h-5 w-5 text-[#8b7bff]" />} delay={0.09}>
-                <DonutChart data={porProducto} />
-              </Panel>
-              <Panel titulo="Por gasera" icono={<Fuel className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.16}>
-                <BarChartGasera data={porGasera} />
-              </Panel>
-            </div>
+      {/* Gráficos: tendencia + aseguradora/gasera a la izquierda; dona de productos grande al lateral */}
+      <section className="grid gap-3 lg:grid-cols-3">
+        <div className="space-y-3 lg:col-span-2">
+          <Panel titulo="Tendencia mensual de siniestros y pagos" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
+            <TendenciaLineChart data={tendencia} />
+          </Panel>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Panel titulo="Siniestros por aseguradora (total del periodo)" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
+              <BarChartAseguradora data={porAseguradora} />
+            </Panel>
+            <Panel titulo="Por gasera" icono={<Fuel className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.16}>
+              <BarChartGasera data={porGasera} />
+            </Panel>
           </div>
         </div>
-        <div className="h-full lg:col-span-1">
-          <KpiCard
-            hero
-            grande
-            titulo="Total pagado a la fecha"
-            valor={kpis.totalPagado}
-            icono={<Coins className="h-6 w-6" />}
-            acento="verde-oscuro"
-            delay={0.15}
-            moneda
-            sub="Suma de los valores pagados de los siniestros del periodo filtrado"
-          />
-        </div>
+        <Panel titulo="Porciones por producto" icono={<PieChart className="h-5 w-5 text-[#8b7bff]" />} delay={0.09} className="flex h-full flex-col">
+          <DonutChart data={porProducto} />
+        </Panel>
       </section>
     </div>
   );

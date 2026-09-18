@@ -13,6 +13,7 @@ interface Props {
   delay?: number;
   grande?: boolean;
   hero?: boolean;
+  className?: string;
 }
 
 const ACENTOS: Record<Props['acento'], { barra: string; glow: string; num: string }> = {
@@ -32,7 +33,7 @@ const icCls = {
 } as const;
 
 // Tarjeta KPI con contador animado (count-up) al entrar en pantalla.
-export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false, hero = false }: Props) {
+export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false, hero = false, className = '' }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-40px' });
   const cfg = ACENTOS[acento];
@@ -55,7 +56,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${hero ? 'flex h-full min-h-48 flex-col justify-between gap-4 @container' : ''} ${cfg.glow}`}
+        className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${hero ? 'flex h-full min-h-48 flex-col justify-between gap-4 @container' : ''} ${className} ${cfg.glow}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
         {hero ? (
