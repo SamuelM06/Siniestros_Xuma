@@ -26,8 +26,8 @@ function AsegTooltip({ active, payload }: { active?: boolean; payload?: Array<{ 
   );
 }
 
-// Columnas invertidas: el nombre de cada aseguradora queda arriba de su columna
-// y la cantidad se muestra abajo, así los nombres nunca se cortan.
+// Barras horizontales: las aseguradoras van en el eje Y (izquierda, nombres
+// completos) y los valores en el eje X (abajo), con la cantidad al final.
 export default function BarChartAseguradora({ data }: Props) {
   const aseguradoras = data.length > 0 ? Object.keys(data[0]!.porAseguradora) : [];
 
@@ -43,34 +43,41 @@ export default function BarChartAseguradora({ data }: Props) {
     pct: granTotal > 0 ? Math.round((t.total / granTotal) * 1000) / 10 : 0,
   }));
 
+  const anchoEjes = Math.min(210, 40 + Math.max(0, ...totales.map((t) => t.aseguradora.length)) * 6.3);
+
   return (
     <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={totales} margin={{ top: 44, right: 8, left: 4, bottom: 4 }} barCategoryGap="28%">
-          <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
+        <BarChart data={totales} layout="vertical" margin={{ top: 4, right: 28, left: 6, bottom: 4 }} barCategoryGap="26%">
+          <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" horizontal={false} />
           <XAxis
-            dataKey="aseguradora"
+            type="number"
+            tickFormatter={(v: number) => formatNum(v)}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
             type="category"
-            orientation="top"
+            dataKey="aseguradora"
             tick={{ fill: 'var(--ctinta)', fontSize: 11, fontWeight: 600 }}
             axisLine={false}
             tickLine={false}
+            width={anchoEjes}
             interval={0}
-            height={44}
             tickMargin={6}
           />
-          <YAxis reversed domain={[0, (d: number) => Math.ceil(d * 1.15)]} hide />
           <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
-          <Bar dataKey="total" radius={[0, 0, 6, 6]} animationDuration={1200} animationEasing="ease-out" maxBarSize={52}>
+          <Bar dataKey="total" radius={[0, 7, 7, 0]} animationDuration={1200} animationEasing="ease-out" barSize={15}>
             {totales.map((item) => (
               <Cell key={item.aseguradora} fill={CHART_COLORS[totales.indexOf(item) % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
             ))}
             <LabelList
               dataKey="total"
-              position="insideBottom"
+              position="right"
               offset={6}
               formatter={(v) => formatNum(Number(v))}
-              style={{ fill: '#ffffff', fontSize: 10.5, fontWeight: 800 }}
+              style={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 800 }}
             />
           </Bar>
         </BarChart>
