@@ -1,0 +1,16 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import MapaApp from '../components/mapa/MapaApp.tsx';
+import { filtrosPorDefecto, getMetadatos, getMapa } from '../lib/query';
+
+export const prerender = false;
+
+const f = filtrosPorDefecto();
+const [metadatos, mapaInicial] = await Promise.all([
+  getMetadatos(f),
+  getMapa(f),
+]);
+---
+<DashboardLayout title="Mapa de Siniestralidad · Gestión de Siniestros | Promigas">
+  <MapaApp client:load metadatos={metadatos} filtrosIniciales={f} mapaInicial={mapaInicial} />
+</DashboardLayout>

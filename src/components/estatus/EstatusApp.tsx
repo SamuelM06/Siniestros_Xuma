@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Activity, CalendarRange, Fuel, Landmark, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Activity, CalendarRange, Fuel, Landmark, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { EstatusData, Metadatos } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
@@ -16,6 +16,7 @@ const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 interface FiltrosEstatus {
   anio: number;
   estado?: string;
+  producto?: string;
   aseguradora?: string;
 }
 
@@ -26,6 +27,7 @@ const etiquetaCls = 'mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold 
 function construirQs(f: FiltrosEstatus): string {
   const p = new URLSearchParams({ anio: String(f.anio) });
   if (f.estado) p.set('estado', f.estado);
+  if (f.producto) p.set('producto', f.producto);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
   return p.toString();
 }
@@ -40,6 +42,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
 
   const anios = useMemo(() => metadatos.anios.map((a) => ({ valor: String(a), etiqueta: String(a) })), [metadatos.anios]);
   const estados = useMemo(() => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })), [metadatos.estados]);
+  const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
 
   const cambiar = useCallback((cambio: Partial<FiltrosEstatus>) => {
@@ -106,12 +109,13 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
 
   const activos =
     (filtros.estado ? 1 : 0) +
+    (filtros.producto ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
     (filtros.anio !== anioInicial ? 1 : 0);
 
   return (
     <div className="space-y-6">
-      {/* Filtros: Año (producto de la fuente), Estado y Aseguradora */}
+      {/* Filtros: Año, Producto, Estado y Aseguradora */}
       <motion.section
         layout
         initial={{ opacity: 0, y: -16 }}
@@ -160,7 +164,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Año</span>
             <SelectXuma
@@ -171,6 +175,19 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
               etiquetaTodo={`Todos los años`}
               icono={<CalendarRange className="h-4 w-4" />}
               desplegableClase={inputSelectCls}
+            />
+          </label>
+
+          <label className="block min-w-0">
+            <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
+            <SelectXuma
+              valor={filtros.producto ?? ''}
+              opciones={productos}
+              alCambiar={(v) => cambiar({ producto: v || undefined })}
+              placeholder="Filtrar por producto"
+              etiquetaTodo="Todos los productos"
+              icono={<Package className="h-4 w-4" />}
+              desplegableClase="w-max min-w-72 max-w-[85vw] right-0"
             />
           </label>
 

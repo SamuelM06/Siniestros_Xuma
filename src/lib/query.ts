@@ -1,7 +1,7 @@
 import { query, queryOne } from './db';
-import { ESTADO_SQL, GASERA_SQL, MONTO_SQL, PRODUCTO_SQL } from './normalizacion';
+import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  EstatusData, Filters, FilaEstatus, ItemGasera, ItemProducto, KpisData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
+  EstatusData, Filters, FilaEstatus, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
 } from './types';
 
 // ============================================================================
@@ -14,10 +14,12 @@ const BASE = `
   SELECT sub.*
   FROM (
     SELECT c.*,
-      ${ESTADO_SQL}   AS estado_norm,
-      ${GASERA_SQL}   AS gasera_norm,
-      ${PRODUCTO_SQL} AS producto_norm,
-      ${MONTO_SQL}    AS monto,
+      ${ESTADO_SQL}       AS estado_norm,
+      ${GASERA_SQL}       AS gasera_norm,
+      ${PRODUCTO_SQL}     AS producto_norm,
+      ${DEPARTAMENTO_SQL} AS departamento_norm,
+      ${MUNICIPIO_SQL}    AS municipio_norm,
+      ${MONTO_SQL}        AS monto,
       CASE
         WHEN a.nombre ILIKE 'Cardif%' THEN 'Cardif'
         ELSE a.nombre
@@ -56,7 +58,8 @@ export function parseFilters(url: URL): Filters {
   const contrato = parseTexto(url.searchParams.get('contrato'));
   const gasera = parseTexto(url.searchParams.get('gasera'), 120);
   const producto = parseTexto(url.searchParams.get('producto'), 160);
-  return { contrato, gasera, producto, desde: rango.desde, hasta: rango.hasta };
+  const estado = parseTexto(url.searchParams.get('estado'), 80);
+  return { contrato, gasera, producto, estado, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -78,12 +81,31 @@ type RowBase = Record<string, unknown>;
 function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   const cond: string[] = [];
   const params: unknown[] = [];
-  cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
-  params.push(f.desde, f.hasta);
+
+  // Si se busca un contrato específico, buscar de forma flexible en numero_contrato
+  // y campos originales (incluso identificaciones), sin que el rango estricto de fechas lo oculte
   if (f.contrato) {
     params.push(f.contrato);
-    cond.push(`numero_contrato ILIKE '%' || $${params.length} || '%'`);
+    cond.push(`(
+      numero_contrato ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'CONTRATO','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'# Contr4ato','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'No. CONTRATO','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'NO. CREDITO','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'CED_AFECTADO','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'CEDULA','')) ILIKE '%' || $${params.length} || '%'
+      OR btrim(COALESCE(datos_originales->>'Nroidentificacion','')) ILIKE '%' || $${params.length} || '%'
+    )`);
+    // Si el usuario fijó fechas personalizadas (distintas al año default), se respetan
+    if (f.desde && f.hasta && (f.desde !== `${ANIO_REPORTE}-01-01` || f.hasta !== `${ANIO_REPORTE}-12-31`)) {
+      params.push(f.desde, f.hasta);
+      cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion <= $${params.length}::date`);
+    }
+  } else {
+    params.push(f.desde, f.hasta);
+    cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion <= $${params.length}::date`);
   }
+
   if (f.gasera) {
     params.push(f.gasera);
     cond.push(`gasera_norm = $${params.length}`);
@@ -91,6 +113,10 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   if (f.producto) {
     params.push(f.producto);
     cond.push(`producto_norm = $${params.length}`);
+  }
+  if (f.estado) {
+    params.push(f.estado);
+    cond.push(`estado_norm = $${params.length}`);
   }
   return { cond: cond.join(' AND '), params };
 }
@@ -372,5 +398,83 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
     anio: ef.anio,
     gaseras,
     filas: rows.map((r) => ({ gasera: r.gasera, mes: Number(r.mes), total: Number(r.total) })),
+  };
+}
+
+// ---- Mapa geográfico de siniestros (por departamento y municipios) ------------
+export async function getMapa(f: Filters): Promise<MapaData> {
+  const w = construirWhere(f);
+  const sql = `
+    WITH base AS (${BASE}),
+    deptos AS (
+      SELECT
+        departamento_norm AS departamento,
+        count(*)::int AS total,
+        count(*) FILTER (WHERE estado_norm = 'Pagado')::int AS pagados,
+        count(*) FILTER (WHERE estado_norm = 'En trámite')::int AS en_tramite,
+        count(*) FILTER (WHERE estado_norm = 'Objetado')::int AS objetados,
+        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS total_pagado
+      FROM base
+      WHERE ${w.cond}
+      GROUP BY 1
+    ),
+    muns AS (
+      SELECT
+        departamento_norm AS departamento,
+        municipio_norm AS municipio,
+        count(*)::int AS total,
+        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS pagado
+      FROM base
+      WHERE ${w.cond}
+      GROUP BY 1, 2
+    ),
+    muns_agg AS (
+      SELECT
+        departamento,
+        json_agg(
+          json_build_object('municipio', municipio, 'total', total, 'pagado', pagado)
+          ORDER BY total DESC
+        ) AS municipios
+      FROM muns
+      GROUP BY departamento
+    )
+    SELECT
+      d.departamento,
+      d.total,
+      d.pagados,
+      d.en_tramite,
+      d.objetados,
+      d.total_pagado,
+      COALESCE(m.municipios, '[]'::json) AS municipios
+    FROM deptos d
+    LEFT JOIN muns_agg m ON m.departamento = d.departamento
+    ORDER BY d.total DESC
+  `;
+
+  const rows = await query<{
+    departamento: string;
+    total: number;
+    pagados: number;
+    en_tramite: number;
+    objetados: number;
+    total_pagado: string;
+    municipios: ItemMunicipio[];
+  }>(sql, w.params);
+
+  const totalNacional = rows.reduce((acc, r) => acc + Number(r.total), 0);
+  const totalPagadoNacional = rows.reduce((acc, r) => acc + Number(r.total_pagado), 0);
+
+  return {
+    totalNacional,
+    totalPagadoNacional,
+    departamentos: rows.map((r) => ({
+      departamento: r.departamento,
+      total: Number(r.total),
+      pagados: Number(r.pagados),
+      enTramite: Number(r.en_tramite),
+      objetados: Number(r.objetados),
+      totalPagado: Number(r.total_pagado),
+      municipios: r.municipios || [],
+    })),
   };
 }

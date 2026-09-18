@@ -6,6 +6,6 @@ import { filtrosPorDefecto, getMetadatos } from '../lib/query';
 const f = filtrosPorDefecto();
 const metadatos = await getMetadatos(f);
 ---
-<DashboardLayout title="Estatus Siniestros · Siniestros Xuma 2026">
+<DashboardLayout title="Estatus Siniestros · Gestión de Siniestros | Promigas">
   <EstatusApp client:load metadatos={metadatos} anioInicial={2026} />
 </DashboardLayout>

@@ -19,5 +19,6 @@ export function queryString(f: Filters): string {
   }
   if (f.gasera) p.set('gasera', f.gasera);
   if (f.producto) p.set('producto', f.producto);
+  if (f.estado) p.set('estado', f.estado);
   return p.toString();
 }

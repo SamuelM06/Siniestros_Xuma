@@ -5,7 +5,7 @@ import ThemeToggle from '../components/ui/ThemeToggle.tsx';
 interface Props {
   title?: string;
 }
-const { title = 'Siniestros Xuma 2026' } = Astro.props;
+const { title = 'Gestión de Siniestros | Promigas' } = Astro.props;
 
 const svgTablero =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
@@ -13,6 +13,8 @@ const svgLista =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>';
 const svgEstatus =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect width="17" height="6" x="2" y="3" rx="2"/><rect width="9" height="6" x="14" y="15" rx="2"/><path d="M10 6h11"/><path d="M2 18h3"/><path d="M7 12h9"/></svg>';
+const svgMapa =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg>';
 
 const nav = [
   {
@@ -23,6 +25,7 @@ const nav = [
   { href: '/dashboard', label: 'Dashboard', svg: svgTablero },
   { href: '/detalle', label: 'Detalle', svg: svgLista },
   { href: '/estatus', label: 'Estatus Siniestros', svg: svgEstatus },
+  { href: '/mapa', label: 'Mapa Siniestros', svg: svgMapa },
 ];
 const actual = Astro.url.pathname;
 ---
@@ -42,7 +45,7 @@ const actual = Astro.url.pathname;
           class="hidden h-10 w-auto md:h-12 dark:block"
         />
         <span class="hidden text-sm font-bold tracking-wide text-tinta/85 sm:block">
-          Tablero de Siniestros <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">2026</span>
+          Gestión de Siniestros <span class="text-xuma-verde-oscuro dark:text-xuma-verde-claro">| Promigas</span>
         </span>
       </a>
 

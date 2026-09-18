@@ -6,6 +6,6 @@ import { filtrosPorDefecto, getMetadatos } from '../lib/query';
 const f = filtrosPorDefecto();
 const metadatos = await getMetadatos(f);
 ---
-<DashboardLayout title="Detalle · Siniestros Xuma 2026">
+<DashboardLayout title="Detalle · Gestión de Siniestros | Promigas">
   <DetalleApp client:load metadatos={metadatos} filtrosIniciales={f} />
 </DashboardLayout>

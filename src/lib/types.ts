@@ -102,3 +102,25 @@ export interface DashboardData {
 export interface RespuestaError {
   error: string;
 }
+
+export interface ItemMunicipio {
+  municipio: string;
+  total: number;
+  pagado: number;
+}
+
+export interface ItemDepartamento {
+  departamento: string;
+  total: number;
+  pagados: number;
+  enTramite: number;
+  objetados: number;
+  totalPagado: number;
+  municipios: ItemMunicipio[];
+}
+
+export interface MapaData {
+  totalNacional: number;
+  totalPagadoNacional: number;
+  departamentos: ItemDepartamento[];
+}

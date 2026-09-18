@@ -154,3 +154,100 @@ export function estadoColorCat(estado: string): 'verde' | 'rojo' | 'ambar' | 'az
       return 'gris';
   }
 }
+
+// ---- DEPARTAMENTO → normalización geográfica canónica -----------------------
+export const DEPARTAMENTO_SQL = `
+CASE
+  -- 1. Departamento explícito en datos originales
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%ATLANT%' THEN 'Atlántico'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%MAGDAL%' THEN 'Magdalena'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%CESAR%' THEN 'Cesar'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%BOLIV%' THEN 'Bolívar'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%CORDOB%' THEN 'Córdoba'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%SUCRE%' THEN 'Sucre'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%GUAJIR%' THEN 'La Guajira'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%VALLE%' THEN 'Valle del Cauca'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%CAUCA%' THEN 'Cauca'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%CALDAS%' THEN 'Caldas'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%RISAR%' THEN 'Risaralda'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%QUIND%' THEN 'Quindío'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%ANTIOQ%' THEN 'Antioquia'
+  WHEN btrim(COALESCE(c.datos_originales->>'DEPARTAMENTO','')) ILIKE '%SANTAND%' THEN 'Santander'
+
+  -- 2. Deducir departamento por ciudad o municipio registrado
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%BARRANQUILL%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SOLEDAD%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MALAMBO%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SABANALARGA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%PUERTO COLOMBIA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%GALAPA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%BARANOA%' THEN 'Atlántico'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SANTA MARTA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%CIENAGA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%FUNDACION%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%ARACATACA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%BANANERA%' THEN 'Magdalena'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%VALLEDUPAR%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%AGUACHICA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%CODAZZI%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%LA PAZ%' THEN 'Cesar'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%CARTAGENA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%TURBACO%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MAGANGUE%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%ARJONA%' THEN 'Bolívar'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MONTERIA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%CERETE%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%LORICA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SAHAGUN%' THEN 'Córdoba'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SINCELEJO%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%COROZAL%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%SAN MARCOS%' THEN 'Sucre'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%RIOHACHA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MAICAO%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%URIBIA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MANAURE%' THEN 'La Guajira'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%CALI%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%PALMIRA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%BUENAVENTURA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%TULUA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%BUGA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%YUMBO%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%JAMUNDI%' THEN 'Valle del Cauca'
+
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%POPAYAN%' THEN 'Cauca'
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%MANIZALES%' THEN 'Caldas'
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%PEREIRA%'
+    OR btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%DOSQUEBRADAS%' THEN 'Risaralda'
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'MUNICIPIO', '')) ILIKE '%ARMENIA%' THEN 'Quindío'
+
+  -- 3. Por jurisdicción comercial de la Gasera
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GDO%' OR btrim(COALESCE(c.gasera,'')) ILIKE '%OCCIDENTE%' THEN 'Valle del Cauca'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GUAJIRA%' THEN 'La Guajira'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%CEO%' OR btrim(COALESCE(c.gasera,'')) ILIKE '%ENERGETICA%' THEN 'Cauca'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%EFIGAS%' THEN 'Caldas'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%CARIBE%' THEN 'Atlántico'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%SURTIGAS%' THEN 'Bolívar'
+
+  ELSE 'Otros'
+END`;
+
+// ---- MUNICIPIO → normalización canónica --------------------------------------
+export const MUNICIPIO_SQL = `
+CASE
+  WHEN btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'Ciudad', c.datos_originales->>'MUNICIPIO', c.datos_originales->>'Municipio', '')) <> ''
+    THEN initcap(btrim(COALESCE(c.datos_originales->>'CIUDAD DEL RECLAMANTE ', c.datos_originales->>'CIUDAD', c.datos_originales->>'Ciudad', c.datos_originales->>'MUNICIPIO', c.datos_originales->>'Municipio', '')))
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GDO%' OR btrim(COALESCE(c.gasera,'')) ILIKE '%OCCIDENTE%' THEN 'Cali y Valle'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%GUAJIRA%' THEN 'Riohacha y Municipios'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%CEO%' OR btrim(COALESCE(c.gasera,'')) ILIKE '%ENERGETICA%' THEN 'Popayán y Cauca'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%EFIGAS%' THEN 'Manizales y Eje Cafetero'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%CARIBE%' THEN 'Barranquilla y Municipios'
+  WHEN btrim(COALESCE(c.gasera,'')) ILIKE '%SURTIGAS%' THEN 'Cartagena y Municipios'
+  ELSE 'Sin especificar'
+END`;
