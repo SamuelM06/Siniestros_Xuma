@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Activity, CalendarRange, Fuel, Landmark, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Activity, CalendarRange, Fuel, Landmark, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { EstatusData, Metadatos } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
@@ -15,7 +15,6 @@ const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 interface FiltrosEstatus {
   anio: number;
-  producto?: string;
   estado?: string;
   aseguradora?: string;
 }
@@ -26,7 +25,6 @@ const etiquetaCls = 'mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold 
 
 function construirQs(f: FiltrosEstatus): string {
   const p = new URLSearchParams({ anio: String(f.anio) });
-  if (f.producto) p.set('producto', f.producto);
   if (f.estado) p.set('estado', f.estado);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
   return p.toString();
@@ -41,7 +39,6 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
   const [error, setError] = useState('');
 
   const anios = useMemo(() => metadatos.anios.map((a) => ({ valor: String(a), etiqueta: String(a) })), [metadatos.anios]);
-  const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const estados = useMemo(() => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })), [metadatos.estados]);
   const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
 
@@ -108,7 +105,6 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
   const mesesVisibles = filtros.anio === anioActual ? MESES_CORTOS.slice(0, mesActual) : MESES_CORTOS;
 
   const activos =
-    (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
     (filtros.anio !== anioInicial ? 1 : 0);
@@ -164,7 +160,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Año</span>
             <SelectXuma
@@ -175,19 +171,6 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
               etiquetaTodo={`Todos los años`}
               icono={<CalendarRange className="h-4 w-4" />}
               desplegableClase={inputSelectCls}
-            />
-          </label>
-
-          <label className="block min-w-0">
-            <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
-            <SelectXuma
-              valor={filtros.producto ?? ''}
-              opciones={productos}
-              alCambiar={(v) => cambiar({ producto: v || undefined })}
-              placeholder="Filtrar por producto"
-              etiquetaTodo="Todos los productos"
-              icono={<Package className="h-4 w-4" />}
-              desplegableClase="w-max min-w-80 max-w-[85vw] right-0"
             />
           </label>
 

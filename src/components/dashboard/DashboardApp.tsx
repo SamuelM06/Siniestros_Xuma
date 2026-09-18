@@ -37,7 +37,6 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       desde: DEFAULT_DESDE,
       hasta: DEFAULT_HASTA,
       gasera: undefined,
-      producto: undefined,
     });
   }, []);
 
@@ -80,7 +79,6 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
   const activos =
     (filtros.contrato ? 1 : 0) +
     (filtros.gasera ? 1 : 0) +
-    (filtros.producto ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);
