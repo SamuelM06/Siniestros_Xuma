@@ -7,6 +7,9 @@ export interface Filters {
   mes?: string;     // YYYY-MM (tiene prioridad sobre desde/hasta)
   gasera?: string;
   producto?: string;
+  anio?: string;       // YYYY (vista de estatus)
+  estado?: string;
+  aseguradora?: string;
 }
 
 export interface KpisData {
@@ -72,6 +75,19 @@ export interface Metadatos {
   gaseras: string[];
   productos: string[];
   estados: { estado: string; total: number }[];
+  aseguradoras: string[];
+}
+
+export interface FilaEstatus {
+  gasera: string;
+  mes: number;   // 1..12
+  total: number;
+}
+
+export interface EstatusData {
+  anio: number;
+  gaseras: string[];
+  filas: FilaEstatus[];
 }
 
 export interface DashboardData {

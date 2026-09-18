@@ -9,8 +9,20 @@ interface Props {
 
 const estiloEtiqueta = {
   fill: 'var(--ctinta)',
-  fontSize: 9.5,
-  fontWeight: 700,
+  fontSize: 11.5,
+  fontWeight: 800,
+  fontFamily: "'Raleway', sans-serif",
+} as const;
+
+// Halo suave detrás de cada número para que resalte sobre la línea y el área.
+const estiloHalo = {
+  fill: 'var(--qtooltip-fondo)',
+  stroke: 'var(--qtooltip-fondo)',
+  strokeWidth: 4,
+  paintOrder: 'stroke',
+  strokeLinejoin: 'round' as const,
+  fontSize: 11.5,
+  fontWeight: 800,
   fontFamily: "'Raleway', sans-serif",
 } as const;
 
@@ -23,7 +35,7 @@ export default function TendenciaLineChart({ data }: Props) {
         {/* Siniestros por mes */}
         <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 16, right: 4, left: 4, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 22, right: 4, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradAreaTotal" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--cgraf-1)" stopOpacity={0.45} />
@@ -63,7 +75,14 @@ export default function TendenciaLineChart({ data }: Props) {
                 <LabelList
                   dataKey="total"
                   position="top"
-                  offset={3}
+                  offset={8}
+                  formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
+                  style={estiloHalo}
+                />
+                <LabelList
+                  dataKey="total"
+                  position="top"
+                  offset={8}
                   formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
                   style={estiloEtiqueta}
                 />
@@ -75,7 +94,7 @@ export default function TendenciaLineChart({ data }: Props) {
         {/* Total pagado por mes */}
         <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 16, right: 4, left: 4, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 22, right: 4, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradAreaValor" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--cgraf-2)" stopOpacity={0.38} />
@@ -119,7 +138,14 @@ export default function TendenciaLineChart({ data }: Props) {
                 <LabelList
                   dataKey="valorPagado"
                   position="top"
-                  offset={3}
+                  offset={8}
+                  formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
+                  style={estiloHalo}
+                />
+                <LabelList
+                  dataKey="valorPagado"
+                  position="top"
+                  offset={8}
                   formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
                   style={estiloEtiqueta}
                 />

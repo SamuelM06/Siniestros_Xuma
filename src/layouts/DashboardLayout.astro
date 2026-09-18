@@ -12,6 +12,8 @@ const svgTablero =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>';
 const svgLista =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>';
+const svgEstatus =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect width="17" height="6" x="2" y="3" rx="2"/><rect width="9" height="6" x="14" y="15" rx="2"/><path d="M10 6h11"/><path d="M2 18h3"/><path d="M7 12h9"/></svg>';
 
 const nav = [
   {
@@ -21,6 +23,7 @@ const nav = [
   },
   { href: '/dashboard', label: 'Dashboard', svg: svgTablero },
   { href: '/detalle', label: 'Detalle', svg: svgLista },
+  { href: '/estatus', label: 'Estatus Siniestros', svg: svgEstatus },
 ];
 const actual = Astro.url.pathname;
 

@@ -1,7 +1,7 @@
 import { query, queryOne } from './db';
 import { ESTADO_SQL, GASERA_SQL, MONTO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  Filters, ItemGasera, ItemProducto, KpisData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
+  EstatusData, Filters, FilaEstatus, ItemGasera, ItemProducto, KpisData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
 } from './types';
 
 // ============================================================================
@@ -287,10 +287,11 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
 // ---- Metadatos para poblar los filtros ----------------------------------------
 export async function getMetadatos(f: Filters): Promise<Metadatos> {
   const w = construirWhere(f);
-  const [gasR, prodR, estR, rangoR] = await Promise.all([
+  const [gasR, prodR, estR, asegR, rangoR] = await Promise.all([
     query<{ gasera: string }>(`WITH base AS (${BASE}) SELECT DISTINCT gasera_norm AS gasera FROM base WHERE ${w.cond} AND gasera_norm IS NOT NULL ORDER BY 1`, w.params),
     query<{ producto: string }>(`WITH base AS (${BASE}) SELECT DISTINCT producto_norm AS producto FROM base WHERE ${w.cond} AND producto_norm IS NOT NULL ORDER BY 1`, w.params),
     query<{ estado: string; total: number }>(`WITH base AS (${BASE}) SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM base WHERE ${w.cond} GROUP BY 1 ORDER BY total DESC`, w.params),
+    query<{ aseguradora: string }>(`WITH base AS (${BASE}) SELECT DISTINCT aseguradora_norm AS aseguradora FROM base WHERE ${w.cond} ORDER BY 1`, w.params),
     queryOne<{ min: string; max: string }>(`WITH base AS (${BASE}) SELECT min(fecha_radicacion) AS min, max(fecha_radicacion) AS max FROM base WHERE ${w.cond}`, w.params),
   ]);
   const aniosR = await query<{ anio: number }>(
@@ -300,7 +301,54 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     gaseras: gasR.map((r) => r.gasera),
     productos: prodR.map((r) => r.producto),
     estados: estR.map((r) => ({ estado: r.estado, total: Number(r.total) })),
+    aseguradoras: asegR.map((r) => r.aseguradora),
     anios: aniosR.map((r) => Number(r.anio)),
     rangoFechas: { min: aISO(rangoR?.min), max: aISO(rangoR?.max) },
+  };
+}
+
+// ---- Estatus de siniestros por gasera y mes (matriz) --------------------------
+export interface EstatusFiltros {
+  anio: number;
+  producto?: string;
+  estado?: string;
+  aseguradora?: string;
+}
+
+export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
+  const cond: string[] = [];
+  const params: unknown[] = [`${ef.anio}-01-01`, `${ef.anio}-12-31`];
+  cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
+  if (ef.producto) {
+    params.push(ef.producto);
+    cond.push(`producto_norm = $${params.length}`);
+  }
+  if (ef.estado) {
+    params.push(ef.estado);
+    cond.push(`estado_norm = $${params.length}`);
+  }
+  if (ef.aseguradora) {
+    params.push(ef.aseguradora);
+    cond.push(`aseguradora_norm = $${params.length}`);
+  }
+  const sql = `
+    WITH base AS (${BASE})
+    SELECT COALESCE(gasera_norm,'Sin gasera') AS gasera,
+           EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+           count(*)::int AS total
+    FROM base
+    WHERE ${cond.join(' AND ')}
+    GROUP BY 1, 2 ORDER BY 1, 2
+  `;
+  const rows = await query<FilaEstatus>(sql, params);
+  const gaseras = [...new Set(rows.map((r) => r.gasera))].sort((a, b) => {
+    const ta = rows.filter((r) => r.gasera === a).reduce((s, r) => s + Number(r.total), 0);
+    const tb = rows.filter((r) => r.gasera === b).reduce((s, r) => s + Number(r.total), 0);
+    return tb - ta;
+  });
+  return {
+    anio: ef.anio,
+    gaseras,
+    filas: rows.map((r) => ({ gasera: r.gasera, mes: Number(r.mes), total: Number(r.total) })),
   };
 }

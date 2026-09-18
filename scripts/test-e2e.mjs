@@ -59,6 +59,9 @@ async function main() {
   let res = await fetch(`${BASE}/`, { redirect: 'manual' });
   resultado('GET / sin sesión → 302 a /login', res.status === 302 && (res.headers.get('location') ?? '').endsWith('/login'), `status=${res.status}`);
 
+  res = await fetch(`${BASE}/estatus`, { redirect: 'manual' });
+  resultado('GET /estatus sin sesión → 302 a /login', res.status === 302, `status=${res.status}`);
+
   res = await fetch(`${BASE}/dashboard`, { redirect: 'manual' });
   resultado('GET /dashboard sin sesión → 302 a /login', res.status === 302, `status=${res.status}`);
 
@@ -124,6 +127,20 @@ async function main() {
   res = await fetch(`${BASE}/dashboard`, { headers: { cookie: sesion } });
   const html = await res.text();
   resultado('GET /dashboard con sesión → 200 (HTML)', res.status === 200 && html.includes('Tablero de siniestros'), `status=${res.status} bytes=${html.length}`);
+
+  // 8b. API de estatus y vista de estatus con sesión
+  res = await fetch(`${BASE}/api/estatus?anio=2026`, { headers: { cookie: sesion } });
+  let est = null;
+  if (res.ok) est = await res.json();
+  resultado(
+    'GET /api/estatus con sesión → 200 (matriz gasera x mes)',
+    res.status === 200 && est && Array.isArray(est.filas) && Array.isArray(est.gaseras) && typeof est.anio === 'number' && est.gaseras.length > 0,
+    est ? `anio=${est.anio} gaseras=${est.gaseras.length} filas=${est.filas.length}` : `status=${res.status}`,
+  );
+
+  res = await fetch(`${BASE}/estatus`, { headers: { cookie: sesion } });
+  const estHtml = await res.text();
+  resultado('GET /estatus con sesión → 200 (HTML)', res.status === 200 && estHtml.includes('Estatus'), `status=${res.status} bytes=${estHtml.length}`);
 
   // 9. Headers de seguridad presentes
   res = await fetch(`${BASE}/dashboard`, { headers: { cookie: sesion } });
