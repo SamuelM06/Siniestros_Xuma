@@ -12,6 +12,7 @@ interface Props {
   sub?: string;
   delay?: number;
   grande?: boolean;
+  hero?: boolean;
 }
 
 const ACENTOS: Record<Props['acento'], { barra: string; glow: string; num: string }> = {
@@ -31,7 +32,7 @@ const icCls = {
 } as const;
 
 // Tarjeta KPI con contador animado (count-up) al entrar en pantalla.
-export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false }: Props) {
+export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false, hero = false }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-40px' });
   const cfg = ACENTOS[acento];
@@ -54,24 +55,42 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${cfg.glow}`}
+        className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 md:p-6 ${hero ? 'flex h-full min-h-56 flex-col justify-between gap-6 @container' : ''} ${cfg.glow}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
+        {hero ? (
+          <>
             <p className="flex items-center gap-2 text-sm font-semibold text-tinta/70">
               <span className={`drop-shadow ${icCls[acento]}`}>{icono}</span>
               {titulo}
             </p>
-            {sub && <p className="mt-1.5 text-xs text-tinta/50">{sub}</p>}
-          </div>
-          <span
-            ref={ref}
-            className={`tabular text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
-          >
-            {moneda ? formatCOP(0) : formatNum(0)}
-          </span>
-        </div>
+            <span
+              ref={ref}
+              className={`tabular block text-[clamp(1.9rem,14cqw,3.5rem)] font-extrabold leading-none tracking-tight ${cfg.num}`}
+            >
+              {moneda ? formatCOP(0) : formatNum(0)}
+            </span>
+            {sub && <p className="text-xs text-tinta/55">{sub}</p>}
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-semibold text-tinta/70">
+                  <span className={`drop-shadow ${icCls[acento]}`}>{icono}</span>
+                  {titulo}
+                </p>
+                {sub && <p className="mt-1.5 text-xs text-tinta/50">{sub}</p>}
+              </div>
+              <span
+                ref={ref}
+                className={`tabular text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
+              >
+                {moneda ? formatCOP(0) : formatNum(0)}
+              </span>
+            </div>
+          </>
+        )}
       </motion.article>
     );
   }
@@ -81,20 +100,20 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       initial={{ opacity: 0, y: 26 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${cfg.glow}`}
+      className={`glass glass-hover relative overflow-hidden rounded-3xl p-5 ${cfg.glow}`}
     >
-      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.barra}`} />
+      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-tinta/70">{titulo}</p>
-        <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
+        <p className="text-[15px] font-semibold text-tinta/70">{titulo}</p>
+        <span className={`text-2xl drop-shadow ${icCls[acento]}`}>{icono}</span>
       </div>
       <span
         ref={ref}
-        className={`tabular mt-2 block text-2xl font-extrabold tracking-tight md:text-3xl ${cfg.num}`}
+        className={`tabular mt-3 block text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
       >
         {moneda ? formatCOP(0) : formatNum(0)}
       </span>
-      {sub && <p className="mt-2 text-xs text-tinta/50">{sub}</p>}
+      {sub && <p className="mt-2.5 text-xs text-tinta/50">{sub}</p>}
     </motion.article>
   );
 }

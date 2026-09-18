@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { SerieAseguradora } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import { CHART_COLORS, GLASS_TOOLTIP } from './palette';
@@ -26,8 +26,8 @@ function AsegTooltip({ active, payload }: { active?: boolean; payload?: Array<{ 
   );
 }
 
-// Gráfico de columnas (barras verticales) con el total de siniestros por aseguradora
-// en el periodo filtrado; ordenado de mayor a menor para lectura rápida.
+// Gráfico de columnas con el total de siniestros por aseguradora en el periodo
+// filtrado, ordenado de mayor a menor; los nombres quedan horizontales abajo.
 export default function BarChartAseguradora({ data }: Props) {
   const aseguradoras = data.length > 0 ? Object.keys(data[0]!.porAseguradora) : [];
 
@@ -44,45 +44,41 @@ export default function BarChartAseguradora({ data }: Props) {
   }));
 
   return (
-    <div>
-      <div style={{ height: 190 }} className="w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={totales} margin={{ top: 28, right: 8, left: 4, bottom: 0 }} barCategoryGap="22%">
-            <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
-            <XAxis
-              dataKey="aseguradora"
-              tick={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 600 }}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-              angle={-35}
-              textAnchor="end"
-              height={72}
+    <div style={{ height: 210 }} className="w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={totales} margin={{ top: 30, right: 8, left: 4, bottom: 0 }} barCategoryGap="28%">
+          <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
+          <XAxis
+            dataKey="aseguradora"
+            tick={{ fill: 'var(--ctinta)', fontSize: 11.5, fontWeight: 600 }}
+            axisLine={false}
+            tickLine={false}
+            interval={0}
+            height={46}
+            tickMargin={8}
+          />
+          <YAxis
+            tickFormatter={(v: number) => formatNum(v)}
+            tick={{ fill: 'var(--ctinta-suave)', fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={46}
+          />
+          <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
+          <Bar dataKey="total" radius={[8, 8, 2, 2]} animationDuration={1200} animationEasing="ease-out" maxBarSize={64}>
+            {totales.map((item) => (
+              <Cell key={item.aseguradora} fill={CHART_COLORS[totales.indexOf(item) % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
+            ))}
+            <LabelList
+              dataKey="pct"
+              position="top"
+              offset={10}
+              formatter={(v) => `${v}%`}
+              style={{ fill: 'var(--ctinta)', fontSize: 11.5, fontWeight: 800 }}
             />
-            <YAxis
-              tickFormatter={(v: number) => formatNum(v)}
-              tick={{ fill: 'var(--ctinta-suave)', fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              width={40}
-            />
-            <Tooltip content={<AsegTooltip />} cursor={{ fill: 'var(--csombra-cursor)' }} />
-            <Bar dataKey="total" radius={[7, 7, 0, 0]} animationDuration={1200} animationEasing="ease-out" maxBarSize={56}>
-              {totales.map((item) => (
-                <Cell key={item.aseguradora} fill={CHART_COLORS[totales.indexOf(item) % CHART_COLORS.length] ?? 'var(--cgraf-1)'} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-tinta/65">
-        {totales.map((t, i) => (
-          <span key={t.aseguradora} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-            {t.aseguradora} · {t.totalFmt}
-          </span>
-        ))}
-      </div>
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

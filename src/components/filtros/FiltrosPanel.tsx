@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarDays, CalendarRange, Fuel, IdCard, Package, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, CalendarRange, Fuel, IdCard, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
 import { mesLabel, todayISO } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
@@ -11,6 +11,7 @@ interface Props {
   onChange: (cambio: Partial<Filters>) => void;
   onReset: () => void;
   activos: number;
+  cargando?: boolean;
 }
 
 const inputCls =
@@ -49,7 +50,7 @@ function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | 
 }
 
 // Panel de filtros con debounce en el input de contrato.
-export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos }: Props) {
+export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
   const hoy = useMemo(() => todayISO(), []);
 
@@ -89,6 +90,19 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           Filtros del reporte
         </h2>
         <div className="flex items-center gap-3">
+          <AnimatePresence>
+            {cargando && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1.5 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1 text-xs font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+              >
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                Actualizando…
+              </motion.span>
+            )}
+          </AnimatePresence>
           <AnimatePresence>
             {activos > 0 && (
               <motion.span
@@ -160,7 +174,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block min-w-0">
+        <label className="block min-w-0 xl:col-span-2">
           <span className={etiquetaCls}><Fuel className="h-3.5 w-3.5" /> Gasera</span>
           <SelectXuma
             valor={filtros.gasera ?? ''}
@@ -172,7 +186,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </label>
 
-        <label className="block min-w-0">
+        <label className="block min-w-0 sm:col-span-1 xl:col-span-7">
           <span className={etiquetaCls}><Package className="h-3.5 w-3.5" /> Producto</span>
           <SelectXuma
             valor={filtros.producto ?? ''}

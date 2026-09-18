@@ -94,7 +94,7 @@ export default function SelectXuma({ valor, opciones, alCambiar, placeholder, et
                       : 'text-tinta/80'
                   }`}
                 >
-                  <span className="truncate">{o.etiqueta}</span>
+                  <span className="whitespace-normal break-words">{o.etiqueta}</span>
                   {valor === o.valor && <Check className="h-4 w-4 shrink-0" />}
                 </button>
               </li>
