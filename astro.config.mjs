@@ -13,13 +13,14 @@ export default defineConfig({
     defaultStrategy: 'hover',
   },
   vite: {
+    server: {
+      allowedHosts: true,
+    },
     plugins: [tailwindcss()],
-  },
-  security: {
-    checkOrigin: true,
   },
   server: {
     host: '0.0.0.0',
     port: 4321,
+    allowedHosts: true,
   },
 });

@@ -5,7 +5,8 @@ import { mesLabel } from '../utils/formatters';
 
 const f = filtrosPorDefecto();
 const metadatos = await getMetadatos(f);
-const actualizado = mesLabel((metadatos.rangoFechas.max ?? '2026-08-31').slice(0, 7));
+const maxFecha = metadatos?.rangoFechas?.max ?? '2026-08-31';
+const actualizado = mesLabel(maxFecha.slice(0, 7));
 
 const iconos = {
   trofeo:
