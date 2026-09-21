@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, Coins, FileText, Fuel, Landmark,
   OctagonX, PieChart, RefreshCw, TrendingUp, Trophy,
@@ -33,6 +33,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
   const [data, setData] = useState<DashboardData>(datosIniciales);
   const [cargando, setCargando] = useState(false);
+  const primeraCarga = useRef(true);
 
   const cambioFiltro = useCallback((cambio: Partial<Filters>) => {
     setFiltros((prev) => ({ ...prev, ...cambio }));
@@ -51,6 +52,10 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
   }, []);
 
   useEffect(() => {
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      return;
+    }
     let vivo = true;
     setCargando(true);
     const q = queryString(filtros);

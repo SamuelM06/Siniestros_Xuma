@@ -1,11 +1,14 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
 import EstatusApp from '../components/estatus/EstatusApp.tsx';
-import { filtrosPorDefecto, getMetadatos } from '../lib/query';
+import { filtrosPorDefecto, getEstatus, getMetadatos } from '../lib/query';
 
 const f = filtrosPorDefecto();
-const metadatos = await getMetadatos(f);
+const [metadatos, estatusInicial] = await Promise.all([
+  getMetadatos(f),
+  getEstatus({ anio: 2026 }),
+]);
 ---
 <DashboardLayout title="Estatus Siniestros · Gestión de Siniestros | Promigas">
-  <EstatusApp client:load metadatos={metadatos} anioInicial={2026} />
+  <EstatusApp client:load metadatos={metadatos} anioInicial={2026} datosIniciales={estatusInicial} />
 </DashboardLayout>

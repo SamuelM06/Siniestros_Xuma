@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Activity, CalendarRange, Fuel, Landmark, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { EstatusData, Metadatos } from '../../lib/types';
@@ -8,6 +8,7 @@ import SelectXuma from '../ui/SelectXuma';
 interface Props {
   metadatos: Metadatos;
   anioInicial: number;
+  datosIniciales?: EstatusData;
 }
 
 const ANIO_POR_DEFECTO = 2026;
@@ -34,11 +35,12 @@ function construirQs(f: FiltrosEstatus): string {
 
 // Matriz de estatus de siniestros: filas = gaseras, columnas = meses del año,
 // con total por gasera, por mes y total general.
-export default function EstatusApp({ metadatos, anioInicial }: Props) {
+export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: Props) {
   const [filtros, setFiltros] = useState<FiltrosEstatus>({ anio: anioInicial });
-  const [data, setData] = useState<EstatusData | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [data, setData] = useState<EstatusData | null>(datosIniciales ?? null);
+  const [cargando, setCargando] = useState(datosIniciales == null);
   const [error, setError] = useState('');
+  const primeraCarga = useRef(datosIniciales != null);
 
   const anios = useMemo(() => metadatos.anios.map((a) => ({ valor: String(a), etiqueta: String(a) })), [metadatos.anios]);
   const estados = useMemo(() => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })), [metadatos.estados]);
@@ -54,6 +56,11 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
   }, [anioInicial]);
 
   useEffect(() => {
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      setCargando(false);
+      return;
+    }
     let vivo = true;
     setCargando(true);
     setError('');
@@ -232,9 +239,16 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
             Siniestros por gasera y mes
           </h2>
           <div className="flex items-center gap-3">
-            {matriz && !cargando && (
+            {matriz && (
               <span className="rounded-full bg-tinta/10 px-3 py-1 text-xs font-semibold text-tinta/70">
-                {formatNum(matriz.totalGeneral)} siniestros en {filtros.anio} · {matriz.filas.length} gasera{matriz.filas.length === 1 ? '' : 's'}
+                {cargando ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Actualizando…
+                  </span>
+                ) : (
+                  `${formatNum(matriz.totalGeneral)} siniestros en ${filtros.anio} · ${matriz.filas.length} gasera${matriz.filas.length === 1 ? '' : 's'}`
+                )}
               </span>
             )}
           </div>
@@ -247,7 +261,10 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
         )}
 
         <div className="overflow-x-auto rounded-2xl">
-          <table className="w-full min-w-[860px] border-collapse text-sm">
+          <table
+            aria-busy={cargando}
+            className={`w-full min-w-[860px] border-collapse text-sm transition-opacity ${cargando && data ? 'opacity-60' : ''}`}
+          >
             <thead>
               <tr className="text-left text-xs tracking-wide text-tinta/55 uppercase">
                 <th className="sticky left-0 z-10 bg-transparent py-3 pr-4 font-semibold">
@@ -260,7 +277,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
               </tr>
             </thead>
             <tbody>
-              {cargando ? (
+              {cargando && !data ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     <td className="py-3 pr-4">
@@ -275,14 +292,14 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                 ))
               ) : matriz && matriz.filas.length > 0 ? (
                 <AnimatePresence initial={false} mode="popLayout">
-                  {matriz.filas.map((fila, i) => (
+                  {matriz.filas.map((fila) => (
                     <motion.tr
                         key={fila.gasera}
                         layout
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={false}
+                        animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.4) }}
+                        transition={{ duration: 0.15 }}
                         className="border-t border-tinta/5 transition-colors hover:bg-tinta/5"
                       >
                         <td className="sticky left-0 z-10 border-t border-tinta/5 bg-transparent py-3 pr-4 font-semibold whitespace-nowrap text-tinta/90 backdrop-blur-xl">
@@ -324,7 +341,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
                 </tr>
               )}
             </tbody>
-            {matriz && !cargando && matriz.filas.length > 0 && (
+            {matriz && matriz.filas.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-xuma-verde-claro/40 text-xs font-bold text-tinta">
                   <td className="sticky left-0 z-10 py-3 pr-4 text-base uppercase tracking-wide text-tinta/70">
@@ -344,7 +361,7 @@ export default function EstatusApp({ metadatos, anioInicial }: Props) {
           </table>
         </div>
 
-        {matriz && !cargando && matriz.filas.length > 0 && (
+        {matriz && matriz.filas.length > 0 && (
           <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/60">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--cgraf-2)', opacity: 0.35 }} />

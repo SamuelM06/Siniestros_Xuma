@@ -147,6 +147,7 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
 
 // ---- KPIs ---------------------------------------------------------------------
 export async function getKpis(f: Filters): Promise<KpisData> {
+  return conCache(`kpis:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE}),
@@ -182,6 +183,7 @@ export async function getKpis(f: Filters): Promise<KpisData> {
     kpi.comparativo.deltaPct = prev > 0 ? Math.round(((total2026 - prev) / prev) * 1000) / 10 : 0;
   }
   return kpi;
+  });
 }
 
 async function getTotalAnio(anio: number): Promise<number | null> {
@@ -201,6 +203,7 @@ async function getTotalAnio(anio: number): Promise<number | null> {
 
 // ---- Tendencia mensual --------------------------------------------------------
 export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
+  return conCache(`tendencia:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
@@ -213,6 +216,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   `;
   const rows = await query<{ mes: string; total: number; valor: string }>(sql, w.params);
   return rellenarMeses(rows, f);
+  });
 }
 
 // Lista de meses (YYYY-MM) del rango filtrado, recortada al último mes con datos.
@@ -251,6 +255,7 @@ function rellenarMeses(rows: { mes: string; total: number; valor: string }[], f:
 
 // ---- Siniestros por aseguradora al mes (matriz) -------------------------------
 export async function getPorAseguradora(f: Filters): Promise<SerieAseguradora[]> {
+  return conCache(`por-aseguradora:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
@@ -271,10 +276,12 @@ export async function getPorAseguradora(f: Filters): Promise<SerieAseguradora[]>
     for (const r of rows) if (r.mes === mes) por[r.aseguradora] = Number(r.total);
     return { mes, label: mes, porAseguradora: por };
   });
+  });
 }
 
 // ---- Por gasera (apropiar top + Otros) ----------------------------------------
 export async function getPorGasera(f: Filters, top = 8): Promise<ItemGasera[]> {
+  return conCache(`por-gasera:${serializarFiltros(f)}:${top}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
@@ -287,10 +294,12 @@ export async function getPorGasera(f: Filters, top = 8): Promise<ItemGasera[]> {
   const cabecera = rows.slice(0, top);
   const resto = rows.slice(top).reduce((acc, r) => acc + Number(r.total), 0);
   return resto > 0 ? [...cabecera, { gasera: 'Otros', total: resto }] : cabecera;
+  });
 }
 
 // ---- Por producto (apropiar top + Otros) ---------------------------------------
 export async function getPorProducto(f: Filters, top = 7): Promise<ItemProducto[]> {
+  return conCache(`por-producto:${serializarFiltros(f)}:${top}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
@@ -303,6 +312,7 @@ export async function getPorProducto(f: Filters, top = 7): Promise<ItemProducto[
   const cabecera = rows.slice(0, top);
   const resto = rows.slice(top).reduce((acc, r) => acc + Number(r.total), 0);
   return resto > 0 ? [...cabecera, { producto: 'Otros', total: resto }] : cabecera;
+  });
 }
 
 // ---- Tabla de detalle (paginada, sin campos sensibles) -------------------------
@@ -392,6 +402,7 @@ export interface EstatusFiltros {
 }
 
 export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
+  return conCache(`estatus:${serializarFiltros(ef)}`, async () => {
   const cond: string[] = [];
   const params: unknown[] = [`${ef.anio}-01-01`, `${ef.anio}-12-31`];
   cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
@@ -427,6 +438,7 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
     gaseras,
     filas: rows.map((r) => ({ gasera: r.gasera, mes: Number(r.mes), total: Number(r.total) })),
   };
+  });
 }
 
 // ---- Mapa geográfico de siniestros (por departamento y municipios) ------------
