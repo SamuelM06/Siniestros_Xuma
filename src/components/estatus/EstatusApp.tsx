@@ -276,71 +276,76 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
                 <th className="px-3 py-3 text-center font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro">Total</th>
               </tr>
             </thead>
+            {cargando && !data ? (
             <tbody>
-              {cargando && !data ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td className="py-3 pr-4">
-                      <div className="skeleton h-4 w-40" />
-                    </td>
-                    {Array.from({ length: mesesVisibles.length + 1 }).map((__, j) => (
-                      <td key={j} className="px-2 py-3 text-center">
-                        <div className="skeleton mx-auto h-4 w-8" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : matriz && matriz.filas.length > 0 ? (
-                <AnimatePresence initial={false} mode="popLayout">
-                  {matriz.filas.map((fila) => (
-                    <motion.tr
-                        key={fila.gasera}
-                        layout
-                        initial={false}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className="border-t border-tinta/5 transition-colors hover:bg-tinta/5"
-                      >
-                        <td className="sticky left-0 z-10 border-t border-tinta/5 bg-transparent py-3 pr-4 font-semibold whitespace-nowrap text-tinta/90 backdrop-blur-xl">
-                          <span className="flex items-center gap-2">
-                            <Fuel className="h-3.5 w-3.5 shrink-0 text-tinta/40" />
-                            {fila.gasera}
-                          </span>
-                        </td>
-                        {fila.meses.slice(0, mesesVisibles.length).map((n, j) => {
-                          const ratio = n > 0 ? Math.sqrt(n / maxCelda) : 0;
-                          const mes = mesesVisibles[j] ?? '';
-                          return (
-                            <td
-                              key={j}
-                              className="px-2 py-3 text-center tabular text-tinta/80"
-                              style={{
-                                background: n > 0 ? `color-mix(in srgb, var(--cgraf-2) ${Math.round(ratio * 38)}%, transparent)` : undefined,
-                              }}
-                              title={`${fila.gasera} · ${mes}: ${formatNum(n)}`}
-                            >
-                              <span className={n === 0 ? 'text-tinta/25' : 'font-semibold'}>{n === 0 ? '·' : formatNum(n)}</span>
-                            </td>
-                          );
-                        })}
-                        <td className="px-3 py-3 text-center font-bold text-xuma-verde-oscuro tabular dark:text-xuma-verde-claro">
-                          {formatNum(fila.total)}
-                        </td>
-                      </motion.tr>
-                  ))}
-                </AnimatePresence>
-              ) : (
-                <tr>
-                  <td colSpan={mesesVisibles.length + 2} className="py-12 text-center text-tinta/50">
-                    <span className="mx-auto mb-2 block h-10 w-10 text-tinta-dim">
-                      <CalendarRange className="h-10 w-10" />
-                    </span>
-                    <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="py-3 pr-4">
+                    <div className="skeleton h-4 w-40" />
                   </td>
+                  {Array.from({ length: mesesVisibles.length + 1 }).map((__, j) => (
+                    <td key={j} className="px-2 py-3 text-center">
+                      <div className="skeleton mx-auto h-4 w-8" />
+                    </td>
+                  ))}
                 </tr>
-              )}
+              ))}
             </tbody>
+          ) : (
+            <AnimatePresence initial={false} mode="wait">
+              <motion.tbody
+                key={`${filtros.anio}:${filtros.estado ?? ''}:${filtros.producto ?? ''}:${filtros.aseguradora ?? ''}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.16 }}
+              >
+                {matriz && matriz.filas.length > 0 ? (
+                  matriz.filas.map((fila) => (
+                    <tr
+                      key={fila.gasera}
+                      className="border-t border-tinta/5 transition-colors hover:bg-tinta/5"
+                    >
+                      <td className="sticky left-0 z-10 border-t border-tinta/5 bg-transparent py-3 pr-4 font-semibold whitespace-nowrap text-tinta/90 backdrop-blur-xl">
+                        <span className="flex items-center gap-2">
+                          <Fuel className="h-3.5 w-3.5 shrink-0 text-tinta/40" />
+                          {fila.gasera}
+                        </span>
+                      </td>
+                      {fila.meses.slice(0, mesesVisibles.length).map((n, j) => {
+                        const ratio = n > 0 ? Math.sqrt(n / maxCelda) : 0;
+                        const mes = mesesVisibles[j] ?? '';
+                        return (
+                          <td
+                            key={j}
+                            className="px-2 py-3 text-center tabular text-tinta/80"
+                            style={{
+                              background: n > 0 ? `color-mix(in srgb, var(--cgraf-2) ${Math.round(ratio * 38)}%, transparent)` : undefined,
+                            }}
+                            title={`${fila.gasera} · ${mes}: ${formatNum(n)}`}
+                          >
+                            <span className={n === 0 ? 'text-tinta/25' : 'font-semibold'}>{n === 0 ? '·' : formatNum(n)}</span>
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-3 text-center font-bold text-xuma-verde-oscuro tabular dark:text-xuma-verde-claro">
+                        {formatNum(fila.total)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={mesesVisibles.length + 2} className="py-12 text-center text-tinta/50">
+                      <span className="mx-auto mb-2 block h-10 w-10 text-tinta-dim">
+                        <CalendarRange className="h-10 w-10" />
+                      </span>
+                      <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
+                    </td>
+                  </tr>
+                )}
+              </motion.tbody>
+            </AnimatePresence>
+          )}
             {matriz && matriz.filas.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-xuma-verde-claro/40 text-xs font-bold text-tinta">
