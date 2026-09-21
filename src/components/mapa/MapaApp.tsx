@@ -15,9 +15,10 @@ interface Props {
 const DEFAULT_DESDE = '2026-01-01';
 const DEFAULT_HASTA = '2026-12-31';
 
-export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Props) {
+export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, mapaInicial }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
   const [data, setData] = useState<MapaData>(mapaInicial);
+  const [metadatos, setMetadatos] = useState<Metadatos>(metadatosServer);
   const [cargando, setCargando] = useState(false);
   const [deptoSeleccionado, setDeptoSeleccionado] = useState<string | null>(null);
 
@@ -34,12 +35,22 @@ export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Pr
       gasera: undefined,
       producto: undefined,
       estado: undefined,
+      aseguradora: undefined,
     });
     setDeptoSeleccionado(null);
   }, []);
 
-  // Saltarse la primera carga: los datos ya llegan del servidor (mapaInicial).
-  // Solo se vuelve a consultar /api/mapa cuando el usuario cambia los filtros.
+  // Referencia actualizada del depto seleccionado para validar después de
+  // refetchear SIN meter el depto en las dependencias (evita re-consultas
+  // innecesarias cada vez que el usuario hace click en un departamento).
+  const deptoActualRef = useRef<string | null>(deptoSeleccionado);
+  useEffect(() => {
+    deptoActualRef.current = deptoSeleccionado;
+  }, [deptoSeleccionado]);
+
+  // Al cambiar los filtros: refrescar MAPA + METADATOS (para que los selects
+  // del panel se reduzcan según los filtros cruzados y el usuario tenga feedback
+  // inmediato de que el filtro sí hizo efecto).
   const primerRender = useRef(true);
   useEffect(() => {
     if (primerRender.current) {
@@ -49,14 +60,27 @@ export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Pr
     let vivo = true;
     setCargando(true);
     const q = queryString(filtros);
-    fetch(`/api/mapa?${q}`)
-      .then(async (res) => {
+    Promise.all([
+      fetch(`/api/mapa?${q}`).then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as MapaData;
-      })
-      .then((d) => {
+      }),
+      fetch(`/api/metadatos?${q}`).then(async (res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return (await res.json()) as Metadatos;
+      }),
+    ])
+      .then(([nuevoMapa, nuevosMeta]) => {
         if (!vivo) return;
-        setData(d);
+        setData(nuevoMapa);
+        setMetadatos(nuevosMeta);
+        // Si el departamento seleccionado ya no existe en los datos nuevos
+        // (el filtro lo eliminó), limpiar la selección para no mostrar un panel vacío
+        const actual = deptoActualRef.current;
+        const sigueExistiendo =
+          actual == null ||
+          nuevoMapa.departamentos.some((d) => d.departamento === actual);
+        if (!sigueExistiendo) setDeptoSeleccionado(null);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -72,6 +96,7 @@ export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Pr
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
+    (filtros.aseguradora ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);

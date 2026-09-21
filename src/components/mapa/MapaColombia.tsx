@@ -252,6 +252,17 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
     }
   }, [deptoSeleccionado]);
 
+  // Al cambiar los datos (filtros aplicados):
+  // - Limpiar la selección de municipio si éste ya no aparece bajo los nuevos filtros
+  // - Limpiar el texto de búsqueda (evita mostrar listas vacías por texto viejo)
+  useEffect(() => {
+    if (mpioSeleccionado && deptoSeleccionado) {
+      const deptoItem = data.departamentos.find((d) => norm(d.departamento) === norm(deptoSeleccionado));
+      const sigue = deptoItem?.municipios.some((m) => norm(m.municipio) === norm(mpioSeleccionado));
+      if (!sigue) setMpioSeleccionado(null);
+    }
+  }, [data, deptoSeleccionado, mpioSeleccionado]);
+
   // Renderizar o actualizar la capa geográfica
   useEffect(() => {
     const map = mapInstanceRef.current;

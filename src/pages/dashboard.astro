@@ -1,22 +1,39 @@
 ---
-import DashboardLayout from '../layouts/DashboardLayout.astro';
-import DashboardApp from '../components/dashboard/DashboardApp.tsx';
-import { filtrosPorDefecto, getKpis, getTendencia, getPorAseguradora, getPorGasera, getPorProducto, getMetadatos } from '../lib/query';
+import DashboardLayout from "../layouts/DashboardLayout.astro";
+import DashboardApp from "../components/dashboard/DashboardApp.tsx";
+import {
+  filtrosPorDefecto,
+  getKpis,
+  getTendencia,
+  getPorAseguradora,
+  getPorGasera,
+  getPorProducto,
+  getMetadatos,
+} from "../lib/query";
 
 const f = filtrosPorDefecto();
-const [kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos] = await Promise.all([
-  getKpis(f),
-  getTendencia(f),
-  getPorAseguradora(f),
-  getPorGasera(f),
-  getPorProducto(f),
-  getMetadatos(f),
-]);
+const [kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos] =
+  await Promise.all([
+    getKpis(f),
+    getTendencia(f),
+    getPorAseguradora(f),
+    getPorGasera(f),
+    getPorProducto(f),
+    getMetadatos(f),
+  ]);
 ---
+
 <DashboardLayout title="Dashboard · Gestión de Siniestros | Promigas">
   <DashboardApp
     client:load
-    datosIniciales={{ kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos }}
+    datosIniciales={{
+      kpis,
+      tendencia,
+      porAseguradora,
+      porGasera,
+      porProducto,
+      metadatos,
+    }}
     filtrosIniciales={f}
   />
 </DashboardLayout>
