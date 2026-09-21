@@ -83,18 +83,73 @@ export function filtrosPorDefecto(): Filters {
 
 type RowBase = Record<string, unknown>;
 
-// Caché en memoria para consultas pesadas con datos casi estáticos (mapa y
-// metadatos). Evita re-consultar la BD remota al volver a una vista ya cargada
-// con los mismos filtros dentro de la ventana de tiempo.
-const CACHE_TTL_MS = 60_000;
-const cacheConsultas = new Map<string, { t: number; v: unknown }>();
+// ============================================================================
+// CACHÉ EN MEMORIA ULTRA-RÁPIDO CON STALE-WHILE-REVALIDATE
+// ----------------------------------------------------------------------------
+// 1. Soft TTL (15 min): Datos 100% frescos.
+// 2. Stale TTL (2 horas): Si pasaron más de 15 min, se sirve de INMEDIATO (<5ms)
+//    y se revalida en background sin bloquear la navegación ni la carga.
+// 3. Deduplicación en vuelo: múltiples peticiones concurrentes a la misma clave
+//    comparten una única promesa hacia PostgreSQL.
+// ============================================================================
+const CACHE_SOFT_TTL_MS = 15 * 60_000;  // 15 minutos fresco
+const CACHE_STALE_TTL_MS = 120 * 60_000; // 2 horas utilizable stale
+
+interface EntradaCache<T> {
+  t: number;
+  v: T;
+}
+
+const cacheConsultas = new Map<string, EntradaCache<unknown>>();
+const enVuelo = new Map<string, Promise<unknown>>();
 
 async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
+  const ahora = Date.now();
   const hit = cacheConsultas.get(clave);
-  if (hit && Date.now() - hit.t < CACHE_TTL_MS) return hit.v as T;
-  const v = await fn();
-  cacheConsultas.set(clave, { t: Date.now(), v });
-  return v;
+
+  // 1. Fresco (< 15 minutos): entrega inmediata
+  if (hit && ahora - hit.t < CACHE_SOFT_TTL_MS) {
+    return hit.v as T;
+  }
+
+  // 2. En rango stale (15 min a 2 horas): servir de inmediato y refrescar en segundo plano
+  if (hit && ahora - hit.t < CACHE_STALE_TTL_MS) {
+    if (!enVuelo.has(clave)) {
+      const p = fn()
+        .then((nuevo) => {
+          cacheConsultas.set(clave, { t: Date.now(), v: nuevo });
+          enVuelo.delete(clave);
+          return nuevo;
+        })
+        .catch(() => {
+          enVuelo.delete(clave);
+        });
+      enVuelo.set(clave, p);
+    }
+    return hit.v as T;
+  }
+
+  // 3. Sin caché o superó el tiempo stale:
+  // Reutilizar promesa en vuelo si existe para no duplicar queries
+  const pendiente = enVuelo.get(clave);
+  if (pendiente) {
+    return pendiente as Promise<T>;
+  }
+
+  const promesa = fn()
+    .then((resultado) => {
+      cacheConsultas.set(clave, { t: Date.now(), v: resultado });
+      enVuelo.delete(clave);
+      return resultado;
+    })
+    .catch((err) => {
+      enVuelo.delete(clave);
+      if (hit) return hit.v as T;
+      throw err;
+    });
+
+  enVuelo.set(clave, promesa);
+  return promesa;
 }
 
 // Clave de caché estable para un conjunto de filtros.
@@ -374,31 +429,51 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
 // ---- Metadatos para poblar los filtros ----------------------------------------
 export async function getMetadatos(f: Filters): Promise<Metadatos> {
   return conCache(`metadatos:${serializarFiltros(f)}`, async () => {
-  const w = construirWhere(f);
-  const [gasR, prodR, estR, asegR, rangoR] = await Promise.all([
-    query<{ gasera: string }>(`WITH base AS (${BASE}) SELECT DISTINCT gasera_norm AS gasera FROM base WHERE ${w.cond} AND gasera_norm IS NOT NULL ORDER BY 1`, w.params),
-    query<{ producto: string }>(`WITH base AS (${BASE}) SELECT DISTINCT producto_norm AS producto FROM base WHERE ${w.cond} AND producto_norm IS NOT NULL ORDER BY 1`, w.params),
-    query<{ estado: string; total: number }>(`WITH base AS (${BASE}) SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM base WHERE ${w.cond} GROUP BY 1 ORDER BY total DESC`, w.params),
-    query<{ aseguradora: string }>(`WITH base AS (${BASE}) SELECT DISTINCT aseguradora_norm AS aseguradora FROM base WHERE ${w.cond} ORDER BY 1`, w.params),
-    queryOne<{ min: string; max: string }>(`WITH base AS (${BASE}) SELECT min(fecha_radicacion) AS min, max(fecha_radicacion) AS max FROM base WHERE ${w.cond}`, w.params),
-  ]);
-  const aniosR = await query<{ anio: number }>(
-    `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_radicacion)::int AS anio
-  FROM (
-    SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
-    FROM siniestros.casos c
-  ) sub
-  WHERE sub.fecha_radicacion IS NOT NULL AND sub.gasera_norm <> 'Promigas'
-  ORDER BY 1 DESC`,
-  );
-  return {
-    gaseras: gasR.map((r) => r.gasera),
-    productos: prodR.map((r) => r.producto),
-    estados: estR.map((r) => ({ estado: r.estado, total: Number(r.total) })),
-    aseguradoras: asegR.map((r) => r.aseguradora),
-    anios: aniosR.map((r) => Number(r.anio)),
-    rangoFechas: { min: aISO(rangoR?.min), max: aISO(rangoR?.max) },
-  };
+    const w = construirWhere(f);
+    const sql = `
+      WITH base AS (${BASE}),
+      filtrado AS (
+        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_radicacion
+        FROM base
+        WHERE ${w.cond}
+      )
+      SELECT
+        (SELECT json_agg(g.gasera) FROM (SELECT DISTINCT gasera_norm AS gasera FROM filtrado WHERE gasera_norm IS NOT NULL ORDER BY 1) g) AS gaseras,
+        (SELECT json_agg(p.producto) FROM (SELECT DISTINCT producto_norm AS producto FROM filtrado WHERE producto_norm IS NOT NULL ORDER BY 1) p) AS productos,
+        (SELECT json_agg(e) FROM (SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) e) AS estados,
+        (SELECT json_agg(a.aseguradora) FROM (SELECT DISTINCT aseguradora_norm AS aseguradora FROM filtrado ORDER BY 1) a) AS aseguradoras,
+        min(fecha_radicacion) AS min_fecha,
+        max(fecha_radicacion) AS max_fecha
+      FROM filtrado
+    `;
+    const [row, aniosR] = await Promise.all([
+      queryOne<{
+        gaseras: string[] | null;
+        productos: string[] | null;
+        estados: { estado: string; total: number }[] | null;
+        aseguradoras: string[] | null;
+        min_fecha: string | null;
+        max_fecha: string | null;
+      }>(sql, w.params),
+      query<{ anio: number }>(
+        `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_radicacion)::int AS anio
+        FROM (
+          SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+          FROM siniestros.casos c
+        ) sub
+        WHERE sub.fecha_radicacion IS NOT NULL AND sub.gasera_norm <> 'Promigas'
+        ORDER BY 1 DESC`,
+      ),
+    ]);
+
+    return {
+      gaseras: row?.gaseras ?? [],
+      productos: row?.productos ?? [],
+      estados: (row?.estados ?? []).map((e) => ({ estado: e.estado, total: Number(e.total) })),
+      aseguradoras: row?.aseguradoras ?? [],
+      anios: aniosR.map((r) => Number(r.anio)),
+      rangoFechas: { min: aISO(row?.min_fecha), max: aISO(row?.max_fecha) },
+    };
   });
 }
 
@@ -456,26 +531,33 @@ export async function getMapa(f: Filters): Promise<MapaData> {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE}),
-    deptos AS (
+    filtrado AS (
       SELECT
         departamento_norm AS departamento,
+        municipio_norm AS municipio,
+        estado_norm,
+        monto
+      FROM base
+      WHERE ${w.cond}
+    ),
+    deptos AS (
+      SELECT
+        departamento,
         count(*)::int AS total,
         count(*) FILTER (WHERE estado_norm = 'Pagado')::int AS pagados,
         count(*) FILTER (WHERE estado_norm = 'En trámite')::int AS en_tramite,
         count(*) FILTER (WHERE estado_norm = 'Objetado')::int AS objetados,
         COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS total_pagado
-      FROM base
-      WHERE ${w.cond}
+      FROM filtrado
       GROUP BY 1
     ),
     muns AS (
       SELECT
-        departamento_norm AS departamento,
-        municipio_norm AS municipio,
+        departamento,
+        municipio,
         count(*)::int AS total,
         COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS pagado
-      FROM base
-      WHERE ${w.cond}
+      FROM filtrado
       GROUP BY 1, 2
     ),
     muns_agg AS (
@@ -528,4 +610,49 @@ export async function getMapa(f: Filters): Promise<MapaData> {
     })),
   };
   });
+}
+
+// ============================================================================
+// PRECALENTAMIENTO AUTOMÁTICO EN SEGUNDO PLANO
+// ----------------------------------------------------------------------------
+// Ejecuta en background las consultas de las pantallas principales (Dashboard,
+// Mapa, Estatus y Detalle) con los filtros por defecto.
+// Al abrir el portal por primera vez o tras un reinicio del servidor, los datos
+// ya están calientes en RAM y se responden en <15ms.
+// ============================================================================
+export async function precalentarCache(): Promise<void> {
+  const f = filtrosPorDefecto();
+  try {
+    // Fase 1: Vistas principales del Tablero
+    await Promise.allSettled([
+      getMetadatos(f),
+      getKpis(f),
+      getTendencia(f),
+      getPorAseguradora(f),
+      getPorGasera(f),
+      getPorProducto(f),
+    ]);
+    // Fase 2: Mapa, Estatus y Detalle
+    await Promise.allSettled([
+      getMapa(f),
+      getEstatus({ anio: ANIO_REPORTE }),
+      getTabla(f, 1, 15),
+    ]);
+  } catch {
+    // Silencioso en segundo plano
+  }
+}
+
+// Iniciar precalentamiento inmediato al arrancar el servidor
+if (typeof process !== 'undefined') {
+  // Disparar precalentamiento inicial tras 100ms
+  setTimeout(() => {
+    precalentarCache();
+  }, 100);
+
+  // Refrescar automáticamente cada 10 minutos para que NUNCA expire la caché
+  const refInterval = setInterval(() => {
+    precalentarCache();
+  }, 10 * 60_000);
+  if (refInterval.unref) refInterval.unref();
 }

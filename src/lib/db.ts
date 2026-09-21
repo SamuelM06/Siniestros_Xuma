@@ -10,9 +10,18 @@ const pool = new Pool({
   password: ENV.dbPassword || '',
   ssl: ENV.dbSsl ? { rejectUnauthorized: false } : false,
   connectionTimeoutMillis: 15_000,
-  idleTimeoutMillis: 30_000,
-  max: ENV.dbSsl ? 5 : 10,
+  idleTimeoutMillis: 300_000, // 5 minutos antes de cerrar conexiones inactivas
+  max: 20, // Suficiente holgura para consultas concurrentes del SSR
+  min: 2,  // Al menos 2 conexiones calientes siempre abiertas
 });
+
+// Heartbeat periódico (cada 45s) para mantener caliente el túnel SSL/TCP con Azure y evitar demoras
+if (typeof setInterval !== 'undefined') {
+  const hb = setInterval(() => {
+    pool.query('SELECT 1').catch(() => {});
+  }, 45_000);
+  if (hb.unref) hb.unref();
+}
 
 export async function query<T>(
   text: string,

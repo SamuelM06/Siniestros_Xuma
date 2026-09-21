@@ -31,6 +31,7 @@ const actual = Astro.url.pathname;
 ---
 
 <MainLayout title={title}>
+  <slot name="head" slot="head" />
   <header class="topbar sticky top-0 z-40 backdrop-blur-xl">
     <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 md:px-6">
       <a href="/" class="flex items-center gap-2.5 justify-self-start" aria-label="Volver al inicio">
@@ -54,6 +55,7 @@ const actual = Astro.url.pathname;
           nav.map((item) => (
             <a
               href={item.href}
+              data-astro-prefetch="hover"
               class={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-300 md:text-sm md:px-3.5 ${
                 actual === item.href || actual === `${item.href}/`
                   ? 'bg-xuma-verde-claro/90 text-[#0a1030] shadow-lg shadow-xuma-verde-claro/25'

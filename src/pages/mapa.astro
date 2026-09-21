@@ -12,5 +12,6 @@ const [metadatos, mapaInicial] = await Promise.all([
 ]);
 ---
 <DashboardLayout title="Mapa de Siniestralidad · Gestión de Siniestros | Promigas">
+  <link rel="preload" href="/data/colombia.geo.json" as="fetch" crossorigin="anonymous" slot="head" />
   <MapaApp client:load metadatos={metadatos} filtrosIniciales={f} mapaInicial={mapaInicial} />
 </DashboardLayout>

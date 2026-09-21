@@ -98,15 +98,26 @@ function crearProxyRespuesta(req, res) {
           // Si aún no se decidió, se decide al momento de enviar cabeceras.
           return (...args) => {
             if (!comprimiendo) iniciarCompresion();
+            const url = String(req.url || '');
+            if (/^\/(data|vendor|logos|_astro)\//i.test(url)) {
+              raw.setHeader('cache-control', 'public, max-age=86400, stale-while-revalidate=604800');
+            }
             return raw.writeHead(...args);
           };
         case 'setHeader':
           return (name, value) => {
-            if (String(name).toLowerCase() === 'content-type') {
+            const nom = String(name).toLowerCase();
+            if (nom === 'content-type') {
               tipoContenido = String(value);
             }
-            if (comprimiendo && String(name).toLowerCase() === 'content-length') {
+            if (comprimiendo && nom === 'content-length') {
               return res;
+            }
+            if (nom === 'cache-control') {
+              const url = String(req.url || '');
+              if (/^\/(data|vendor|logos|_astro)\//i.test(url)) {
+                return raw.setHeader(name, 'public, max-age=86400, stale-while-revalidate=604800');
+              }
             }
             return raw.setHeader(name, value);
           };

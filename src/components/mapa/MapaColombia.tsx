@@ -67,15 +67,19 @@ function getColorDepto(total: number, isSelected: boolean): string {
   return '#94a3b8';
 }
 
+// Caché en memoria viva del cliente para evitar re-descargas y re-parseos de GeoJSON
+let memoriaGeoDeptos: any = null;
+let memoriaGeoMpios: any = null;
+
 export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
   const geojsonLayerRef = useRef<any>(null);
 
-  const [geoDeptos, setGeoDeptos] = useState<any>(null);
-  const [geoMpios, setGeoMpios] = useState<any>(null);
-  const [cargandoGeo, setCargandoGeo] = useState(true);
+  const [geoDeptos, setGeoDeptos] = useState<any>(memoriaGeoDeptos);
+  const [geoMpios, setGeoMpios] = useState<any>(memoriaGeoMpios);
+  const [cargandoGeo, setCargandoGeo] = useState(!memoriaGeoDeptos);
   const [cargandoMpios, setCargandoMpios] = useState(false);
   const [mapaListo, setMapaListo] = useState(false);
 
@@ -89,14 +93,34 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
 
   // Cargar geometría departamental (necesaria desde el inicio, ~1.3 MB)
   useEffect(() => {
+    if (memoriaGeoDeptos) {
+      setGeoDeptos(memoriaGeoDeptos);
+      setCargandoGeo(false);
+      return;
+    }
+    try {
+      const enSesion = sessionStorage.getItem('xuma_geo_deptos');
+      if (enSesion) {
+        const d = JSON.parse(enSesion);
+        memoriaGeoDeptos = d;
+        setGeoDeptos(d);
+        setCargandoGeo(false);
+        return;
+      }
+    } catch {}
+
     let vivo = true;
     fetch('/data/colombia.geo.json')
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {
-        if (!vivo) return;
+        if (!vivo || !d) return;
+        memoriaGeoDeptos = d;
         setGeoDeptos(d);
         setCargandoGeo(false);
+        try {
+          sessionStorage.setItem('xuma_geo_deptos', JSON.stringify(d));
+        } catch {}
       });
     return () => {
       vivo = false;
@@ -107,15 +131,35 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
   // descargar ~2.8 MB al abrir la página cuando solo se ven departamentos.
   useEffect(() => {
     if (modoVista !== 'municipios' || geoMpios != null) return;
+    if (memoriaGeoMpios) {
+      setGeoMpios(memoriaGeoMpios);
+      setCargandoMpios(false);
+      return;
+    }
+    try {
+      const enSesion = sessionStorage.getItem('xuma_geo_mpios');
+      if (enSesion) {
+        const d = JSON.parse(enSesion);
+        memoriaGeoMpios = d;
+        setGeoMpios(d);
+        setCargandoMpios(false);
+        return;
+      }
+    } catch {}
+
     let vivo = true;
     setCargandoMpios(true);
     fetch('/data/colombia_municipios.geojson')
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {
-        if (!vivo) return;
+        if (!vivo || !d) return;
+        memoriaGeoMpios = d;
         setGeoMpios(d);
         setCargandoMpios(false);
+        try {
+          sessionStorage.setItem('xuma_geo_mpios', JSON.stringify(d));
+        } catch {}
       });
     return () => {
       vivo = false;
