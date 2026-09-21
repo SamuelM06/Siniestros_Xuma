@@ -87,50 +87,50 @@ export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Pr
           cargando={cargando}
         />
 
-        {/* Tira compacta de métricas clave (altura mínima para evitar cualquier scroll) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400">
-              <MapPin className="h-4 w-4" />
+        {/* Tira compacta de métricas clave (KPIs más grandes, sin afectar el scroll) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="glass rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400">
+              <MapPin className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-tinta/50 block">Siniestros Mapeados</span>
-              <span className="text-sm font-black text-tinta leading-none">{formatNum(data.totalNacional)}</span>
+              <span className="text-[11px] font-semibold text-tinta/50 block leading-tight">Siniestros Mapeados</span>
+              <span className="text-xl font-black text-tinta leading-none">{formatNum(data.totalNacional)}</span>
             </div>
           </div>
 
-          <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <Coins className="h-4 w-4" />
+          <div className="glass rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Coins className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-tinta/50 block">Total Pagado Territorial</span>
-              <span className="text-sm font-black text-xuma-verde-oscuro dark:text-xuma-verde-claro leading-none truncate block" title={formatCOP(data.totalPagadoNacional)}>
+              <span className="text-[11px] font-semibold text-tinta/50 block leading-tight">Total Pagado Territorial</span>
+              <span className="text-lg font-black text-xuma-verde-oscuro dark:text-xuma-verde-claro leading-none truncate block" title={formatCOP(data.totalPagadoNacional)}>
                 {formatCOP(data.totalPagadoNacional)}
               </span>
             </div>
           </div>
 
-          <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-              <Trophy className="h-4 w-4" />
+          <div className="glass rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <Trophy className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-tinta/50 block">Dpto. Mayor Concentración</span>
-              <span className="text-xs font-extrabold text-tinta leading-none truncate block">
+              <span className="text-[11px] font-semibold text-tinta/50 block leading-tight">Dpto. Mayor Concentración</span>
+              <span className="text-lg font-extrabold text-tinta leading-none truncate block">
                 {deptoLider ? `${deptoLider.departamento} (${formatNum(deptoLider.total)})` : 'Sin datos'}
               </span>
             </div>
           </div>
 
-          <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400">
-              <Compass className="h-4 w-4" />
+          <div className="glass rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400">
+              <Compass className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold text-tinta/50 block">Departamentos Activos</span>
-              <span className="text-sm font-black text-tinta leading-none">
-                {data.departamentos.length} <span className="text-[10px] font-normal text-tinta/50">({data.departamentos.reduce((acc, d) => acc + d.municipios.length, 0)} zonas)</span>
+              <span className="text-[11px] font-semibold text-tinta/50 block leading-tight">Departamentos Activos</span>
+              <span className="text-xl font-black text-tinta leading-none">
+                {data.departamentos.length} <span className="text-[11px] font-normal text-tinta/50">({data.departamentos.reduce((acc, d) => acc + d.municipios.length, 0)} zonas)</span>
               </span>
             </div>
           </div>

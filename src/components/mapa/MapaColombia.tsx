@@ -501,7 +501,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
         </div>
 
         {/* Contenedor Leaflet */}
-        <div className="relative flex-1 w-full min-h-[350px] rounded-xl overflow-hidden border border-tinta/15 shadow-inner">
+        <div className="relative flex-1 w-full min-h-[300px] rounded-xl overflow-hidden border border-tinta/15 shadow-inner">
           {cargandoGeo && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-fondo/75 backdrop-blur-sm">
               <RefreshCw className="h-7 w-7 animate-spin text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
