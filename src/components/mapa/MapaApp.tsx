@@ -36,6 +36,7 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
       producto: undefined,
       estado: undefined,
       aseguradora: undefined,
+      tipo_siniestro: undefined,
     });
     setDeptoSeleccionado(null);
   }, []);
@@ -97,6 +98,7 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
     (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
+    (filtros.tipo_siniestro ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);
@@ -117,6 +119,7 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
           onReset={resetFiltros}
           activos={activos}
           cargando={cargando}
+          mostrarTipoSiniestro
         />
 
         {/* Tira compacta de métricas clave (KPIs más grandes, sin afectar el scroll) */}

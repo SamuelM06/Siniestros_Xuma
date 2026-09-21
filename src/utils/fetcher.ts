@@ -22,5 +22,6 @@ export function queryString(f: Filters): string {
   if (f.producto) p.set('producto', f.producto);
   if (f.estado) p.set('estado', f.estado);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
+  if (f.tipo_siniestro) p.set('tipo_siniestro', f.tipo_siniestro);
   return p.toString();
 }

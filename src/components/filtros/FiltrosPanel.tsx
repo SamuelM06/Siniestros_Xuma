@@ -12,6 +12,7 @@ interface Props {
   onReset: () => void;
   activos: number;
   cargando?: boolean;
+  mostrarTipoSiniestro?: boolean;
 }
 
 // Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
@@ -45,7 +46,7 @@ function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | 
 }
 
 // Panel de filtros en una sola línea horizontal con debounce en el input de contrato.
-export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false }: Props) {
+export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
 
   const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
@@ -55,6 +56,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
   const estados = useMemo(
     () => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })),
     [metadatos.estados],
+  );
+  const tiposSiniestro = useMemo(
+    () => (metadatos.tipos_siniestro ?? []).map((t) => ({ valor: t.tipo_siniestro, etiqueta: `${t.tipo_siniestro} (${formatNum(t.total)})` })),
+    [metadatos.tipos_siniestro],
   );
 
   const elegirMes = useCallback((v: string) => {
@@ -75,6 +80,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   const elegirEstado = useCallback((v: string) => {
     onChange({ estado: v || undefined });
+  }, [onChange]);
+
+  const elegirTipoSiniestro = useCallback((v: string) => {
+    onChange({ tipo_siniestro: v || undefined });
   }, [onChange]);
 
   useEffect(() => {
@@ -172,6 +181,20 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             compact
           />
         </div>
+
+        {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa) */}
+        {mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
+          <div className="min-w-[140px] flex-1">
+            <SelectXuma
+              valor={filtros.tipo_siniestro ?? ''}
+              opciones={tiposSiniestro}
+              alCambiar={elegirTipoSiniestro}
+              placeholder="Tipo Siniestro"
+              etiquetaTodo="Todos los tipos"
+              compact
+            />
+          </div>
+        )}
 
         {/* Acciones y Estados */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">

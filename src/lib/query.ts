@@ -21,6 +21,10 @@ const BASE = `
       ${MUNICIPIO_SQL}    AS municipio_norm,
       ${MONTO_SQL}        AS monto,
       CASE
+        WHEN NULLIF(btrim(c.tipo_siniestro),'') IS NOT NULL THEN btrim(c.tipo_siniestro)
+        ELSE 'Sin tipo'
+      END                 AS tipo_siniestro_norm,
+      CASE
         WHEN a.nombre ILIKE 'Cardif%' THEN 'Cardif'
         ELSE a.nombre
       END               AS aseguradora_norm
@@ -64,7 +68,8 @@ export function parseFilters(url: URL): Filters {
   const producto = parseTexto(url.searchParams.get('producto'), 160);
   const estado = parseTexto(url.searchParams.get('estado'), 80);
   const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
-  return { contrato, gasera, producto, estado, aseguradora, desde: rango.desde, hasta: rango.hasta };
+  const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
+  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -205,6 +210,10 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   if (f.aseguradora) {
     params.push(f.aseguradora);
     cond.push(`aseguradora_norm = $${params.length}`);
+  }
+  if (f.tipo_siniestro) {
+    params.push(f.tipo_siniestro);
+    cond.push(`tipo_siniestro_norm = $${params.length}`);
   }
   return { cond: cond.join(' AND '), params };
 }
@@ -433,7 +442,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     const sql = `
       WITH base AS (${BASE}),
       filtrado AS (
-        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_radicacion
+        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_radicacion, tipo_siniestro_norm
         FROM base
         WHERE ${w.cond}
       )
@@ -442,6 +451,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         (SELECT json_agg(p.producto) FROM (SELECT DISTINCT producto_norm AS producto FROM filtrado WHERE producto_norm IS NOT NULL ORDER BY 1) p) AS productos,
         (SELECT json_agg(e) FROM (SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) e) AS estados,
         (SELECT json_agg(a.aseguradora) FROM (SELECT DISTINCT aseguradora_norm AS aseguradora FROM filtrado ORDER BY 1) a) AS aseguradoras,
+        (SELECT json_agg(t) FROM (SELECT COALESCE(btrim(tipo_siniestro_norm),'Sin tipo') AS tipo_siniestro, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) t) AS tipos_siniestro,
         min(fecha_radicacion) AS min_fecha,
         max(fecha_radicacion) AS max_fecha
       FROM filtrado
@@ -452,6 +462,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         productos: string[] | null;
         estados: { estado: string; total: number }[] | null;
         aseguradoras: string[] | null;
+        tipos_siniestro: { tipo_siniestro: string; total: number }[] | null;
         min_fecha: string | null;
         max_fecha: string | null;
       }>(sql, w.params),
@@ -471,6 +482,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
       productos: row?.productos ?? [],
       estados: (row?.estados ?? []).map((e) => ({ estado: e.estado, total: Number(e.total) })),
       aseguradoras: row?.aseguradoras ?? [],
+      tipos_siniestro: (row?.tipos_siniestro ?? []).map((t) => ({ tipo_siniestro: t.tipo_siniestro, total: Number(t.total) })),
       anios: aniosR.map((r) => Number(r.anio)),
       rangoFechas: { min: aISO(row?.min_fecha), max: aISO(row?.max_fecha) },
     };

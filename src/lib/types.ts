@@ -10,6 +10,7 @@ export interface Filters {
   anio?: string;       // YYYY (vista de estatus)
   estado?: string;
   aseguradora?: string;
+  tipo_siniestro?: string;
 }
 
 export interface KpisData {
@@ -76,6 +77,7 @@ export interface Metadatos {
   productos: string[];
   estados: { estado: string; total: number }[];
   aseguradoras: string[];
+  tipos_siniestro: { tipo_siniestro: string; total: number }[];
 }
 
 export interface FilaEstatus {
@@ -123,4 +125,4 @@ export interface MapaData {
   totalNacional: number;
   totalPagadoNacional: number;
   departamentos: ItemDepartamento[];
-}
+}
