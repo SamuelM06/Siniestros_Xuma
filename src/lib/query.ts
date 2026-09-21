@@ -78,6 +78,30 @@ export function filtrosPorDefecto(): Filters {
 
 type RowBase = Record<string, unknown>;
 
+// Caché en memoria para consultas pesadas con datos casi estáticos (mapa y
+// metadatos). Evita re-consultar la BD remota al volver a una vista ya cargada
+// con los mismos filtros dentro de la ventana de tiempo.
+const CACHE_TTL_MS = 60_000;
+const cacheConsultas = new Map<string, { t: number; v: unknown }>();
+
+async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
+  const hit = cacheConsultas.get(clave);
+  if (hit && Date.now() - hit.t < CACHE_TTL_MS) return hit.v as T;
+  const v = await fn();
+  cacheConsultas.set(clave, { t: Date.now(), v });
+  return v;
+}
+
+// Clave de caché estable para un conjunto de filtros.
+function serializarFiltros(f: Filters | EstatusFiltros): string {
+  const ordenado: Record<string, unknown> = {};
+  for (const k of Object.keys(f).sort()) {
+    const v = (f as Record<string, unknown>)[k];
+    if (v !== undefined && v !== null) ordenado[k] = v;
+  }
+  return JSON.stringify(ordenado);
+}
+
 function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   const cond: string[] = [];
   const params: unknown[] = [];
@@ -328,6 +352,7 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
 
 // ---- Metadatos para poblar los filtros ----------------------------------------
 export async function getMetadatos(f: Filters): Promise<Metadatos> {
+  return conCache(`metadatos:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
   const [gasR, prodR, estR, asegR, rangoR] = await Promise.all([
     query<{ gasera: string }>(`WITH base AS (${BASE}) SELECT DISTINCT gasera_norm AS gasera FROM base WHERE ${w.cond} AND gasera_norm IS NOT NULL ORDER BY 1`, w.params),
@@ -353,6 +378,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     anios: aniosR.map((r) => Number(r.anio)),
     rangoFechas: { min: aISO(rangoR?.min), max: aISO(rangoR?.max) },
   };
+  });
 }
 
 // ---- Estatus de siniestros por gasera y mes (matriz) --------------------------
@@ -403,6 +429,7 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
 
 // ---- Mapa geográfico de siniestros (por departamento y municipios) ------------
 export async function getMapa(f: Filters): Promise<MapaData> {
+  return conCache(`mapa:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE}),
@@ -477,4 +504,5 @@ export async function getMapa(f: Filters): Promise<MapaData> {
       municipios: r.municipios || [],
     })),
   };
+  });
 }

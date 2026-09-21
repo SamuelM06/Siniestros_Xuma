@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Compass, Coins, Globe, MapPin, Trophy } from 'lucide-react';
 import type { Filters, MapaData, Metadatos } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
@@ -38,7 +38,14 @@ export default function MapaApp({ metadatos, filtrosIniciales, mapaInicial }: Pr
     setDeptoSeleccionado(null);
   }, []);
 
+  // Saltarse la primera carga: los datos ya llegan del servidor (mapaInicial).
+  // Solo se vuelve a consultar /api/mapa cuando el usuario cambia los filtros.
+  const primerRender = useRef(true);
   useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
     let vivo = true;
     setCargando(true);
     const q = queryString(filtros);

@@ -3,7 +3,8 @@ import {
   Building2, CheckCircle2, ChevronRight, Coins,
   Eye, HelpCircle, Layers, MapPin, RefreshCw, X, OctagonX, Maximize2, Search,
 } from 'lucide-react';
-import type { ItemDepartamento, ItemMunicipio, MapaData } from '../../lib/types';
+import type { ItemMunicipio, MapaData } from '../../lib/types';
+import { leafletEnPromesa } from '../../lib/leaflet';
 import { formatCOP, formatNum } from '../../utils/formatters';
 
 interface Props {
@@ -75,6 +76,8 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
   const [geoDeptos, setGeoDeptos] = useState<any>(null);
   const [geoMpios, setGeoMpios] = useState<any>(null);
   const [cargandoGeo, setCargandoGeo] = useState(true);
+  const [cargandoMpios, setCargandoMpios] = useState(false);
+  const [mapaListo, setMapaListo] = useState(false);
 
   // Tipo de mapa base: 'google' (predeterminado), 'google-sat', 'osm', 'carto'
   const [tipoMapa, setTipoMapa] = useState<'google' | 'google-sat' | 'osm' | 'carto'>('google');
@@ -84,47 +87,73 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
   const [mpioSeleccionado, setMpioSeleccionado] = useState<string | null>(null);
   const [filtroTexto, setFiltroTexto] = useState('');
 
-  // Cargar ambos GeoJSONs en paralelo
+  // Cargar geometría departamental (necesaria desde el inicio, ~1.3 MB)
   useEffect(() => {
-    Promise.all([
-      fetch('/data/colombia.geo.json').then((r) => r.json()).catch(() => null),
-      fetch('/data/colombia_municipios.geojson').then((r) => r.json()).catch(() => null),
-    ])
-      .then(([deptos, mpios]) => {
-        setGeoDeptos(deptos);
-        setGeoMpios(mpios);
-        setCargandoGeo(false);
-      })
-      .catch((err) => {
-        console.error('Error cargando geometrías territoriales:', err);
+    let vivo = true;
+    fetch('/data/colombia.geo.json')
+      .then((r) => r.json())
+      .catch(() => null)
+      .then((d) => {
+        if (!vivo) return;
+        setGeoDeptos(d);
         setCargandoGeo(false);
       });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
-  // Inicializar Leaflet map
+  // Cargar municipios SOLO bajo demanda (vista de municipios). Evita
+  // descargar ~2.8 MB al abrir la página cuando solo se ven departamentos.
+  useEffect(() => {
+    if (modoVista !== 'municipios' || geoMpios != null) return;
+    let vivo = true;
+    setCargandoMpios(true);
+    fetch('/data/colombia_municipios.geojson')
+      .then((r) => r.json())
+      .catch(() => null)
+      .then((d) => {
+        if (!vivo) return;
+        setGeoMpios(d);
+        setCargandoMpios(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [modoVista, geoMpios]);
+
+  // Inicializar Leaflet de forma diferida (no bloquea el primer pintado)
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    const L = (window as any).L;
-    if (!L) return;
+    let vivo = true;
+    leafletEnPromesa()
+      .then((L: any) => {
+        if (!vivo || !mapContainerRef.current) return;
 
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
 
-    const map = L.map(mapContainerRef.current, {
-      center: [4.5709, -74.2973],
-      zoom: 5,
-      zoomControl: true,
-      attributionControl: false,
-    });
+        const map = L.map(mapContainerRef.current, {
+          center: [4.5709, -74.2973],
+          zoom: 5,
+          zoomControl: true,
+          attributionControl: false,
+        });
 
-    L.control.attribution({ position: 'bottomright', prefix: false })
-      .addTo(map);
+        L.control.attribution({ position: 'bottomright', prefix: false })
+          .addTo(map);
 
-    mapInstanceRef.current = map;
+        mapInstanceRef.current = map;
+        setMapaListo(true);
+      })
+      .catch(() => {
+        setCargandoGeo(false);
+      });
 
     return () => {
+      vivo = false;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -136,7 +165,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
   useEffect(() => {
     const map = mapInstanceRef.current;
     const L = (window as any).L;
-    if (!map || !L) return;
+    if (!map || !L || !mapaListo) return;
 
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
@@ -169,7 +198,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
 
     layer.addTo(map);
     tileLayerRef.current = layer;
-  }, [tipoMapa]);
+  }, [tipoMapa, mapaListo]);
 
   // Cambiar a modo municipios automáticamente cuando se selecciona un departamento
   useEffect(() => {
@@ -183,7 +212,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
   useEffect(() => {
     const map = mapInstanceRef.current;
     const L = (window as any).L;
-    if (!map || !L) return;
+    if (!map || !L || !mapaListo) return;
 
     if (geojsonLayerRef.current) {
       map.removeLayer(geojsonLayerRef.current);
@@ -330,7 +359,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
         } catch {}
       }
     }
-  }, [geoDeptos, geoMpios, modoVista, deptoSeleccionado, mpioSeleccionado, data, onSelectDepto]);
+  }, [geoDeptos, geoMpios, modoVista, deptoSeleccionado, mpioSeleccionado, data, onSelectDepto, mapaListo]);
 
   // Resetear a vista nacional
   const resetVista = () => {
@@ -502,7 +531,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
 
         {/* Contenedor Leaflet */}
         <div className="relative flex-1 w-full min-h-[300px] rounded-xl overflow-hidden border border-tinta/15 shadow-inner">
-          {cargandoGeo && (
+          {(cargandoGeo || (modoVista === 'municipios' && cargandoMpios)) && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-fondo/75 backdrop-blur-sm">
               <RefreshCw className="h-7 w-7 animate-spin text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
               <p className="mt-2 text-xs font-semibold text-tinta/70">Cargando cartografía municipal y departamental…</p>
