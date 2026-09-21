@@ -492,9 +492,9 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
             )}
           </div>
 
-          {/* Selector de capa de mapa (Google / OSM / Satélite / Carto), nivel y Botón Reset */}
+          {/* Selector de capa de mapa (Google / Satélite), nivel y Botón Reset */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Switcher de Mapa Base */}
+            {/* Switcher de Mapa Base (sólo Google Maps y Satélite; OSM y Carto se desactivaron porque no cargan) */}
             <div className="flex items-center rounded-lg border border-tinta/15 bg-tinta/5 p-0.5 text-[10px]">
               <button
                 type="button"
@@ -519,30 +519,6 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
                 title="Google Maps con vista satelital híbrida"
               >
                 Satélite
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipoMapa('osm')}
-                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  tipoMapa === 'osm'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-tinta/70 hover:text-tinta'
-                }`}
-                title="Mapa estándar OpenStreetMap"
-              >
-                OpenStreetMap
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipoMapa('carto')}
-                className={`px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                  tipoMapa === 'carto'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-tinta/70 hover:text-tinta'
-                }`}
-                title="CartoDB Voyager de alta legibilidad"
-              >
-                Carto
               </button>
             </div>
 
