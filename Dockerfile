@@ -28,6 +28,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder --chown=astro:nodejs /app/dist ./dist
 COPY --from=builder --chown=astro:nodejs /app/public ./public
 
@@ -35,4 +36,4 @@ USER astro
 
 EXPOSE 4321
 
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["node", "./scripts/serve.mjs"]

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import {
   CheckCircle2, Coins, FileText, Fuel, Landmark,
   OctagonX, PieChart, RefreshCw, TrendingUp, Trophy,
@@ -7,11 +7,19 @@ import type { DashboardData, Filters } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
 import Panel from './Panel';
 import KpiCard from '../kpi/KpiCard';
-import TendenciaLineChart from '../charts/TendenciaLineChart';
-import DonutChart from '../charts/DonutChart';
-import BarChartGasera from '../charts/BarChartGasera';
-import BarChartAseguradora from '../charts/BarChartAseguradora';
 import FiltrosPanel from '../filtros/FiltrosPanel';
+
+// Los gráficos se cargan bajo demanda: Recharts (~400 KB) se descarga en un chunk
+// separado tras la carga inicial, así el tablero pinta primero los KPIs y filtros.
+const TendenciaLineChart = lazy(() => import('../charts/TendenciaLineChart'));
+const DonutChart = lazy(() => import('../charts/DonutChart'));
+const BarChartGasera = lazy(() => import('../charts/BarChartGasera'));
+const BarChartAseguradora = lazy(() => import('../charts/BarChartAseguradora'));
+
+// Marcador de carga ligera mientras se descarga/ejecuta el chunk de los gráficos.
+function EsqueletoGrafico({ clases }: { clases: string }) {
+  return <div className={`animate-pulse rounded-xl bg-tinta/5 ${clases}`} />;
+}
 
 interface Props {
   datosIniciales: DashboardData;
@@ -137,19 +145,27 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       <section className="grid gap-3 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
           <Panel titulo="Tendencia mensual de siniestros y pagos" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
-            <TendenciaLineChart data={tendencia} />
+            <Suspense fallback={<EsqueletoGrafico clases="h-64" />}>
+              <TendenciaLineChart data={tendencia} />
+            </Suspense>
           </Panel>
           <div className="grid gap-3 lg:grid-cols-2">
             <Panel titulo="Siniestros por aseguradora (total del periodo)" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
-              <BarChartAseguradora data={porAseguradora} />
+              <Suspense fallback={<EsqueletoGrafico clases="h-52" />}>
+                <BarChartAseguradora data={porAseguradora} />
+              </Suspense>
             </Panel>
             <Panel titulo="Por gasera" icono={<Fuel className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.16}>
-              <BarChartGasera data={porGasera} />
+              <Suspense fallback={<EsqueletoGrafico clases="h-52" />}>
+                <BarChartGasera data={porGasera} />
+              </Suspense>
             </Panel>
           </div>
         </div>
         <Panel titulo="Porciones por producto" icono={<PieChart className="h-5 w-5 text-[#8b7bff]" />} delay={0.09} className="flex h-full flex-col">
-          <DonutChart data={porProducto} />
+          <Suspense fallback={<EsqueletoGrafico clases="min-h-[300px] flex-1" />}>
+            <DonutChart data={porProducto} />
+          </Suspense>
         </Panel>
       </section>
     </div>
