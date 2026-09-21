@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Download, FileSearch, FileSpreadsheet, Table2, Upload, X } from 'lucide-react';
+import { AlertTriangle, Download, FileSearch, FileSpreadsheet, Loader2, Table2, Upload, X } from 'lucide-react';
 import type { Filters, PaginaTabla, RegistroTabla } from '../../lib/types';
 import { formatCOP, formatFecha, formatNum } from '../../utils/formatters';
 import { queryString } from '../../utils/fetcher';
@@ -9,7 +9,10 @@ import { estadoColorCat } from '../../lib/normalizacion';
 
 interface Props {
   filtros: Filters;
+  datosIniciales?: PaginaTabla;
 }
+
+export const TAMANO_PAGINA = 15;
 
 const ESTADO_STYLE: Record<string, string> = {
   verde: 'bg-emerald-100/80 text-emerald-800 border-emerald-300/80 dark:bg-xuma-verde-claro/15 dark:text-xuma-verde-claro dark:border-xuma-verde-claro/40',
@@ -38,11 +41,11 @@ async function obtenerPaginas(q: string, desdePag: number, hastaPag: number, tam
 }
 
 // Tabla de detalle paginada, animada y exportable a Excel.
-export default function TablaSiniestros({ filtros }: Props) {
+export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
   const [pagina, setPagina] = useState(1);
-  const [tamano, setTamano] = useState(15);
-  const [data, setData] = useState<PaginaTabla | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [tamano, setTamano] = useState(TAMANO_PAGINA);
+  const [data, setData] = useState<PaginaTabla | null>(datosIniciales ?? null);
+  const [cargando, setCargando] = useState(datosIniciales == null);
   const [error, setError] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoExport, setModoExport] = useState<ModoExport>('todo');
@@ -50,8 +53,14 @@ export default function TablaSiniestros({ filtros }: Props) {
   const [rangoHasta, setRangoHasta] = useState(1);
   const [exportando, setExportando] = useState(false);
   const [errorExport, setErrorExport] = useState('');
+  const primeraCarga = useRef(datosIniciales != null);
 
   useEffect(() => {
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      setCargando(false);
+      return;
+    }
     let cancelado = false;
     setCargando(true);
     setError('');
@@ -130,9 +139,16 @@ export default function TablaSiniestros({ filtros }: Props) {
           Detalle de siniestros
         </h2>
         <div className="flex items-center gap-3">
-          {data && !cargando && (
+          {data && data.total > 0 && (
             <span className="rounded-full bg-tinta/10 px-3 py-1 text-xs font-semibold text-tinta/70">
-              {formatNum(data.total)} registro{data.total === 1 ? '' : 's'} · mostrando {formatNum(mostrando)}
+              {cargando ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Actualizando…
+                </span>
+              ) : (
+                `${formatNum(data.total)} registro${data.total === 1 ? '' : 's'} · mostrando ${formatNum(mostrando)}`
+              )}
             </span>
           )}
           <button
@@ -155,7 +171,10 @@ export default function TablaSiniestros({ filtros }: Props) {
       )}
 
       <div className="overflow-x-auto rounded-2xl border border-tinta/15 bg-white/40 dark:bg-transparent">
-        <table className="w-full min-w-[880px] border-collapse text-sm">
+        <table
+          aria-busy={cargando}
+          className={`w-full min-w-[880px] border-collapse text-sm transition-opacity ${cargando && data ? 'opacity-60' : ''}`}
+        >
           <thead className="border-b border-tinta/15 bg-slate-200/90 dark:bg-white/[0.06]">
             <tr className="text-left text-[11px] font-extrabold tracking-wider text-slate-800 uppercase dark:text-slate-200">
               <th className="py-3.5 pr-4 pl-4">Contrato</th>
@@ -169,7 +188,7 @@ export default function TablaSiniestros({ filtros }: Props) {
             </tr>
           </thead>
           <tbody>
-            {cargando ? (
+            {cargando && !data ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {Array.from({ length: 8 }).map((__, j) => (
@@ -181,16 +200,16 @@ export default function TablaSiniestros({ filtros }: Props) {
               ))
             ) : data && data.registros.length > 0 ? (
               <AnimatePresence initial={false} mode="popLayout">
-                {data.registros.map((r, i) => {
+                {data.registros.map((r) => {
                   const cat = estadoColorCat(r.estado);
                   return (
                     <motion.tr
                       key={r.id_caso}
                       layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      initial={false}
+                      animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
+                      transition={{ duration: 0.15 }}
                       className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
                     >
                       <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>

@@ -317,6 +317,7 @@ const CAMPOS_TABLA = `
 `;
 
 export async function getTabla(f: Filters, page: number, pageSize: number): Promise<PaginaTabla> {
+  return conCache(`tabla:${serializarFiltros(f)}:${page}:${pageSize}`, async () => {
   const w = construirWhere(f);
   const totalRow = await queryOne<{ n: number }>(
     `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${w.cond}`, w.params,
@@ -348,6 +349,7 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
     page,
     pageSize,
   };
+  });
 }
 
 // ---- Metadatos para poblar los filtros ----------------------------------------

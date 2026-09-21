@@ -1,11 +1,15 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
 import DetalleApp from '../components/detalle/DetalleApp.tsx';
-import { filtrosPorDefecto, getMetadatos } from '../lib/query';
+import { filtrosPorDefecto, getMetadatos, getTabla } from '../lib/query';
+import { TAMANO_PAGINA } from '../components/tabla/TablaSiniestros';
 
 const f = filtrosPorDefecto();
-const metadatos = await getMetadatos(f);
+const [metadatos, primeraPagina] = await Promise.all([
+  getMetadatos(f),
+  getTabla(f, 1, TAMANO_PAGINA),
+]);
 ---
 <DashboardLayout title="Detalle · Gestión de Siniestros | Promigas">
-  <DetalleApp client:load metadatos={metadatos} filtrosIniciales={f} />
+  <DetalleApp client:load metadatos={metadatos} filtrosIniciales={f} datosIniciales={primeraPagina} />
 </DashboardLayout>

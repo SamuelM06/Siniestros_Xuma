@@ -1,18 +1,19 @@
 import { useCallback, useState } from 'react';
-import type { Filters, Metadatos } from '../../lib/types';
+import type { Filters, Metadatos, PaginaTabla } from '../../lib/types';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 import TablaSiniestros from '../tabla/TablaSiniestros';
 
 interface Props {
   metadatos: Metadatos;
   filtrosIniciales: Filters;
+  datosIniciales?: PaginaTabla;
 }
 
 const DEFAULT_DESDE = '2026-01-01';
 const DEFAULT_HASTA = '2026-12-31';
 
 // Vista de detalle: filtros + tabla paginada y exportable de siniestros.
-export default function DetalleApp({ metadatos, filtrosIniciales }: Props) {
+export default function DetalleApp({ metadatos, filtrosIniciales, datosIniciales }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
 
   const cambioFiltro = useCallback((cambio: Partial<Filters>) => {
@@ -49,7 +50,7 @@ export default function DetalleApp({ metadatos, filtrosIniciales }: Props) {
         onReset={resetFiltros}
         activos={activos}
       />
-      <TablaSiniestros filtros={filtros} />
+      <TablaSiniestros filtros={filtros} datosIniciales={datosIniciales} />
     </div>
   );
 }
