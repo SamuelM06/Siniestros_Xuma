@@ -187,9 +187,9 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               <th className="py-3.5 pr-4 text-right">Monto</th>
             </tr>
           </thead>
-          <tbody>
-            {cargando && !data ? (
-              Array.from({ length: 5 }).map((_, i) => (
+          {cargando && !data ? (
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {Array.from({ length: 8 }).map((__, j) => (
                     <td key={j} className="px-4 py-3">
@@ -197,48 +197,53 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                     </td>
                   ))}
                 </tr>
-              ))
-            ) : data && data.registros.length > 0 ? (
-              <AnimatePresence initial={false} mode="popLayout">
-                {data.registros.map((r) => {
-                  const cat = estadoColorCat(r.estado);
-                  return (
-                    <motion.tr
-                      key={r.id_caso}
-                      layout
-                      initial={false}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
-                    >
-                      <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
-                      <td className="py-3.5 pr-4 font-medium text-tinta/90">{r.nombre_asegurado ?? '—'}</td>
-                      <td className="py-3.5 pr-4 text-tinta/80">{r.aseguradora}</td>
-                      <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
-                      <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
-                      <td className="py-3.5 pr-4">
-                        <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${ESTADO_STYLE[cat] ?? ESTADO_STYLE.gris}`}>
-                          {r.estado}
-                        </span>
+              ))}
+            </tbody>
+          ) : (
+              <AnimatePresence initial={false} mode="wait">
+                <motion.tbody
+                  key={`${pagina}:${tamano}:${JSON.stringify(filtros)}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.16 }}
+                >
+                  {data && data.registros.length > 0 ? (
+                    data.registros.map((r) => {
+                      const cat = estadoColorCat(r.estado);
+                      return (
+                        <tr
+                          key={r.id_caso}
+                          className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
+                        >
+                          <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
+                          <td className="py-3.5 pr-4 font-medium text-tinta/90">{r.nombre_asegurado ?? '—'}</td>
+                          <td className="py-3.5 pr-4 text-tinta/80">{r.aseguradora}</td>
+                          <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
+                          <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
+                          <td className="py-3.5 pr-4">
+                            <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${ESTADO_STYLE[cat] ?? ESTADO_STYLE.gris}`}>
+                              {r.estado}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap py-3.5 pr-4 text-xs text-tinta/75">{formatFecha(r.fecha_radicacion)}</td>
+                          <td className="py-3.5 pr-4 text-right font-bold text-emerald-800 tabular dark:text-xuma-verde-claro">
+                            {r.monto != null ? formatCOP(r.monto) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-tinta/50">
+                        <FileSearch className="mx-auto mb-2 h-10 w-10 text-tinta-dim" />
+                        <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
                       </td>
-                      <td className="whitespace-nowrap py-3.5 pr-4 text-xs text-tinta/75">{formatFecha(r.fecha_radicacion)}</td>
-                      <td className="py-3.5 pr-4 text-right font-bold text-emerald-800 tabular dark:text-xuma-verde-claro">
-                        {r.monto != null ? formatCOP(r.monto) : '—'}
-                      </td>
-                    </motion.tr>
-                  );
-                })}
+                    </tr>
+                  )}
+                </motion.tbody>
               </AnimatePresence>
-            ) : (
-              <tr>
-                <td colSpan={8} className="py-12 text-center text-tinta/50">
-                  <FileSearch className="mx-auto mb-2 h-10 w-10 text-tinta-dim" />
-                  <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
+          )}
         </table>
       </div>
 

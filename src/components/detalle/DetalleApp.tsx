@@ -37,6 +37,7 @@ export default function DetalleApp({ metadatos, filtrosIniciales, datosIniciales
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
+    (filtros.aseguradora ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);

@@ -39,7 +39,11 @@ const VAL_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 function parseFecha(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
   const v = raw.trim();
-  return VAL_FECHA.test(v) ? v : undefined;
+  if (!VAL_FECHA.test(v)) return undefined;
+  const [yy = 0, mm = 0, dd = 0] = v.split('-').map(Number);
+  const fecha = new Date(yy, mm - 1, dd);
+  if (fecha.getFullYear() !== yy || fecha.getMonth() !== mm - 1 || fecha.getDate() !== dd) return undefined;
+  return v;
 }
 
 function parseTexto(raw: string | null | undefined, max = 80): string | undefined {
@@ -59,7 +63,8 @@ export function parseFilters(url: URL): Filters {
   const gasera = parseTexto(url.searchParams.get('gasera'), 120);
   const producto = parseTexto(url.searchParams.get('producto'), 160);
   const estado = parseTexto(url.searchParams.get('estado'), 80);
-  return { contrato, gasera, producto, estado, desde: rango.desde, hasta: rango.hasta };
+  const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
+  return { contrato, gasera, producto, estado, aseguradora, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -123,11 +128,11 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
     // Si el usuario fijó fechas personalizadas (distintas al año default), se respetan
     if (f.desde && f.hasta && (f.desde !== `${ANIO_REPORTE}-01-01` || f.hasta !== `${ANIO_REPORTE}-12-31`)) {
       params.push(f.desde, f.hasta);
-      cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion <= $${params.length}::date`);
+      cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
     }
   } else {
     params.push(f.desde, f.hasta);
-    cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion <= $${params.length}::date`);
+    cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
   }
 
   if (f.gasera) {
@@ -141,6 +146,10 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   if (f.estado) {
     params.push(f.estado);
     cond.push(`estado_norm = $${params.length}`);
+  }
+  if (f.aseguradora) {
+    params.push(f.aseguradora);
+    cond.push(`aseguradora_norm = $${params.length}`);
   }
   return { cond: cond.join(' AND '), params };
 }
