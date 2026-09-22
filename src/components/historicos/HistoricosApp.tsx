@@ -74,7 +74,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
     };
   }, [filtros]);
 
-  const { anios, sinFecha } = data;
+  const { anios, mensual, sinFecha } = data;
   const totalHist = anios.reduce((s, a) => s + a.total, 0);
   const pagadosHist = anios.reduce((s, a) => s + a.pagados, 0);
   const totalPagadoHist = anios.reduce((s, a) => s + a.totalPagado, 0);
@@ -139,9 +139,9 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
         />
       </section>
 
-      <Panel titulo="Tendencia anual de casos y % pagado" icono={<CalendarRange className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
+      <Panel titulo="Tendencia mensual por año" icono={<CalendarRange className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
         <Suspense fallback={<EsqueletoGrafico clases="h-[300px]" />}>
-          <TendenciaAnualChart data={anios} />
+          <TendenciaAnualChart series={mensual} />
         </Suspense>
       </Panel>
 

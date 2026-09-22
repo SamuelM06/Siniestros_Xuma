@@ -2,7 +2,7 @@ import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
+  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora, SerieMensualAnio,
 } from './types';
 
 // ============================================================================
@@ -657,8 +657,18 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       WHERE ${cond.join(' AND ')}
       GROUP BY 1 ORDER BY 1
     `;
-    const [rows, sinFechaR] = await Promise.all([
+    const [rows, filasMensuales, sinFechaR] = await Promise.all([
       query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
+      query<{ anio: number; mes: number; total: number }>(
+        `WITH base AS (${BASE})
+         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+                count(*)::int AS total
+         FROM base
+         WHERE ${cond.join(' AND ')}
+         GROUP BY 1, 2 ORDER BY 1, 2`,
+        params,
+      ),
       (async () => {
         const condSF: string[] = ['fecha_radicacion IS NULL'];
         const paramsSF: unknown[] = [];
@@ -673,6 +683,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
     ]);
     const mapa = new Map(rows.map((r) => [Number(r.anio), r]));
     const anios: AnioHist[] = [];
+    const mensual: SerieMensualAnio[] = [];
     for (let y = ANIO_HIST_MIN; y <= ANIO_HIST_MAX; y += 1) {
       if (f.anio && Number(f.anio) !== y) continue;
       const r = mapa.get(y);
@@ -686,8 +697,13 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
         porcPagado: total > 0 ? Math.round((pagados / total) * 1000) / 10 : 0,
         totalPagado: r ? Number(r.total_pagado) : 0,
       });
+      const meses = Array<number>(12).fill(0);
+      for (const fm of filasMensuales) {
+        if (Number(fm.anio) === y) meses[Number(fm.mes) - 1] = Number(fm.total);
+      }
+      mensual.push({ anio: y, meses });
     }
-    return { anios, sinFecha: Number(sinFechaR?.n ?? 0) };
+    return { anios, mensual, sinFecha: Number(sinFechaR?.n ?? 0) };
   });
 }
 

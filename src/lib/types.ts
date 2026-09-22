@@ -121,8 +121,14 @@ export interface AnioHist {
   totalPagado: number;
 }
 
+export interface SerieMensualAnio {
+  anio: number;
+  meses: number[]; // 12 posiciones: índice 0 = enero
+}
+
 export interface HistoricosData {
   anios: AnioHist[];
+  mensual: SerieMensualAnio[];
   sinFecha: number;
 }
 
