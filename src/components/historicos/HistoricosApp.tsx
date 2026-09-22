@@ -130,7 +130,9 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
           </p>
         </div>
 
-        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:order-2 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores">
+        {/* En xl las 4 tarjetas se reparten a alto completo de la columna de
+            gráficos (filas iguales, estiran solas). */}
+        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:order-2 xl:grid-cols-1 xl:grid-rows-4" aria-label="Indicadores">
           <KpiCard
             titulo="Total histórico"
             valor={totalHist}

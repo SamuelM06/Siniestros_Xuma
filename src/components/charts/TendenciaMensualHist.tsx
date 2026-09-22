@@ -7,9 +7,10 @@ interface Props {
   data: PuntoMesHist[];
 }
 
-// Etiqueta de barra con píldora translúcida detrás: el número se lee aunque
-// la línea de dinero pagado o sus puntos pasen por detrás (SVG no admite
-// desenfoque real, la píldora semitransparente da el mismo efecto).
+// Etiqueta de barra con píldora casi sólida del color del panel detrás: el
+// número se lee aunque la línea de dinero pagado o sus puntos pasen por
+// detrás (SVG no admite desenfoque real, la píldora opaca da el mismo
+// efecto). Usa --cpanel-fondo/--ctinta para legibilidad en ambos temas.
 function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
   const cx = Number(props.x);
   const cy = Number(props.y);
@@ -29,10 +30,10 @@ function EtiquetaPildora(props: { x?: number | string; y?: number | string; valu
         width={ancho}
         height={alto}
         rx={alto / 2}
-        fill="var(--qtooltip-fondo)"
-        fillOpacity={0.85}
-        stroke="var(--qtooltip-borde)"
-        strokeOpacity={0.6}
+        fill="var(--cpanel-fondo)"
+        fillOpacity={0.95}
+        stroke="var(--cglass-borde)"
+        strokeOpacity={0.8}
       />
       <text
         x={cx}
