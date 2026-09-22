@@ -686,6 +686,9 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
     const mensual: SerieMensualAnio[] = [];
     for (let y = ANIO_HIST_MIN; y <= ANIO_HIST_MAX; y += 1) {
       if (f.anio && Number(f.anio) !== y) continue;
+      // Solo el último año del rango (en curso) es parcial; los anteriores
+      // están cerrados y sus meses sin casos son ceros reales.
+      const esAnioParcial = y === ANIO_HIST_MAX;
       const r = mapa.get(y);
       const total = r ? Number(r.total) : 0;
       const pagados = r ? Number(r.pagados) : 0;
@@ -697,9 +700,18 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
         porcPagado: total > 0 ? Math.round((pagados / total) * 1000) / 10 : 0,
         totalPagado: r ? Number(r.total_pagado) : 0,
       });
-      const meses = Array<number>(12).fill(0);
+      const meses: (number | null)[] = Array(12).fill(esAnioParcial ? null : 0);
       for (const fm of filasMensuales) {
         if (Number(fm.anio) === y) meses[Number(fm.mes) - 1] = Number(fm.total);
+      }
+      if (esAnioParcial) {
+        // El año en curso es parcial: los meses posteriores al último con
+        // dato quedan en null para que la línea se corte (no caiga a cero).
+        const maxMesObs = filasMensuales.reduce(
+          (m, fm) => (Number(fm.anio) === y ? Math.max(m, Number(fm.mes)) : m),
+          0,
+        );
+        for (let m = maxMesObs; m < 12; m += 1) meses[m] = null;
       }
       mensual.push({ anio: y, meses });
     }

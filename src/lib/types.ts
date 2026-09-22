@@ -123,7 +123,9 @@ export interface AnioHist {
 
 export interface SerieMensualAnio {
   anio: number;
-  meses: number[]; // 12 posiciones: índice 0 = enero
+  // 12 posiciones (índice 0 = enero). `null` = mes sin dato (año parcial en
+  // curso); `0` = mes con dato pero sin casos.
+  meses: (number | null)[];
 }
 
 export interface HistoricosData {
