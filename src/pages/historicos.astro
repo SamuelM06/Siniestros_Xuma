@@ -1,0 +1,20 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import HistoricosApp from '../components/historicos/HistoricosApp.tsx';
+import { filtrosPorDefecto, getHistoricos, getMetadatos } from '../lib/query';
+
+const f = filtrosPorDefecto();
+const rangoHist = { ...f, desde: '2018-01-01', hasta: '2026-12-31' };
+const [historicos, metadatos] = await Promise.all([
+  getHistoricos(f),
+  getMetadatos(rangoHist),
+]);
+---
+<DashboardLayout title="Históricos · Gestión de Siniestros | Promigas">
+  <HistoricosApp
+    client:load
+    datosIniciales={historicos}
+    filtrosIniciales={{ ...f, desde: '2018-01-01', hasta: '2026-12-31' }}
+    metadatos={metadatos}
+  />
+</DashboardLayout>

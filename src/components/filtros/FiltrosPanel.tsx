@@ -13,6 +13,7 @@ interface Props {
   activos: number;
   cargando?: boolean;
   mostrarTipoSiniestro?: boolean;
+  modoAnio?: boolean;
 }
 
 // Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
@@ -46,10 +47,16 @@ function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | 
 }
 
 // Panel de filtros en una sola línea horizontal con debounce en el input de contrato.
-export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false }: Props) {
+// En modo año (vista Históricos) se reemplaza Mes por Año y se ocultan
+// contrato/estado/tipo, dejando: Año, gasera, aseguradora y producto.
+export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false, modoAnio = false }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
 
   const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
+  const aniosHist = useMemo(
+    () => (metadatos.anios ?? []).filter((a) => a >= 2018).map((a) => ({ valor: String(a), etiqueta: String(a) })),
+    [metadatos.anios],
+  );
   const aseguradoras = useMemo(() => (metadatos.aseguradoras ?? []).map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
   const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
@@ -64,6 +71,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   const elegirMes = useCallback((v: string) => {
     onChange({ mes: v || undefined, desde: undefined, hasta: undefined });
+  }, [onChange]);
+
+  const elegirAnio = useCallback((v: string) => {
+    onChange({ anio: v || undefined });
   }, [onChange]);
 
   const elegirAseguradora = useCallback((v: string) => {
@@ -107,7 +118,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           <span>Filtros</span>
         </div>
 
-        {/* Buscador Contrato / Cédula */}
+        {/* Buscador Contrato / Cédula (oculto en modo año) */}
+        {!modoAnio && (
         <div className="relative min-w-[130px] flex-1 sm:max-w-[180px]">
           <input
             type="text"
@@ -119,8 +131,21 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
           <IdCard className="absolute left-1.5 top-2 h-3.5 w-3.5 text-tinta/40" />
         </div>
+        )}
 
-        {/* Mes */}
+        {/* Mes o Año (según modo) */}
+        {modoAnio ? (
+          <div className="min-w-[110px] flex-1">
+            <SelectXuma
+              valor={filtros.anio ?? ''}
+              opciones={aniosHist}
+              alCambiar={elegirAnio}
+              placeholder="Año"
+              etiquetaTodo="Todos los años"
+              compact
+            />
+          </div>
+        ) : (
         <div className="min-w-[125px] flex-1">
           <SelectXuma
             valor={filtros.mes ?? ''}
@@ -131,6 +156,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             compact
           />
         </div>
+        )}
 
         {/* Aseguradora */}
         {aseguradoras.length > 0 && (
@@ -170,7 +196,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </div>
 
-        {/* Estado */}
+        {/* Estado (oculto en modo año) */}
+        {!modoAnio && (
         <div className="min-w-[130px] flex-1">
           <SelectXuma
             valor={filtros.estado ?? ''}
@@ -181,9 +208,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             compact
           />
         </div>
+        )}
 
         {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa) */}
-        {mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
+        {!modoAnio && mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
           <div className="min-w-[140px] flex-1">
             <SelectXuma
               valor={filtros.tipo_siniestro ?? ''}

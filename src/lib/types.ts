@@ -112,6 +112,20 @@ export interface DashboardData {
   metadatos: Metadatos;
 }
 
+export interface AnioHist {
+  anio: number;
+  total: number;
+  pagados: number;
+  objetados: number;
+  porcPagado: number;
+  totalPagado: number;
+}
+
+export interface HistoricosData {
+  anios: AnioHist[];
+  sinFecha: number;
+}
+
 export interface RespuestaError {
   error: string;
 }

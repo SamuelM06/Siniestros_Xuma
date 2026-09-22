@@ -2,7 +2,7 @@ import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  EstatusData, Filters, FilaEstatus, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
+  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
 } from './types';
 
 // ============================================================================
@@ -37,6 +37,11 @@ const BASE = `
 
 const ANIO_REPORTE = 2026;
 const ANIO_PREVIO = ANIO_REPORTE - 1;
+const ANIO_HIST_MIN = 2018;
+const ANIO_HIST_MAX = ANIO_REPORTE;
+// Montos por encima de 10 mil M son basura de carga (1 registro corrupto en 2024):
+// se excluyen de las sumas históricas para no distorsionar los totales.
+const MONTO_MAX_VALIDO = 1e10;
 
 // ---- Filtros ------------------------------------------------------------------
 const VAL_FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,6 +62,15 @@ function parseTexto(raw: string | null | undefined, max = 80): string | undefine
   return v === '' ? undefined : v;
 }
 
+const VAL_ANIO = /^\d{4}$/;
+
+function parseAnio(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  const v = raw.trim();
+  if (!VAL_ANIO.test(v)) return undefined;
+  return v;
+}
+
 function clampMinMax(desde?: string, hasta?: string): { desde: string; hasta: string } {
   if (desde && hasta && hasta < desde) return { desde: hasta, hasta: desde };
   return { desde: desde ?? `${ANIO_REPORTE}-01-01`, hasta: hasta ?? `${ANIO_REPORTE}-12-31` };
@@ -70,7 +84,8 @@ export function parseFilters(url: URL): Filters {
   const estado = parseTexto(url.searchParams.get('estado'), 80);
   const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
   const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
-  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, desde: rango.desde, hasta: rango.hasta };
+  const anio = parseAnio(url.searchParams.get('anio'));
+  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, anio, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -601,6 +616,81 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   });
 }
 
+// ---- Histórico anual (tendencia por años) --------------------------------------
+// Agrupa por año (2018–2026) con la misma BASE y filtros dimensionales
+// (gasera, aseguradora, producto, anio). Los montos > MONTO_MAX_VALIDO se
+// excluyen de las sumas (dato corrupto), pero los conteos se mantienen.
+export async function getHistoricos(f: Filters): Promise<HistoricosData> {
+  const rel = serializarFiltros({
+    anio: f.anio, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto,
+  });
+  return conCache(`historicos:${rel}`, async () => {
+    const cond: string[] = [
+      'fecha_radicacion IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+    ];
+    const params: unknown[] = [ANIO_HIST_MIN, ANIO_HIST_MAX];
+    if (f.anio) {
+      params.push(Number(f.anio));
+      cond.push('EXTRACT(YEAR FROM fecha_radicacion) = $' + params.length);
+    }
+    if (f.gasera) {
+      params.push(f.gasera);
+      cond.push('gasera_norm = $' + params.length);
+    }
+    if (f.producto) {
+      params.push(f.producto);
+      cond.push('producto_norm = $' + params.length);
+    }
+    if (f.aseguradora) {
+      params.push(f.aseguradora);
+      cond.push('aseguradora_norm = $' + params.length);
+    }
+    const sql = `
+      WITH base AS (${BASE})
+      SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+             count(*)::int AS total,
+             count(*) FILTER (WHERE estado_norm = 'Pagado')::int AS pagados,
+             count(*) FILTER (WHERE estado_norm = 'Objetado')::int AS objetados,
+             COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS total_pagado
+      FROM base
+      WHERE ${cond.join(' AND ')}
+      GROUP BY 1 ORDER BY 1
+    `;
+    const [rows, sinFechaR] = await Promise.all([
+      query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
+      (async () => {
+        const condSF: string[] = ['fecha_radicacion IS NULL'];
+        const paramsSF: unknown[] = [];
+        if (f.gasera) { paramsSF.push(f.gasera); condSF.push(`gasera_norm = $${paramsSF.length}`); }
+        if (f.producto) { paramsSF.push(f.producto); condSF.push(`producto_norm = $${paramsSF.length}`); }
+        if (f.aseguradora) { paramsSF.push(f.aseguradora); condSF.push(`aseguradora_norm = $${paramsSF.length}`); }
+        return queryOne<{ n: number }>(
+          `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${condSF.join(' AND ')}`,
+          paramsSF,
+        );
+      })(),
+    ]);
+    const mapa = new Map(rows.map((r) => [Number(r.anio), r]));
+    const anios: AnioHist[] = [];
+    for (let y = ANIO_HIST_MIN; y <= ANIO_HIST_MAX; y += 1) {
+      if (f.anio && Number(f.anio) !== y) continue;
+      const r = mapa.get(y);
+      const total = r ? Number(r.total) : 0;
+      const pagados = r ? Number(r.pagados) : 0;
+      anios.push({
+        anio: y,
+        total,
+        pagados,
+        objetados: r ? Number(r.objetados) : 0,
+        porcPagado: total > 0 ? Math.round((pagados / total) * 1000) / 10 : 0,
+        totalPagado: r ? Number(r.total_pagado) : 0,
+      });
+    }
+    return { anios, sinFecha: Number(sinFechaR?.n ?? 0) };
+  });
+}
+
 // ---- Mapa geográfico de siniestros (por departamento y municipios) ------------
 export async function getMapa(f: Filters): Promise<MapaData> {
   return conCache(`mapa:${serializarFiltros(f)}`, async () => {
@@ -708,6 +798,7 @@ export async function precalentarCache(): Promise<void> {
       getPorGasera(f),
       getPorProducto(f),
       getPorTipoSiniestro(f),
+      getHistoricos(f),
     ]);
     // Fase 2: Mapa y Estatus (el detalle se consulta bajo demanda: sus filas
     // contienen datos personales y no se cachean).
