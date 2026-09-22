@@ -11,15 +11,15 @@ interface Props {
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 // Separación vertical mínima entre etiquetas de año (px) y alto aproximado
 // del área de trazado, para convertir esa separación a unidades de datos.
-const GAP_ETIQUETA_PX = 20;
+const GAP_ETIQUETA_PX = 22;
 const ALTO_TRAZADO_PX = 370;
-// Tope del desplazamiento vertical de etiquetas (px): debe cubrir el peor
-// caso (todas las líneas terminando juntas) sin salirse del gráfico.
-const MAX_DY_ETIQUETA = 90;
+// Tope del desplazamiento vertical de marcadores finales (px).
+const MAX_DY_ETIQUETA = 100;
 
 // Comparativa interanual: meses en el eje X y una línea por cada año.
 // - El año en curso se corta en el último mes con dato (null = sin dato).
-// - Las etiquetas de año se separan entre sí (anti-colisión) y llevan halo.
+// - Los marcadores finales (punto + rótulo) se separan con distancia mínima
+//   garantizada; el conector fino marca el valor real sobre la línea.
 // - El año parcial se destaca: línea gruesa encima + punto pulsante animado.
 export default function TendenciaAnualChart({ series }: Props) {
   const [resaltado, setResaltado] = useState<number | null>(null);
@@ -57,29 +57,27 @@ export default function TendenciaAnualChart({ series }: Props) {
     });
   }, [ordenadas]);
 
-  // Anti-colisión: agrupa etiquetas cuyos valores finales están muy cerca y
-  // reparte cada grupo con separación vertical en px (dy), con tope.
+  // Layout de marcadores finales: ordena todos los puntos finales por valor
+  // (2026 queda arriba del todo si es el mayor) y les garantiza una
+  // separación vertical mínima entre sí, sin importar qué tan pegados estén
+  // los valores. Pasada adelante + pasada atrás para repartir el espacio.
   const dyEtiqueta = useMemo(() => {
     const brecha = (yMax * GAP_ETIQUETA_PX) / ALTO_TRAZADO_PX;
-    const items = [...lineas]
+    const items = lineas
       .filter((l) => l.ultimo >= 0)
       .sort((a, b) => a.ultimoValor - b.ultimoValor);
-    const grupos: typeof items[] = [];
-    for (const it of items) {
-      const g = grupos[grupos.length - 1];
-      if (g && g.length > 0 && it.ultimoValor - (g[g.length - 1]?.ultimoValor ?? 0) <= brecha) {
-        g.push(it);
-      } else {
-        grupos.push([it]);
-      }
+    const pos = items.map((it) => it.ultimoValor);
+    for (let i = 1; i < pos.length; i += 1) {
+      pos[i] = Math.max(pos[i] ?? 0, (pos[i - 1] ?? 0) + brecha);
+    }
+    for (let i = pos.length - 2; i >= 0; i -= 1) {
+      pos[i] = Math.min(pos[i] ?? 0, (pos[i + 1] ?? 0) - brecha);
     }
     const dy = new Map<number, number>();
-    for (const g of grupos) {
-      g.forEach((it, k) => {
-        const d = (k - (g.length - 1) / 2) * GAP_ETIQUETA_PX;
-        dy.set(it.anio, Math.max(-MAX_DY_ETIQUETA, Math.min(MAX_DY_ETIQUETA, d)));
-      });
-    }
+    items.forEach((it, i) => {
+      const d = (((pos[i] ?? 0) - it.ultimoValor) / brecha) * GAP_ETIQUETA_PX;
+      dy.set(it.anio, Math.max(-MAX_DY_ETIQUETA, Math.min(MAX_DY_ETIQUETA, d)));
+    });
     return dy;
   }, [lineas, yMax]);
 
@@ -169,18 +167,27 @@ export default function TendenciaAnualChart({ series }: Props) {
                     if (cx === undefined || cy === undefined || index === undefined) return <g />;
                     if (index !== l.ultimo) return <g />;
                     const op = atenuada ? 0.15 : 1;
+                    // El marcador final (punto + rótulo) se desplaza a cy + dy
+                    // para darle aire respecto a los demás; el conector fino
+                    // marca el valor real sobre la línea.
+                    const my = cy + dy;
+                    const conector =
+                      Math.abs(dy) > 1 ? (
+                        <line x1={cx} y1={cy} x2={cx} y2={my} stroke={l.color} strokeWidth={1} opacity={0.55} />
+                      ) : null;
                     if (l.parcial) {
                       // Año en curso: píldora con el año + punto pulsante.
                       return (
                         <g style={{ opacity: op }}>
-                          <circle cx={cx} cy={cy} r={5} fill={l.color} opacity={0.45}>
+                          {conector}
+                          <circle cx={cx} cy={my} r={5} fill={l.color} opacity={0.45}>
                             <animate attributeName="r" values="5;11;5" dur="1.8s" repeatCount="indefinite" />
                             <animate attributeName="opacity" values="0.45;0;0.45" dur="1.8s" repeatCount="indefinite" />
                           </circle>
-                          <circle cx={cx} cy={cy} r={4.5} fill={l.color} stroke="#ffffff" strokeWidth={2} />
+                          <circle cx={cx} cy={my} r={4.5} fill={l.color} stroke="#ffffff" strokeWidth={2} />
                           <rect
                             x={cx + 10}
-                            y={cy - 10 + dy}
+                            y={my - 10}
                             width={40}
                             height={20}
                             rx={10}
@@ -190,7 +197,7 @@ export default function TendenciaAnualChart({ series }: Props) {
                           />
                           <text
                             x={cx + 30}
-                            y={cy + 4.5 + dy}
+                            y={my + 4.5}
                             textAnchor="middle"
                             fontSize={11}
                             fontWeight={800}
@@ -204,13 +211,11 @@ export default function TendenciaAnualChart({ series }: Props) {
                     }
                     return (
                       <g style={{ opacity: op }}>
-                        {Math.abs(dy) > 1 ? (
-                          <line x1={cx + 4} y1={cy} x2={cx + 9} y2={cy + dy + 3} stroke={l.color} strokeWidth={1} opacity={0.6} />
-                        ) : null}
-                        <circle cx={cx} cy={cy} r={3} fill={l.color} />
+                        {conector}
+                        <circle cx={cx} cy={my} r={3} fill={l.color} />
                         <text
                           x={cx + 12}
-                          y={cy + 4 + dy}
+                          y={my + 4}
                           fontSize={11}
                           fontWeight={800}
                           fill={l.color}
