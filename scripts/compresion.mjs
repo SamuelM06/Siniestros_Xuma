@@ -25,9 +25,25 @@ function esCompresible(contentType) {
   if (NO_COMPRIMIR.some((p) => tipo.startsWith(p))) return false;
   return (
     tipo.startsWith('text/') ||
-    /^application\/(javascript|x-javascript|json|xml|xhtml)/.test(tipo) ||
+    /^application\/(?:[a-z0-9._,+-]*\+)?json$/.test(tipo) ||
+    /^application\/(javascript|x-javascript|xml|xhtml)/.test(tipo) ||
     tipo === 'image/svg+xml'
   );
+}
+
+// Cabecera de caché según el tipo de recurso estático:
+//   - /vendor/ y /_astro/: archivos con hash de contenido => inmutables (el
+//     navegador no vuelve a pedirlos hasta que cambie el hash del build).
+//   - /data/ y /logos/: nombres fijos (GEOJSON de Colombia, logos), pueden
+//     cambiar sin cambiar de nombre => corto (1 día + SWR).
+function cabeceraCache(url) {
+  if (/^\/(vendor|_astro)\//i.test(url)) {
+    return 'public, max-age=31536000, immutable';
+  }
+  if (/^\/(data|logos)\//i.test(url)) {
+    return 'public, max-age=86400, stale-while-revalidate=604800';
+  }
+  return null;
 }
 
 function crearProxyRespuesta(req, res) {
@@ -99,9 +115,8 @@ function crearProxyRespuesta(req, res) {
           return (...args) => {
             if (!comprimiendo) iniciarCompresion();
             const url = String(req.url || '');
-            if (/^\/(data|vendor|logos|_astro)\//i.test(url)) {
-              raw.setHeader('cache-control', 'public, max-age=86400, stale-while-revalidate=604800');
-            }
+            const cc = cabeceraCache(url);
+            if (cc) raw.setHeader('cache-control', cc);
             return raw.writeHead(...args);
           };
         case 'setHeader':
@@ -115,9 +130,8 @@ function crearProxyRespuesta(req, res) {
             }
             if (nom === 'cache-control') {
               const url = String(req.url || '');
-              if (/^\/(data|vendor|logos|_astro)\//i.test(url)) {
-                return raw.setHeader(name, 'public, max-age=86400, stale-while-revalidate=604800');
-              }
+              const cc = cabeceraCache(url);
+              if (cc) return raw.setHeader(name, cc);
             }
             return raw.setHeader(name, value);
           };
