@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { CalendarRange, Coins, Percent, Trophy } from 'lucide-react';
+import { BarChart3, CalendarRange, Coins, Percent, TrendingUp, Trophy } from 'lucide-react';
 import type { Filters, HistoricosData, Metadatos } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
 import { formatNum } from '../../utils/formatters';
@@ -7,7 +7,8 @@ import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 
-const TendenciaAnualChart = lazy(() => import('../charts/TendenciaAnualChart'));
+const BarrasMensualesAnio = lazy(() => import('../charts/BarrasMensualesAnio'));
+const TendenciaMensualHist = lazy(() => import('../charts/TendenciaMensualHist'));
 
 function EsqueletoGrafico({ clases }: { clases: string }) {
   return <div className={`animate-pulse rounded-xl bg-tinta/5 ${clases}`} />;
@@ -74,7 +75,8 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
     };
   }, [filtros]);
 
-  const { anios, mensual, sinFecha } = data;
+  const { anios, mensual, tendencia, sinFecha } = data;
+  const tend = tendencia ?? [];
   const totalHist = anios.reduce((s, a) => s + a.total, 0);
   const pagadosHist = anios.reduce((s, a) => s + a.pagados, 0);
   const totalPagadoHist = anios.reduce((s, a) => s + a.totalPagado, 0);
@@ -85,6 +87,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
 
   const activos =
     (filtros.anio ? 1 : 0) +
+    (filtros.mes ? 1 : 0) +
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0);
@@ -139,9 +142,15 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
         />
       </section>
 
-      <Panel titulo="Tendencia mensual por año" icono={<CalendarRange className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
+      <Panel titulo="Comparativa mensual por año" icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
         <Suspense fallback={          <EsqueletoGrafico clases="h-[470px]" />}>
-          <TendenciaAnualChart series={mensual} />
+          <BarrasMensualesAnio series={mensual} />
+        </Suspense>
+      </Panel>
+
+      <Panel titulo="Tendencia mensual: siniestros y dinero pagado" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.1}>
+        <Suspense fallback={          <EsqueletoGrafico clases="h-[340px]" />}>
+          <TendenciaMensualHist data={tend} />
         </Suspense>
       </Panel>
 

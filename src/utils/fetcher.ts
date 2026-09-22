@@ -12,6 +12,7 @@ export function queryString(f: Filters): string {
   const p = new URLSearchParams();
   if (f.contrato) p.set('contrato', f.contrato);
   if (f.mes) {
+    p.set('mes', f.mes);
     p.set('desde', `${f.mes}-01`);
     p.set('hasta', `${f.mes}-${String(ultimoDiaMes(f.mes)).padStart(2, '0')}`);
   } else {

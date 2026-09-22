@@ -47,12 +47,18 @@ function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | 
 }
 
 // Panel de filtros en una sola línea horizontal con debounce en el input de contrato.
-// En modo año (vista Históricos) se reemplaza Mes por Año y se ocultan
-// contrato/estado/tipo, dejando: Año, gasera, aseguradora y producto.
+// En modo año (vista Históricos) se muestra Año + Mes juntos y se ocultan
+// contrato/estado/tipo, dejando: Año, Mes, gasera, aseguradora y producto.
+// Con Año seleccionado, las opciones de Mes se acotan a ese año.
 export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false, modoAnio = false }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
 
   const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
+  // En modo año con Año elegido, el selector de Mes solo ofrece ese año.
+  const mesesVisibles = useMemo(() => {
+    if (!modoAnio || !filtros.anio) return meses;
+    return meses.filter((m) => m.valor.startsWith(`${filtros.anio}-`));
+  }, [modoAnio, filtros.anio, meses]);
   const aniosHist = useMemo(
     () => (metadatos.anios ?? []).filter((a) => a >= 2018).map((a) => ({ valor: String(a), etiqueta: String(a) })),
     [metadatos.anios],
@@ -74,8 +80,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
   }, [onChange]);
 
   const elegirAnio = useCallback((v: string) => {
-    onChange({ anio: v || undefined });
-  }, [onChange]);
+    // Al cambiar de año, el mes elegido se limpia si ya no pertenece a ese año.
+    const mes = v && filtros.mes && !filtros.mes.startsWith(`${v}-`) ? undefined : filtros.mes;
+    onChange({ anio: v || undefined, mes });
+  }, [onChange, filtros.mes]);
 
   const elegirAseguradora = useCallback((v: string) => {
     onChange({ aseguradora: v || undefined });
@@ -133,8 +141,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
         )}
 
-        {/* Mes o Año (según modo) */}
-        {modoAnio ? (
+        {/* Año (solo en modo año) */}
+        {modoAnio && (
           <div className="min-w-[110px] flex-1">
             <SelectXuma
               valor={filtros.anio ?? ''}
@@ -145,18 +153,19 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
               compact
             />
           </div>
-        ) : (
+        )}
+
+        {/* Mes (en modo año se acota al año elegido) */}
         <div className="min-w-[125px] flex-1">
           <SelectXuma
             valor={filtros.mes ?? ''}
-            opciones={meses}
+            opciones={mesesVisibles}
             alCambiar={elegirMes}
             placeholder="Mes"
             etiquetaTodo="Todos los meses"
             compact
           />
         </div>
-        )}
 
         {/* Aseguradora */}
         {aseguradoras.length > 0 && (

@@ -2,7 +2,7 @@ import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora, SerieMensualAnio,
+  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoMesHist, PuntoTendencia, RegistroTabla, SerieAseguradora, SerieMensualAnio,
 } from './types';
 
 // ============================================================================
@@ -63,11 +63,19 @@ function parseTexto(raw: string | null | undefined, max = 80): string | undefine
 }
 
 const VAL_ANIO = /^\d{4}$/;
+const VAL_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function parseAnio(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
   const v = raw.trim();
   if (!VAL_ANIO.test(v)) return undefined;
+  return v;
+}
+
+function parseMes(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  const v = raw.trim();
+  if (!VAL_MES.test(v)) return undefined;
   return v;
 }
 
@@ -85,7 +93,8 @@ export function parseFilters(url: URL): Filters {
   const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
   const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
   const anio = parseAnio(url.searchParams.get('anio'));
-  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, anio, desde: rango.desde, hasta: rango.hasta };
+  const mes = parseMes(url.searchParams.get('mes'));
+  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, anio, mes, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -618,11 +627,13 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
 
 // ---- Histórico anual (tendencia por años) --------------------------------------
 // Agrupa por año (2018–2026) con la misma BASE y filtros dimensionales
-// (gasera, aseguradora, producto, anio). Los montos > MONTO_MAX_VALIDO se
+// (gasera, aseguradora, producto, anio, mes). Los montos > MONTO_MAX_VALIDO se
 // excluyen de las sumas (dato corrupto), pero los conteos se mantienen.
+// Además calcula la tendencia mensual agregada (siniestros + dinero pagado
+// por mes calendario) para el panel inferior de la vista.
 export async function getHistoricos(f: Filters): Promise<HistoricosData> {
   const rel = serializarFiltros({
-    anio: f.anio, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto,
+    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto,
   });
   return conCache(`historicos:${rel}`, async () => {
     const cond: string[] = [
@@ -633,6 +644,10 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
     if (f.anio) {
       params.push(Number(f.anio));
       cond.push('EXTRACT(YEAR FROM fecha_radicacion) = $' + params.length);
+    }
+    if (f.mes) {
+      params.push(f.mes);
+      cond.push(`to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') = $${params.length}`);
     }
     if (f.gasera) {
       params.push(f.gasera);
@@ -657,13 +672,24 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       WHERE ${cond.join(' AND ')}
       GROUP BY 1 ORDER BY 1
     `;
-    const [rows, filasMensuales, sinFechaR] = await Promise.all([
+    const [rows, filasMensuales, filasTendencia, sinFechaR] = await Promise.all([
       query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
       query<{ anio: number; mes: number; total: number }>(
         `WITH base AS (${BASE})
          SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
                 EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
                 count(*)::int AS total
+         FROM base
+         WHERE ${cond.join(' AND ')}
+         GROUP BY 1, 2 ORDER BY 1, 2`,
+        params,
+      ),
+      query<{ anio: number; mes: number; total: number; valor: string }>(
+        `WITH base AS (${BASE})
+         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+                count(*)::int AS total,
+                COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
          WHERE ${cond.join(' AND ')}
          GROUP BY 1, 2 ORDER BY 1, 2`,
@@ -715,8 +741,58 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       }
       mensual.push({ anio: y, meses });
     }
-    return { anios, mensual, sinFecha: Number(sinFechaR?.n ?? 0) };
+    const tendencia = armarTendenciaMes(filasTendencia, f);
+    return { anios, mensual, tendencia, sinFecha: Number(sinFechaR?.n ?? 0) };
   });
+}
+
+const MESES_CORTOS_HIST = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+// Tendencia mensual agregada por mes calendario (siniestros + dinero pagado):
+// - Con filtro mes: solo ese mes.
+// - Con filtro del año en curso (2026): se corta en el último mes con dato.
+// - Años cerrados o sin filtro (agregado de todos los años): los 12 meses.
+function armarTendenciaMes(
+  rows: { anio: number; mes: number; total: number; valor: string }[],
+  f: Filters,
+): PuntoMesHist[] {
+  // Las filas vienen por (anio, mes): se suman por mes calendario para
+  // agregar todos los años cuando no hay filtro de año.
+  const agg = new Map<number, { total: number; valor: number }>();
+  for (const r of rows) {
+    const m = Number(r.mes);
+    const e = agg.get(m) ?? { total: 0, valor: 0 };
+    e.total += Number(r.total);
+    e.valor += Number(r.valor);
+    agg.set(m, e);
+  }
+  if (f.mes) {
+    const m = Number(f.mes.slice(5, 7));
+    const r = agg.get(m);
+    return [{
+      mes: m,
+      label: MESES_CORTOS_HIST[m - 1] ?? f.mes,
+      total: r ? r.total : 0,
+      valorPagado: r ? r.valor : 0,
+    }];
+  }
+  const ultimo = rows.reduce((mx, r) => Math.max(mx, Number(r.mes)), 0);
+  const anioSel = f.anio ? Number(f.anio) : null;
+  let corte: number;
+  if (anioSel !== null && anioSel < ANIO_HIST_MAX) corte = 12;
+  else if (anioSel === ANIO_HIST_MAX) corte = ultimo;
+  else corte = rows.some((r) => Number(r.anio) < ANIO_HIST_MAX) ? 12 : ultimo;
+  const out: PuntoMesHist[] = [];
+  for (let m = 1; m <= Math.max(0, corte); m += 1) {
+    const r = agg.get(m);
+    out.push({
+      mes: m,
+      label: MESES_CORTOS_HIST[m - 1] ?? String(m),
+      total: r ? r.total : 0,
+      valorPagado: r ? r.valor : 0,
+    });
+  }
+  return out;
 }
 
 // ---- Mapa geográfico de siniestros (por departamento y municipios) ------------

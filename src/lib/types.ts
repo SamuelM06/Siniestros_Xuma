@@ -128,9 +128,19 @@ export interface SerieMensualAnio {
   meses: (number | null)[];
 }
 
+// Punto de la tendencia mensual agregada de la vista Históricos:
+// totales de todos los años (o del año filtrado) por mes calendario.
+export interface PuntoMesHist {
+  mes: number;      // 1..12
+  label: string;    // Ene..Dic
+  total: number;
+  valorPagado: number;
+}
+
 export interface HistoricosData {
   anios: AnioHist[];
   mensual: SerieMensualAnio[];
+  tendencia: PuntoMesHist[];
   sinFecha: number;
 }
 
