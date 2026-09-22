@@ -106,11 +106,31 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
         modoAnio
       />
 
-      {/* En pantallas anchas los KPI van en los laterales y los gráficos al
-          centro, para ver todo sin scroll. En móvil/tablet se apila: KPIs
-          primero y gráficos después. */}
-      <div className="grid gap-3 xl:grid-cols-[240px_minmax(0,1fr)_240px]">
-        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores principales">
+      {/* En pantallas anchas los 4 KPI van en el lateral derecho y los gráficos
+          ocupan todo el ancho libre, para ver todo sin scroll. En
+          móvil/tablet se apila: KPIs primero y gráficos después. */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_250px]">
+        <div className="order-2 min-w-0 space-y-3 xl:order-1">
+          <Panel titulo="Comparativa mensual por año" icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05} className="xl:p-3">
+            <Suspense fallback={          <EsqueletoGrafico clases="h-[470px] xl:h-[400px]" />}>
+              <BarrasMensualesAnio series={mensual} />
+            </Suspense>
+          </Panel>
+
+          <Panel titulo="Tendencia mensual: siniestros y dinero pagado" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.1} className="xl:p-3">
+            <Suspense fallback={          <EsqueletoGrafico clases="h-[340px] xl:h-[290px]" />}>
+              <TendenciaMensualHist data={tend} />
+            </Suspense>
+          </Panel>
+
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
+            <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
+            <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
+            <span>2026 es parcial (datos hasta septiembre).</span>
+          </p>
+        </div>
+
+        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:order-2 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores">
           <KpiCard
             titulo="Total histórico"
             valor={totalHist}
@@ -127,29 +147,6 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
             delay={0.06}
             sub={`${formatNum(pagadosHist)} pagados en total`}
           />
-        </aside>
-
-        <div className="order-3 min-w-0 space-y-3 xl:order-2">
-          <Panel titulo="Comparativa mensual por año" icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
-            <Suspense fallback={          <EsqueletoGrafico clases="h-[470px] xl:h-[380px]" />}>
-              <BarrasMensualesAnio series={mensual} />
-            </Suspense>
-          </Panel>
-
-          <Panel titulo="Tendencia mensual: siniestros y dinero pagado" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.1}>
-            <Suspense fallback={          <EsqueletoGrafico clases="h-[340px] xl:h-[270px]" />}>
-              <TendenciaMensualHist data={tend} />
-            </Suspense>
-          </Panel>
-
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
-            <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
-            <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
-            <span>2026 es parcial (datos hasta septiembre).</span>
-          </p>
-        </div>
-
-        <aside className="order-2 grid gap-3 sm:grid-cols-2 xl:order-3 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores secundarios">
           <KpiCard
             titulo="Pico de casos"
             valor={pico.total}
