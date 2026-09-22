@@ -12,7 +12,7 @@ const [proyeccion, metadatos] = await Promise.all([
 ---
 <DashboardLayout title="Proyección · Gestión de Siniestros | Promigas">
   <ProyeccionApp
-    client:load
+    client:only="react"
     datosIniciales={proyeccion}
     filtrosIniciales={f}
     metadatos={metadatos}

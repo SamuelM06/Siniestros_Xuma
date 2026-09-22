@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BarChart3, CalendarRange, Coins, TrendingDown, TrendingUp, Trophy,
   Minus, AlertCircle,
@@ -13,10 +13,6 @@ import ForecastChart from '../charts/ForecastChart';
 import EstacionalidadChart from '../charts/EstacionalidadChart';
 import ProbabilidadGeo from '../proyeccion/ProbabilidadGeo';
 import ProbabilidadCategorica from '../proyeccion/ProbabilidadCategorica';
-
-function EsqueletoGrafico({ clases }: { clases: string }) {
-  return <div className={`animate-pulse rounded-xl bg-tinta/5 ${clases}`} />;
-}
 
 interface Props {
   datosIniciales: ProyeccionData;
@@ -133,9 +129,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           delay={0.05}
           className="xl:p-3"
         >
-          <Suspense fallback={<EsqueletoGrafico clases="h-[300px] xl:h-[260px]" />}>
-            <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
-          </Suspense>
+          <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>
         <Panel
           titulo="Índice estacional"
@@ -143,9 +137,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           delay={0.1}
           className="xl:p-3"
         >
-          <Suspense fallback={<EsqueletoGrafico clases="h-[260px] xl:h-[220px]" />}>
-            <EstacionalidadChart data={estacionalidad} />
-          </Suspense>
+          <EstacionalidadChart data={estacionalidad} />
         </Panel>
       </div>
 

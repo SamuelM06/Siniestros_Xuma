@@ -33,20 +33,8 @@ export default function EstacionalidadChart({ data }: Props) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: 'var(--ctinta-suave)', fontSize: 10, fontWeight: 700 }}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <YAxis
-              tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-              tick={{ fill: 'var(--ctinta-suave)', fontSize: 9.5 }}
-              axisLine={false}
-              tickLine={false}
-              width={40}
-            />
+            <XAxis dataKey="label" tick={{ fill: 'var(--ctinta-suave)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
+            <YAxis tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} tick={{ fill: 'var(--ctinta-suave)', fontSize: 9.5 }} axisLine={false} tickLine={false} width={40} />
             <Tooltip
               content={({ active, payload }) => {
                 if (!active || !payload || payload.length === 0) return null;
