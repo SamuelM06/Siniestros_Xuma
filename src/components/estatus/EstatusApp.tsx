@@ -20,6 +20,7 @@ interface FiltrosEstatus {
   estado?: string;
   producto?: string;
   aseguradora?: string;
+  tipo_siniestro?: string;
 }
 
 const inputSelectCls = 'w-full min-w-0';
@@ -32,6 +33,7 @@ function construirQs(f: FiltrosEstatus): string {
   if (f.estado) p.set('estado', f.estado);
   if (f.producto) p.set('producto', f.producto);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
+  if (f.tipo_siniestro) p.set('tipo_siniestro', f.tipo_siniestro);
   return p.toString();
 }
 
@@ -49,13 +51,17 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
   const estados = useMemo(() => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })), [metadatos.estados]);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
+  const tiposSiniestro = useMemo(
+    () => (metadatos.tipos_siniestro ?? []).map((t) => ({ valor: t.tipo_siniestro, etiqueta: `${t.tipo_siniestro} (${formatNum(t.total)})` })),
+    [metadatos.tipos_siniestro],
+  );
 
   const cambiar = useCallback((cambio: Partial<FiltrosEstatus>) => {
     setFiltros((prev) => ({ ...prev, ...cambio }));
   }, []);
 
   const reset = useCallback(() => {
-    setFiltros({ anio: anioInicial });
+    setFiltros({ anio: anioInicial, tipo_siniestro: undefined });
   }, [anioInicial]);
 
   useEffect(() => {
@@ -122,6 +128,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
     (filtros.estado ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
+    (filtros.tipo_siniestro ? 1 : 0) +
     (filtros.anio !== anioInicial ? 1 : 0);
 
   return (
@@ -175,7 +182,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
           </div>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Año</span>
             <SelectXuma

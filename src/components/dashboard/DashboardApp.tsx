@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, Coins, FileText, Fuel, Landmark,
-  OctagonX, PieChart, RefreshCw, TrendingUp, Trophy,
+  OctagonX, PieChart, RefreshCw, TrendingUp, Trophy, Siren,
 } from 'lucide-react';
 import type { DashboardData, Filters } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
@@ -48,6 +48,8 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       gasera: undefined,
       producto: undefined,
       estado: undefined,
+      aseguradora: undefined,
+      tipo_siniestro: undefined,
     });
   }, []);
 
@@ -70,8 +72,9 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       get(`/api/por-aseguradora?${q}`),
       get(`/api/por-gasera?${q}`),
       get(`/api/por-producto?${q}`),
+      get(`/api/por-tipo-siniestro?${q}`),
     ])
-      .then(([kpis, tendencia, porAseguradora, porGasera, porProducto]) => {
+      .then(([kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro]) => {
         if (!vivo) return;
         setData((prev) => ({
           kpis: kpis as DashboardData['kpis'],
@@ -79,6 +82,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
           porAseguradora: porAseguradora as DashboardData['porAseguradora'],
           porGasera: porGasera as DashboardData['porGasera'],
           porProducto: porProducto as DashboardData['porProducto'],
+          porTipoSiniestro: porTipoSiniestro as DashboardData['porTipoSiniestro'],
           metadatos: prev.metadatos,
         }));
       })
@@ -97,18 +101,19 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
     (filtros.producto ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
+    (filtros.tipo_siniestro ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);
 
-  const { kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos } = data;
+  const { kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro, metadatos } = data;
 
   return (
     <div className="space-y-3">
       {/* Título accesible (screen reader) para SEO/a11y */}
       <h1 className="sr-only">Tablero de siniestros 2026</h1>
 
-      <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} />
+      <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} mostrarTipoSiniestro />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <KpiCard
@@ -167,10 +172,17 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
               </Suspense>
             </Panel>
           </div>
+          <Panel titulo="Siniestros por tipo de siniestro" icono={<Siren className="h-5 w-5 text-amber-500" />} delay={0.2}>
+            <Suspense fallback={<EsqueletoGrafico clases="min-h-[300px]" />}>
+              <div className="max-w-sm mx-auto">
+                <DonutChart data={porTipoSiniestro.map((t: { tipo_siniestro: string; total: number }) => ({ nombre: t.tipo_siniestro, total: t.total }))} />
+              </div>
+            </Suspense>
+          </Panel>
         </div>
         <Panel titulo="Porciones por producto" icono={<PieChart className="h-5 w-5 text-[#8b7bff]" />} delay={0.09} className="flex h-full flex-col">
           <Suspense fallback={<EsqueletoGrafico clases="min-h-[300px] flex-1" />}>
-            <DonutChart data={porProducto} />
+            <DonutChart data={porProducto.map((p) => ({ nombre: p.producto, total: p.total }))} />
           </Suspense>
         </Panel>
       </section>

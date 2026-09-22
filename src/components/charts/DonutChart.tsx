@@ -1,10 +1,10 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import type { ItemProducto } from '../../lib/types';
+import type { ItemDona } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import { CHART_COLORS, GLASS_TOOLTIP } from './palette';
 
 interface Props {
-  data: ItemProducto[];
+  data: ItemDona[];
 }
 
 // Dona grande que crece para llenar el panel (manteniendo la proporción 62%/88%).
@@ -33,7 +33,7 @@ export default function DonutChart({ data }: Props) {
             <Pie
               data={data}
               dataKey="total"
-              nameKey="producto"
+              nameKey="nombre"
               cx="50%"
               cy="50%"
               innerRadius="62%"
@@ -61,13 +61,13 @@ export default function DonutChart({ data }: Props) {
           const val = Number(item.total || 0);
           const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
           return (
-            <li key={item.producto} className="flex items-center justify-between gap-2 text-[11px]">
+            <li key={item.nombre} className="flex items-center justify-between gap-2 text-[11px]">
               <span className="flex min-w-0 items-center gap-1.5">
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
                   style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
                 />
-                <span className="truncate text-tinta/75">{item.producto}</span>
+                <span className="truncate text-tinta/75">{item.nombre}</span>
               </span>
               <span className="tabular font-semibold text-tinta/90">
                 {formatNum(val)}

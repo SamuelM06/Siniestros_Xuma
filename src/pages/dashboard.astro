@@ -8,17 +8,19 @@ import {
   getPorAseguradora,
   getPorGasera,
   getPorProducto,
+  getPorTipoSiniestro,
   getMetadatos,
 } from "../lib/query";
 
 const f = filtrosPorDefecto();
-const [kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos] =
+const [kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro, metadatos] =
   await Promise.all([
     getKpis(f),
     getTendencia(f),
     getPorAseguradora(f),
     getPorGasera(f),
     getPorProducto(f),
+    getPorTipoSiniestro(f),
     getMetadatos(f),
   ]);
 ---
@@ -32,6 +34,7 @@ const [kpis, tendencia, porAseguradora, porGasera, porProducto, metadatos] =
       porAseguradora,
       porGasera,
       porProducto,
+      porTipoSiniestro,
       metadatos,
     }}
     filtrosIniciales={f}

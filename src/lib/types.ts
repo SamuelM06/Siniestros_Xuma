@@ -51,6 +51,16 @@ export interface ItemProducto {
   total: number;
 }
 
+export interface ItemTipoSiniestro {
+  tipo_siniestro: string;
+  total: number;
+}
+
+export interface ItemDona {
+  nombre: string;
+  total: number;
+}
+
 export interface RegistroTabla {
   id_caso: number;
   numero_contrato: string | null;
@@ -98,6 +108,7 @@ export interface DashboardData {
   porAseguradora: SerieAseguradora[];
   porGasera: ItemGasera[];
   porProducto: ItemProducto[];
+  porTipoSiniestro: ItemTipoSiniestro[];
   metadatos: Metadatos;
 }
 

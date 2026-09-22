@@ -2,7 +2,7 @@ import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
-  EstatusData, Filters, FilaEstatus, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
+  EstatusData, Filters, FilaEstatus, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
 } from './types';
 
 // ============================================================================
@@ -426,6 +426,24 @@ export async function getPorProducto(f: Filters, top = 7): Promise<ItemProducto[
   });
 }
 
+// ---- Por tipo de siniestro (apropiar top + Otros) -------------------------------
+export async function getPorTipoSiniestro(f: Filters, top = 6): Promise<ItemTipoSiniestro[]> {
+  return conCache(`por-tipo-siniestro:${serializarFiltros(f)}:${top}`, async () => {
+  const w = construirWhere(f);
+  const sql = `
+    WITH base AS (${BASE})
+    SELECT tipo_siniestro_norm AS tipo_siniestro, count(*)::int AS total
+    FROM base
+    WHERE ${w.cond}
+    GROUP BY 1 ORDER BY total DESC, tipo_siniestro ASC
+  `;
+  const rows = await query<ItemTipoSiniestro>(sql, w.params);
+  const cabecera = rows.slice(0, top);
+  const resto = rows.slice(top).reduce((acc, r) => acc + Number(r.total), 0);
+  return resto > 0 ? [...cabecera, { tipo_siniestro: 'Otros', total: resto }] : cabecera;
+  });
+}
+
 // ---- Tabla de detalle (paginada) ----------------------------------------------
 // Las filas contienen datos personales (contrato, nombre del asegurado, monto):
 // NUNCA se cachean en memoria. Sólo se cachea el total filtrado (agregado,
@@ -689,6 +707,7 @@ export async function precalentarCache(): Promise<void> {
       getPorAseguradora(f),
       getPorGasera(f),
       getPorProducto(f),
+      getPorTipoSiniestro(f),
     ]);
     // Fase 2: Mapa y Estatus (el detalle se consulta bajo demanda: sus filas
     // contienen datos personales y no se cachean).
