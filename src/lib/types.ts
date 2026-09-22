@@ -169,3 +169,70 @@ export interface MapaData {
   totalPagadoNacional: number;
   departamentos: ItemDepartamento[];
 }
+
+// ---- Vista Proyección (forecast 2027) --------------------------------------
+// Pronóstico mensual con intervalo de predicción 80% (low/high).
+export interface PuntoForecast {
+  mes: number; // 1..12
+  label: string; // Ene..Dic
+  siniestros: number;
+  sinLow: number;
+  sinHigh: number;
+  monto: number;
+  montoLow: number;
+  montoHigh: number;
+  refAnioPrevio: number; // real del mismo mes en el último año cerrado
+}
+
+// Índice estacional: 1 = mes promedio; 1.4 = 40% sobre el promedio.
+export interface IndiceEstacional {
+  mes: number;
+  label: string;
+  indice: number;
+  low: number;
+  high: number;
+}
+
+// Probabilidad categórica (departamento / tipo): Laplace + IC Wilson 95%.
+export interface ProbItem {
+  nombre: string;
+  casos: number;
+  prob: number; // 0..1
+  low: number;
+  high: number;
+}
+
+export interface TendenciaProy {
+  pendienteAnual: number; // siniestros/año (Theil-Sen)
+  pValue: number; // Mann-Kendall bilateral
+  significante: boolean; // p < 0.05
+  direccion: 'alza' | 'baja' | 'estable';
+  totalProyAnual: number;
+  montoProyAnual: number;
+  crecimientoVsPrevio: number; // % vs último año cerrado
+}
+
+export interface BacktestInfo {
+  mape: number | null; // MAPE mensual % (null si no hay historia)
+  confiable: boolean; // mape !== null && mape <= 25
+  detalle: { anio: number; real: number; pron: number; errAnualPct: number }[];
+}
+
+export interface CambioEstructural {
+  dimension: string;
+  pValue: number;
+  hayCambio: boolean; // p < 0.05
+}
+
+export interface ProyeccionData {
+  anioObjetivo: number;
+  aniosEntrenamiento: number[];
+  forecast: PuntoForecast[];
+  estacionalidad: IndiceEstacional[];
+  tendencia: TendenciaProy;
+  departamentos: ProbItem[];
+  tiposSiniestro: ProbItem[];
+  backtest: BacktestInfo;
+  cambios: CambioEstructural[];
+  supuestos: string[];
+}

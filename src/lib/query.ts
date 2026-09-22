@@ -1,8 +1,12 @@
 import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
+import {
+  backtest, chiCuadradoP, distribucion, indicesEstacionales, mannKendall, pronosticar, theilSen,
+} from './estadistica';
+import type { MesEntrenamiento } from './estadistica';
 import type {
-  AnioHist, EstatusData, Filters, FilaEstatus, HistoricosData, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, PuntoMesHist, PuntoTendencia, RegistroTabla, SerieAseguradora, SerieMensualAnio,
+  AnioHist, BacktestInfo, CambioEstructural, EstatusData, Filters, FilaEstatus, HistoricosData, IndiceEstacional, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, ItemTipoSiniestro, KpisData, MapaData, Metadatos, PaginaTabla, ProbItem, ProyeccionData, PuntoForecast, PuntoMesHist, PuntoTendencia, RegistroTabla, SerieAseguradora, SerieMensualAnio, TendenciaProy,
 } from './types';
 
 // ============================================================================
@@ -795,6 +799,198 @@ function armarTendenciaMes(
   return out;
 }
 
+// ---- Proyección estadística (forecast del próximo año) -------------------------
+// Entrena SOLO con años cerrados (2018–2025): el año en curso parcial se
+// excluye para no contaminar la estacionalidad. Respeta los filtros
+// dimensionales (gasera, producto, aseguradora). Ver src/lib/estadistica.ts
+// para la metodología (seasonal-naive + drift Theil-Sen, bandas p10/p90,
+// Laplace + Wilson, chi-cuadrado, backtesting walk-forward).
+const ANIO_ENTRENA_MAX = ANIO_PREVIO; // 2025: último año cerrado
+const ANIO_OBJETIVO = ANIO_REPORTE + 1; // 2027
+const ANIO_CORTE_CAMBIO = 2022; // temprano 2018–2022 vs reciente 2023–2025
+
+export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
+  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, aseguradora: f.aseguradora });
+  return conCache(`proyeccion:${rel}`, async () => {
+    const cond: string[] = [
+      'fecha_radicacion IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+    ];
+    const params: unknown[] = [ANIO_HIST_MIN, ANIO_ENTRENA_MAX];
+    if (f.gasera) {
+      params.push(f.gasera);
+      cond.push('gasera_norm = $' + params.length);
+    }
+    if (f.producto) {
+      params.push(f.producto);
+      cond.push('producto_norm = $' + params.length);
+    }
+    if (f.aseguradora) {
+      params.push(f.aseguradora);
+      cond.push('aseguradora_norm = $' + params.length);
+    }
+    const where = cond.join(' AND ');
+    const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_radicacion) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
+    const [mensual, deptos, tipos, tiposPeriodo, deptosPeriodo] = await Promise.all([
+      query<{ anio: number; mes: number; total: number; valor: string }>(
+        `WITH base AS (${BASE})
+         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+                count(*)::int AS total,
+                COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
+         FROM base
+         WHERE ${where}
+         GROUP BY 1, 2 ORDER BY 1, 2`,
+        params,
+      ),
+      query<{ nombre: string; total: number }>(
+        `WITH base AS (${BASE})
+         SELECT COALESCE(departamento_norm,'Sin departamento') AS nombre, count(*)::int AS total
+         FROM base
+         WHERE ${where}
+         GROUP BY 1 ORDER BY total DESC`,
+        params,
+      ),
+      query<{ nombre: string; total: number }>(
+        `WITH base AS (${BASE})
+         SELECT tipo_siniestro_norm AS nombre, count(*)::int AS total
+         FROM base
+         WHERE ${where}
+         GROUP BY 1 ORDER BY total DESC`,
+        params,
+      ),
+      query<{ nombre: string; periodo: string; total: number }>(
+        `WITH base AS (${BASE})
+         SELECT tipo_siniestro_norm AS nombre, ${corte} AS periodo, count(*)::int AS total
+         FROM base
+         WHERE ${where}
+         GROUP BY 1, 2`,
+        params,
+      ),
+      query<{ nombre: string; periodo: string; total: number }>(
+        `WITH base AS (${BASE})
+         SELECT COALESCE(departamento_norm,'Sin departamento') AS nombre, ${corte} AS periodo, count(*)::int AS total
+         FROM base
+         WHERE ${where}
+         GROUP BY 1, 2`,
+        params,
+      ),
+    ]);
+
+    const filas: MesEntrenamiento[] = mensual.map((r) => ({
+      anio: Number(r.anio),
+      mes: Number(r.mes),
+      total: Number(r.total),
+      valor: Number(r.valor),
+    }));
+    const aniosEntrenamiento = [...new Set(filas.map((r) => r.anio))].sort((a, b) => a - b);
+
+    const pron = pronosticar(filas, ANIO_OBJETIVO);
+    const anuales = aniosEntrenamiento.map((y) =>
+      filas.filter((r) => r.anio === y).reduce((s, r) => s + r.total, 0),
+    );
+    const pendiente = aniosEntrenamiento.length >= 2 ? theilSen(aniosEntrenamiento, anuales) : 0;
+    const mk = mannKendall(anuales);
+    const significante = mk.p < 0.05;
+    const direccion: TendenciaProy['direccion'] = !significante
+      ? 'estable'
+      : pendiente > 0
+        ? 'alza'
+        : pendiente < 0
+          ? 'baja'
+          : 'estable';
+    const totalProyAnual = pron.reduce((s, p) => s + p.siniestros, 0);
+    const montoProyAnual = pron.reduce((s, p) => s + p.monto, 0);
+    const previoAnual = anuales.length > 0 ? anuales[anuales.length - 1] ?? 0 : 0;
+    const crecimiento = previoAnual > 0
+      ? Math.round(((totalProyAnual - previoAnual) / previoAnual) * 1000) / 10
+      : 0;
+
+    const mapaRealPrevio = new Map(
+      filas.filter((r) => r.anio === ANIO_ENTRENA_MAX).map((r) => [r.mes, r.total]),
+    );
+    const forecast: PuntoForecast[] = pron.map((p) => ({
+      mes: p.mes,
+      label: MESES_CORTOS_HIST[p.mes - 1] ?? String(p.mes),
+      siniestros: p.siniestros,
+      sinLow: p.sinLow,
+      sinHigh: p.sinHigh,
+      monto: p.monto,
+      montoLow: p.montoLow,
+      montoHigh: p.montoHigh,
+      refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
+    }));
+
+    const estacionalidad: IndiceEstacional[] = indicesEstacionales(filas).map((e) => ({
+      mes: e.mes,
+      label: MESES_CORTOS_HIST[e.mes - 1] ?? String(e.mes),
+      indice: e.indice,
+      low: e.low,
+      high: e.high,
+    }));
+
+    const departamentos: ProbItem[] = distribucion(
+      deptos.map((r) => ({ nombre: r.nombre, casos: Number(r.total) })),
+    ).slice(0, 8);
+    const tiposSiniestro: ProbItem[] = distribucion(
+      tipos.map((r) => ({ nombre: r.nombre, casos: Number(r.total) })),
+    ).slice(0, 8);
+
+    const alinearPeriodos = (rows: { nombre: string; periodo: string; total: number }[]) => {
+      const nombres = [...new Set(rows.map((r) => r.nombre))];
+      const suma = (n: string, per: string) =>
+        rows.filter((r) => r.nombre === n && r.periodo === per).reduce((s, r) => s + Number(r.total), 0);
+      return chiCuadradoP(nombres.map((n) => suma(n, 'temprano')), nombres.map((n) => suma(n, 'reciente')));
+    };
+    const redondearP = (p: number) => Math.round(p * 10000) / 10000;
+    const chiTipos = alinearPeriodos(tiposPeriodo);
+    const chiDeptos = alinearPeriodos(deptosPeriodo);
+    const cambios: CambioEstructural[] = [
+      { dimension: 'Tipo de siniestro', pValue: redondearP(chiTipos.p), hayCambio: chiTipos.p < 0.05 },
+      { dimension: 'Departamento', pValue: redondearP(chiDeptos.p), hayCambio: chiDeptos.p < 0.05 },
+    ];
+
+    const bt = backtest(filas, [ANIO_ENTRENA_MAX - 1, ANIO_ENTRENA_MAX]);
+    const backtestInfo: BacktestInfo = {
+      mape: bt.mape,
+      confiable: bt.mape !== null && bt.mape <= 25,
+      detalle: bt.detalle,
+    };
+
+    const primerAnio = aniosEntrenamiento[0] ?? ANIO_HIST_MIN;
+    const ultimoAnio = aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? ANIO_ENTRENA_MAX;
+    const supuestos = [
+      `Entrenamiento con ${aniosEntrenamiento.length} años cerrados (${primerAnio}–${ultimoAnio}); 2026 parcial excluido.`,
+      `Seasonal-naive proporcional + drift Theil-Sen (${pendiente >= 0 ? '+' : ''}${Math.round(pendiente)} casos/año).`,
+      'Bandas 80% desde residuos relativos históricos (p10/p90 pooled).',
+      'Probabilidades suavizadas Laplace; intervalos Wilson 95%.',
+      'Montos > $10.000 M excluidos (dato corrupto); Promigas excluido.',
+      `Precisión walk-forward MAPE ${bt.mape !== null ? `${bt.mape}%` : 'n/d'} (${ANIO_ENTRENA_MAX - 1}–${ANIO_ENTRENA_MAX}).`,
+    ];
+
+    return {
+      anioObjetivo: ANIO_OBJETIVO,
+      aniosEntrenamiento,
+      forecast,
+      estacionalidad,
+      tendencia: {
+        pendienteAnual: Math.round(pendiente * 10) / 10,
+        pValue: redondearP(mk.p),
+        significante,
+        direccion,
+        totalProyAnual,
+        montoProyAnual,
+        crecimientoVsPrevio: crecimiento,
+      },
+      departamentos,
+      tiposSiniestro,
+      backtest: backtestInfo,
+      cambios,
+      supuestos,
+    };
+  });
+}
+
 // ---- Mapa geográfico de siniestros (por departamento y municipios) ------------
 export async function getMapa(f: Filters): Promise<MapaData> {
   return conCache(`mapa:${serializarFiltros(f)}`, async () => {
@@ -903,6 +1099,7 @@ export async function precalentarCache(): Promise<void> {
       getPorProducto(f),
       getPorTipoSiniestro(f),
       getHistoricos(f),
+      getProyeccion(f),
     ]);
     // Fase 2: Mapa y Estatus (el detalle se consulta bajo demanda: sus filas
     // contienen datos personales y no se cachean).

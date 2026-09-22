@@ -18,6 +18,9 @@ const svgMapa =
 const svgHistoricos =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>';
 
+const svgProyeccion =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+
 const nav = [
   {
     href: '/',
@@ -29,6 +32,7 @@ const nav = [
   { href: '/estatus', label: 'Estatus Siniestros', svg: svgEstatus },
   { href: '/detalle', label: 'Detalle', svg: svgLista },
   { href: '/historicos', label: 'Históricos', svg: svgHistoricos },
+  { href: '/proyeccion', label: 'Proyección', svg: svgProyeccion },
 ];
 const actual = Astro.url.pathname;
 ---
