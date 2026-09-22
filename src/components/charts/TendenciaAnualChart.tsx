@@ -11,8 +11,11 @@ interface Props {
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 // Separación vertical mínima entre etiquetas de año (px) y alto aproximado
 // del área de trazado, para convertir esa separación a unidades de datos.
-const GAP_ETIQUETA_PX = 18;
-const ALTO_TRAZADO_PX = 360;
+const GAP_ETIQUETA_PX = 20;
+const ALTO_TRAZADO_PX = 370;
+// Tope del desplazamiento vertical de etiquetas (px): debe cubrir el peor
+// caso (todas las líneas terminando juntas) sin salirse del gráfico.
+const MAX_DY_ETIQUETA = 90;
 
 // Comparativa interanual: meses en el eje X y una línea por cada año.
 // - El año en curso se corta en el último mes con dato (null = sin dato).
@@ -74,7 +77,7 @@ export default function TendenciaAnualChart({ series }: Props) {
     for (const g of grupos) {
       g.forEach((it, k) => {
         const d = (k - (g.length - 1) / 2) * GAP_ETIQUETA_PX;
-        dy.set(it.anio, Math.max(-48, Math.min(48, d)));
+        dy.set(it.anio, Math.max(-MAX_DY_ETIQUETA, Math.min(MAX_DY_ETIQUETA, d)));
       });
     }
     return dy;
@@ -225,7 +228,7 @@ export default function TendenciaAnualChart({ series }: Props) {
         </ResponsiveContainer>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/70">
-        {lineas.map((l) => (
+        {[...lineas].reverse().map((l) => (
           <button
             key={l.anio}
             type="button"
