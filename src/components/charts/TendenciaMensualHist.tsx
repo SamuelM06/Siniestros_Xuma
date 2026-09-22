@@ -7,6 +7,49 @@ interface Props {
   data: PuntoMesHist[];
 }
 
+// Etiqueta de barra con píldora translúcida detrás: el número se lee aunque
+// la línea de dinero pagado o sus puntos pasen por detrás (SVG no admite
+// desenfoque real, la píldora semitransparente da el mismo efecto).
+function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
+  const cx = Number(props.x);
+  const cy = Number(props.y);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+  const texto = typeof props.value === 'number' ? formatNum(props.value) : String(props.value ?? '');
+  if (!texto) return null;
+  const alto = 19;
+  const ancho = texto.length * 6.6 + 12;
+  // La píldora queda centrada 12px por encima del ancla: aire respecto a la
+  // barra y a los puntos de la línea.
+  const py = cy - 12;
+  return (
+    <g>
+      <rect
+        x={cx - ancho / 2}
+        y={py - alto / 2}
+        width={ancho}
+        height={alto}
+        rx={alto / 2}
+        fill="var(--qtooltip-fondo)"
+        fillOpacity={0.85}
+        stroke="var(--qtooltip-borde)"
+        strokeOpacity={0.6}
+      />
+      <text
+        x={cx}
+        y={py + 0.5}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="var(--ctinta)"
+        fontSize={10.5}
+        fontWeight={800}
+        fontFamily="'Raleway', sans-serif"
+      >
+        {texto}
+      </text>
+    </g>
+  );
+}
+
 // Tendencia mensual agregada de la vista Históricos: siniestros como barras
 // (eje izquierdo) y dinero pagado como línea (eje derecho). Sin filtro activo
 // suma todos los años por mes; con año 2026 se corta en septiembre.
@@ -87,9 +130,8 @@ export default function TendenciaMensualHist({ data }: Props) {
               <LabelList
                 dataKey="total"
                 position="top"
-                offset={6}
-                formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
-                style={{ fill: 'var(--ctinta)', fontSize: 10.5, fontWeight: 800 }}
+                offset={10}
+                content={<EtiquetaPildora />}
               />
             </Bar>
             <Line
