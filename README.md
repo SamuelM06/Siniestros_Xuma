@@ -78,18 +78,16 @@ src/
 
 ## Seguridad
 
-- **Autenticación:** contraseña verificada con **scrypt** (hash con salt en `.env`, nunca texto
-  plano) y token de sesión firmado con **HMAC-SHA256** (`SESSION_SECRET`).
-- **Cookie de sesión** `xuma_sesion`: `HttpOnly` · `SameSite=Lax` · `Secure` (HTTPS) → no accesible
-  desde JavaScript.
+- **Autenticación:** sistema de sesión protegido mediante credenciales hasheadas y tokens firmados.
+- **Cookie de sesión:** configurada con banderas de seguridad (HttpOnly, SameSite, Secure) para
+  evitar acceso desde JavaScript.
 - **Protección global (middleware):** todas las páginas (excepto `/login` y assets) y todos los
   endpoints (excepto `/api/auth/login`) requieren sesión válida.
-- **Rate limiting** por IP: login (5 intentos / 10 min) y API (180 req / min).
-- **Headers de seguridad:** `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: no-referrer`, CSP restrictiva.
-- **Inyección SQL:** todas las consultas usan parámetros (`$1, $2, …`).
-- **Datos sensibles:** la tabla de detalle excluye cédula, correo y observación.
-- **Auditoría:** eventos de acceso/sesión e intentos fallidos en `logs/app.log`.
+- **Rate limiting** por IP: aplica restricciones en rutas de login y API.
+- **Headers de seguridad:** incluye protección contra XSS, framing y contenido misterioso.
+- **Inyección SQL:** todas las consultas utilizan consultas parametrizadas.
+- **Datos sensibles:** la tabla de detalle excluye información de identificación personal.
+- **Auditoría:** eventos de acceso y sesión registrados para monitoreo.
 
 Detalle completo en `docs/seguridad.md`.
 
