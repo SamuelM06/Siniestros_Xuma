@@ -492,6 +492,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
 // ---- Estatus de siniestros por gasera y mes (matriz) --------------------------
 export interface EstatusFiltros {
   anio: number;
+  gasera?: string;
   producto?: string;
   estado?: string;
   aseguradora?: string;
@@ -502,6 +503,10 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   const cond: string[] = [];
   const params: unknown[] = [`${ef.anio}-01-01`, `${ef.anio}-12-31`];
   cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
+  if (ef.gasera) {
+    params.push(ef.gasera);
+    cond.push(`gasera_norm = $${params.length}`);
+  }
   if (ef.producto) {
     params.push(ef.producto);
     cond.push(`producto_norm = $${params.length}`);

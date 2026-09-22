@@ -95,10 +95,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   return (
     <motion.section
-      layout
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass rounded-2xl px-3 py-2 shadow-md"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35 }}
+      className="glass relative z-20 rounded-2xl px-3 py-2 shadow-md"
     >
       <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
         {/* Etiqueta / Ícono */}

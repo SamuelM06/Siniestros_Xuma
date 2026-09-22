@@ -11,6 +11,7 @@ export const GET: APIRoute = async ({ url }) => {
   const anio = Number.isInteger(anioRaw) && anioRaw >= 2000 && anioRaw <= 2100 ? anioRaw : ANIO_POR_DEFECTO;
   const ef = {
     anio,
+    gasera: (url.searchParams.get('gasera') ?? '').trim().slice(0, 120) || undefined,
     producto: (url.searchParams.get('producto') ?? '').trim().slice(0, 160) || undefined,
     estado: (url.searchParams.get('estado') ?? '').trim().slice(0, 80) || undefined,
     aseguradora: (url.searchParams.get('aseguradora') ?? '').trim().slice(0, 80) || undefined,

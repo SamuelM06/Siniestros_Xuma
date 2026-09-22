@@ -16,6 +16,7 @@ const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'S
 
 interface FiltrosEstatus {
   anio: number;
+  gasera?: string;
   estado?: string;
   producto?: string;
   aseguradora?: string;
@@ -27,6 +28,7 @@ const etiquetaCls = 'mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold 
 
 function construirQs(f: FiltrosEstatus): string {
   const p = new URLSearchParams({ anio: String(f.anio) });
+  if (f.gasera) p.set('gasera', f.gasera);
   if (f.estado) p.set('estado', f.estado);
   if (f.producto) p.set('producto', f.producto);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
@@ -43,6 +45,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
   const primeraCarga = useRef(datosIniciales != null);
 
   const anios = useMemo(() => metadatos.anios.map((a) => ({ valor: String(a), etiqueta: String(a) })), [metadatos.anios]);
+  const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
   const estados = useMemo(() => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })), [metadatos.estados]);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
@@ -115,6 +118,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
   const mesesVisibles = filtros.anio === anioActual ? MESES_CORTOS.slice(0, mesActual) : MESES_CORTOS;
 
   const activos =
+    (filtros.gasera ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
@@ -124,10 +128,10 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
     <div className="space-y-6">
       {/* Filtros: Año, Producto, Estado y Aseguradora */}
       <motion.section
-        layout
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass rounded-3xl p-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.35 }}
+        className="glass relative z-20 rounded-3xl p-3"
       >
         <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-bold text-tinta">
@@ -171,7 +175,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
           </div>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
           <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Año</span>
             <SelectXuma
@@ -182,6 +186,19 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
               etiquetaTodo={`Todos los años`}
               icono={<CalendarRange className="h-4 w-4" />}
               desplegableClase={inputSelectCls}
+            />
+          </label>
+
+          <label className="block min-w-0">
+            <span className={etiquetaCls}><Fuel className="h-3.5 w-3.5" /> Gasera</span>
+            <SelectXuma
+              valor={filtros.gasera ?? ''}
+              opciones={gaseras}
+              alCambiar={(v) => cambiar({ gasera: v || undefined })}
+              placeholder="Filtrar por gasera"
+              etiquetaTodo="Todas las gaseras"
+              icono={<Fuel className="h-4 w-4" />}
+              desplegableClase="w-max min-w-72 max-w-[85vw] right-0"
             />
           </label>
 
@@ -294,7 +311,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
           ) : (
             <AnimatePresence initial={false} mode="wait">
               <motion.tbody
-                key={`${filtros.anio}:${filtros.estado ?? ''}:${filtros.producto ?? ''}:${filtros.aseguradora ?? ''}`}
+                key={`${filtros.anio}:${filtros.gasera ?? ''}:${filtros.estado ?? ''}:${filtros.producto ?? ''}:${filtros.aseguradora ?? ''}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
