@@ -122,12 +122,6 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
               <TendenciaMensualHist data={tend} />
             </Suspense>
           </Panel>
-
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
-            <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
-            <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
-            <span>2026 es parcial (datos hasta septiembre).</span>
-          </p>
         </div>
 
         {/* En xl las 4 tarjetas se reparten a alto completo de la columna de
@@ -173,6 +167,14 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
           />
         </aside>
       </div>
+
+      {/* Nota a ancho completo: antes vivía en la columna central y alargaba
+          la fila, dejando las tarjetas por fuera del panel de tendencia. */}
+      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
+        <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
+        <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
+        <span>2026 es parcial (datos hasta septiembre).</span>
+      </p>
     </div>
   );
 }
