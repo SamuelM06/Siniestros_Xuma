@@ -140,7 +140,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
       </section>
 
       <Panel titulo="Tendencia mensual por año" icono={<CalendarRange className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
-        <Suspense fallback={<EsqueletoGrafico clases="h-[300px]" />}>
+        <Suspense fallback={          <EsqueletoGrafico clases="h-[470px]" />}>
           <TendenciaAnualChart series={mensual} />
         </Suspense>
       </Panel>

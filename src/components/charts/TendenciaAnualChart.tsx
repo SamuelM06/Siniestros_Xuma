@@ -11,8 +11,8 @@ interface Props {
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 // Separación vertical mínima entre etiquetas de año (px) y alto aproximado
 // del área de trazado, para convertir esa separación a unidades de datos.
-const GAP_ETIQUETA_PX = 16;
-const ALTO_TRAZADO_PX = 240;
+const GAP_ETIQUETA_PX = 18;
+const ALTO_TRAZADO_PX = 360;
 
 // Comparativa interanual: meses en el eje X y una línea por cada año.
 // - El año en curso se corta en el último mes con dato (null = sin dato).
@@ -97,7 +97,7 @@ export default function TendenciaAnualChart({ series }: Props) {
   return (
     <div>
       <style>{'@keyframes pulsoXuma { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }'}</style>
-      <div style={{ height: 300 }} className="w-full">
+      <div style={{ height: 430 }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datos} margin={{ top: 16, right: 56, left: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
@@ -204,7 +204,7 @@ export default function TendenciaAnualChart({ series }: Props) {
                         {Math.abs(dy) > 1 ? (
                           <line x1={cx + 4} y1={cy} x2={cx + 9} y2={cy + dy + 3} stroke={l.color} strokeWidth={1} opacity={0.6} />
                         ) : null}
-                        <circle cx={cx} cy={cy} r={3} fill={l.color} stroke="#ffffff" strokeWidth={1.2} />
+                        <circle cx={cx} cy={cy} r={3} fill={l.color} />
                         <text
                           x={cx + 12}
                           y={cy + 4 + dy}
@@ -212,9 +212,6 @@ export default function TendenciaAnualChart({ series }: Props) {
                           fontWeight={800}
                           fill={l.color}
                           fontFamily="'Raleway', sans-serif"
-                          style={{ paintOrder: 'stroke' }}
-                          stroke="var(--qtooltip-fondo)"
-                          strokeWidth={3}
                         >
                           {l.anio}
                         </text>
