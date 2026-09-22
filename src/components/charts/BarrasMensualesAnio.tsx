@@ -55,7 +55,7 @@ export default function BarrasMensualesAnio({ series }: Props) {
   return (
     <div>
       <style>{'@keyframes pulsoXuma { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }'}</style>
-      <div style={{ height: 430 }} className="w-full">
+      <div className="h-[430px] w-full xl:h-[340px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={datos} margin={{ top: 16, right: 8, left: 4, bottom: 0 }} barCategoryGap="20%" barGap={1}>
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />

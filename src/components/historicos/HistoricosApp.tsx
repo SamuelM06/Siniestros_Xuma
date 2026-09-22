@@ -106,59 +106,69 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
         modoAnio
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          titulo="Total histórico"
-          valor={totalHist}
-          icono={<Trophy className="h-6 w-6" />}
-          acento="azul"
-          delay={0}
-          sub={`${anios.length} año${anios.length === 1 ? '' : 's'} en rango`}
-        />
-        <KpiCard
-          titulo="Promedio % pagado"
-          valor={promedioPct}
-          icono={<Percent className="h-6 w-6" />}
-          acento="verde-claro"
-          delay={0.06}
-          sub={`${formatNum(pagadosHist)} pagados en total`}
-        />
-        <KpiCard
-          titulo="Pico de casos"
-          valor={pico.total}
-          icono={<CalendarRange className="h-6 w-6" />}
-          acento="violeta"
-          delay={0.12}
-          sub={pico.anio > 0 ? `Año ${pico.anio}${pico.anio === 2026 ? ' (parcial)' : ''}` : 'Sin datos'}
-        />
-        <KpiCard
-          titulo="Total pagado histórico"
-          valor={totalPagadoHist}
-          icono={<Coins className="h-6 w-6" />}
-          acento="verde-oscuro"
-          delay={0.18}
-          moneda
-          sub="Suma de pagos válidos (2018–2026)"
-        />
-      </section>
+      {/* En pantallas anchas los KPI van en los laterales y los gráficos al
+          centro, para ver todo sin scroll. En móvil/tablet se apila: KPIs
+          primero y gráficos después. */}
+      <div className="grid gap-3 xl:grid-cols-[240px_minmax(0,1fr)_240px]">
+        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores principales">
+          <KpiCard
+            titulo="Total histórico"
+            valor={totalHist}
+            icono={<Trophy className="h-6 w-6" />}
+            acento="azul"
+            delay={0}
+            sub={`${anios.length} año${anios.length === 1 ? '' : 's'} en rango`}
+          />
+          <KpiCard
+            titulo="Promedio % pagado"
+            valor={promedioPct}
+            icono={<Percent className="h-6 w-6" />}
+            acento="verde-claro"
+            delay={0.06}
+            sub={`${formatNum(pagadosHist)} pagados en total`}
+          />
+        </aside>
 
-      <Panel titulo="Comparativa mensual por año" icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
-        <Suspense fallback={          <EsqueletoGrafico clases="h-[470px]" />}>
-          <BarrasMensualesAnio series={mensual} />
-        </Suspense>
-      </Panel>
+        <div className="order-3 min-w-0 space-y-3 xl:order-2">
+          <Panel titulo="Comparativa mensual por año" icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.05}>
+            <Suspense fallback={          <EsqueletoGrafico clases="h-[470px] xl:h-[380px]" />}>
+              <BarrasMensualesAnio series={mensual} />
+            </Suspense>
+          </Panel>
 
-      <Panel titulo="Tendencia mensual: siniestros y dinero pagado" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.1}>
-        <Suspense fallback={          <EsqueletoGrafico clases="h-[340px]" />}>
-          <TendenciaMensualHist data={tend} />
-        </Suspense>
-      </Panel>
+          <Panel titulo="Tendencia mensual: siniestros y dinero pagado" icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />} delay={0.1}>
+            <Suspense fallback={          <EsqueletoGrafico clases="h-[340px] xl:h-[270px]" />}>
+              <TendenciaMensualHist data={tend} />
+            </Suspense>
+          </Panel>
 
-      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
-        <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
-        <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
-        <span>2026 es parcial (datos hasta septiembre).</span>
-      </p>
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/55">
+            <span>Montos 2024 saneados (1 registro corrupto excluido de sumas).</span>
+            <span>{formatNum(sinFecha)} casos sin fecha de radicación (no entran al eje de años).</span>
+            <span>2026 es parcial (datos hasta septiembre).</span>
+          </p>
+        </div>
+
+        <aside className="order-2 grid gap-3 sm:grid-cols-2 xl:order-3 xl:flex xl:flex-col xl:justify-center" aria-label="Indicadores secundarios">
+          <KpiCard
+            titulo="Pico de casos"
+            valor={pico.total}
+            icono={<CalendarRange className="h-6 w-6" />}
+            acento="violeta"
+            delay={0.12}
+            sub={pico.anio > 0 ? `Año ${pico.anio}${pico.anio === 2026 ? ' (parcial)' : ''}` : 'Sin datos'}
+          />
+          <KpiCard
+            titulo="Total pagado histórico"
+            valor={totalPagadoHist}
+            icono={<Coins className="h-6 w-6" />}
+            acento="verde-oscuro"
+            delay={0.18}
+            moneda
+            sub="Suma de pagos válidos (2018–2026)"
+          />
+        </aside>
+      </div>
     </div>
   );
 }

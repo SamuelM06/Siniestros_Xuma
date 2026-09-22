@@ -17,7 +17,7 @@ export default function TendenciaMensualHist({ data }: Props) {
 
   return (
     <div>
-      <div style={{ height: 300 }} className="w-full">
+      <div className="h-[300px] w-full xl:h-[230px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 24, right: 8, left: 4, bottom: 0 }} barCategoryGap="30%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
