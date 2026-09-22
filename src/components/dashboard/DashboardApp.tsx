@@ -15,6 +15,7 @@ const TendenciaLineChart = lazy(() => import('../charts/TendenciaLineChart'));
 const DonutChart = lazy(() => import('../charts/DonutChart'));
 const BarChartGasera = lazy(() => import('../charts/BarChartGasera'));
 const BarChartAseguradora = lazy(() => import('../charts/BarChartAseguradora'));
+const BarChartTipoSiniestro = lazy(() => import('../charts/BarChartTipoSiniestro'));
 
 // Marcador de carga ligera mientras se descarga/ejecuta el chunk de los gráficos.
 function EsqueletoGrafico({ clases }: { clases: string }) {
@@ -160,8 +161,8 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
               <TendenciaLineChart data={tendencia} />
             </Suspense>
           </Panel>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Panel titulo="Siniestros por aseguradora (total del periodo)" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
+          <div className="grid gap-3 lg:grid-cols-3">
+            <Panel titulo="Siniestros por aseguradora" icono={<Landmark className="h-5 w-5 text-[#8b7bff]" />} delay={0.12}>
               <Suspense fallback={<EsqueletoGrafico clases="h-52" />}>
                 <BarChartAseguradora data={porAseguradora} />
               </Suspense>
@@ -171,14 +172,12 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
                 <BarChartGasera data={porGasera} />
               </Suspense>
             </Panel>
+            <Panel titulo="Por tipo de siniestro" icono={<Siren className="h-5 w-5 text-amber-500" />} delay={0.2}>
+              <Suspense fallback={<EsqueletoGrafico clases="h-52" />}>
+                <BarChartTipoSiniestro data={porTipoSiniestro} />
+              </Suspense>
+            </Panel>
           </div>
-          <Panel titulo="Siniestros por tipo de siniestro" icono={<Siren className="h-5 w-5 text-amber-500" />} delay={0.2}>
-            <Suspense fallback={<EsqueletoGrafico clases="min-h-[300px]" />}>
-              <div className="max-w-sm mx-auto">
-                <DonutChart data={porTipoSiniestro.map((t: { tipo_siniestro: string; total: number }) => ({ nombre: t.tipo_siniestro, total: t.total }))} />
-              </div>
-            </Suspense>
-          </Panel>
         </div>
         <Panel titulo="Porciones por producto" icono={<PieChart className="h-5 w-5 text-[#8b7bff]" />} delay={0.09} className="flex h-full flex-col">
           <Suspense fallback={<EsqueletoGrafico clases="min-h-[300px] flex-1" />}>
