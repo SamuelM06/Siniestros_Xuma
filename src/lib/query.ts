@@ -1,4 +1,5 @@
 import { query, queryOne } from './db';
+import { configurarLimpieza } from './ratelimit';
 import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import type {
   EstatusData, Filters, FilaEstatus, ItemDepartamento, ItemGasera, ItemMunicipio, ItemProducto, KpisData, MapaData, Metadatos, PaginaTabla, PuntoTendencia, RegistroTabla, SerieAseguradora,
@@ -99,14 +100,48 @@ type RowBase = Record<string, unknown>;
 // ============================================================================
 const CACHE_SOFT_TTL_MS = 15 * 60_000;  // 15 minutos fresco
 const CACHE_STALE_TTL_MS = 120 * 60_000; // 2 horas utilizable stale
+const CACHE_MAX_ENTRIES = 300;           // tope de entradas en memoria (LRU)
+const CACHE_SWEEP_MS = 10 * 60_000;      // barrido de expiración cada 10 min
 
 interface EntradaCache<T> {
-  t: number;
+  t: number;    // cuándo se validó por última vez contra la BD
+  last: number; // último acceso (lectura o escritura), para LRU
   v: T;
 }
 
 const cacheConsultas = new Map<string, EntradaCache<unknown>>();
 const enVuelo = new Map<string, Promise<unknown>>();
+
+// Marca un acceso (en branches de lectura) o escritura.
+function tocar(clave: string, e: EntradaCache<unknown>): void {
+  e.last = Date.now();
+  cacheConsultas.set(clave, e);
+}
+
+// Evita que la caché crezca sin límite: si llegó al tope, expulsa la entrada
+// con acceso más antiguo (least-recently-used).
+function expulsarSiLleno(): void {
+  if (cacheConsultas.size < CACHE_MAX_ENTRIES) return;
+  let viejaClave: string | null = null;
+  let viejoLast = Infinity;
+  for (const [k, e] of cacheConsultas) {
+    if (e.last < viejoLast) {
+      viejoLast = e.last;
+      viejaClave = k;
+    }
+  }
+  if (viejaClave != null) cacheConsultas.delete(viejaClave);
+}
+
+// Barrido periódico: descarta entradas que no se usan desde hace más de
+// CACHE_STALE_TTL_MS (2 h). Libera memoria y datos (incluidos los delicados
+// que aún puedan quedar) aunque nunca se vuelvan a pedir esas combinaciones.
+function barrerCache(): void {
+  const ahora = Date.now();
+  for (const [k, e] of cacheConsultas) {
+    if (ahora - e.last > CACHE_STALE_TTL_MS) cacheConsultas.delete(k);
+  }
+}
 
 async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
   const ahora = Date.now();
@@ -114,15 +149,17 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
 
   // 1. Fresco (< 15 minutos): entrega inmediata
   if (hit && ahora - hit.t < CACHE_SOFT_TTL_MS) {
+    tocar(clave, hit);
     return hit.v as T;
   }
 
   // 2. En rango stale (15 min a 2 horas): servir de inmediato y refrescar en segundo plano
   if (hit && ahora - hit.t < CACHE_STALE_TTL_MS) {
+    tocar(clave, hit);
     if (!enVuelo.has(clave)) {
       const p = fn()
         .then((nuevo) => {
-          cacheConsultas.set(clave, { t: Date.now(), v: nuevo });
+          cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: nuevo });
           enVuelo.delete(clave);
           return nuevo;
         })
@@ -141,9 +178,10 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
     return pendiente as Promise<T>;
   }
 
+  expulsarSiLleno();
   const promesa = fn()
     .then((resultado) => {
-      cacheConsultas.set(clave, { t: Date.now(), v: resultado });
+      cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: resultado });
       enVuelo.delete(clave);
       return resultado;
     })
@@ -388,7 +426,10 @@ export async function getPorProducto(f: Filters, top = 7): Promise<ItemProducto[
   });
 }
 
-// ---- Tabla de detalle (paginada, sin campos sensibles) -------------------------
+// ---- Tabla de detalle (paginada) ----------------------------------------------
+// Las filas contienen datos personales (contrato, nombre del asegurado, monto):
+// NUNCA se cachean en memoria. Sólo se cachea el total filtrado (agregado,
+// sin datos personales); las páginas se consultan a BD bajo demanda.
 const CAMPOS_TABLA = `
   id_caso, numero_contrato, nombre_asegurado,
   fecha_radicacion,
@@ -400,12 +441,13 @@ const CAMPOS_TABLA = `
 `;
 
 export async function getTabla(f: Filters, page: number, pageSize: number): Promise<PaginaTabla> {
-  return conCache(`tabla:${serializarFiltros(f)}:${page}:${pageSize}`, async () => {
   const w = construirWhere(f);
-  const totalRow = await queryOne<{ n: number }>(
-    `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${w.cond}`, w.params,
-  );
-  const total = totalRow ? Number(totalRow.n) : 0;
+  const total = await conCache(`tabla-total:${serializarFiltros(f)}`, async () => {
+    const totalRow = await queryOne<{ n: number }>(
+      `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${w.cond}`, w.params,
+    );
+    return Number(totalRow ? totalRow.n : 0);
+  });
   const off = (page - 1) * pageSize;
   const sql = `
     WITH base AS (${BASE})
@@ -432,7 +474,6 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
     page,
     pageSize,
   };
-  });
 }
 
 // ---- Metadatos para poblar los filtros ----------------------------------------
@@ -649,27 +690,35 @@ export async function precalentarCache(): Promise<void> {
       getPorGasera(f),
       getPorProducto(f),
     ]);
-    // Fase 2: Mapa, Estatus y Detalle
+    // Fase 2: Mapa y Estatus (el detalle se consulta bajo demanda: sus filas
+    // contienen datos personales y no se cachean).
     await Promise.allSettled([
       getMapa(f),
       getEstatus({ anio: ANIO_REPORTE }),
-      getTabla(f, 1, 15),
     ]);
   } catch {
     // Silencioso en segundo plano
   }
 }
 
-// Iniciar precalentamiento inmediato al arrancar el servidor
+// Iniciar precalentamiento únicamente al arrancar el servidor. Después de eso,
+// la caché se revalida bajo demanda (SWR): no hay trabajo innecesario de BD con
+// cero usuarios.
 if (typeof process !== 'undefined') {
   // Disparar precalentamiento inicial tras 100ms
   setTimeout(() => {
     precalentarCache();
   }, 100);
 
-  // Refrescar automáticamente cada 10 minutos para que NUNCA expire la caché
-  const refInterval = setInterval(() => {
-    precalentarCache();
-  }, 10 * 60_000);
-  if (refInterval.unref) refInterval.unref();
+  // Higiene del rate-limiter (descarta buckets vencidos por IP).
+  configurarLimpieza();
+
+  // Mantenimiento periódico de la caché: barre entradas sin uso > 2 h y
+  // registra el tamaño del cache y la memoria del heap para detectar fugas.
+  const mantenimiento = setInterval(() => {
+    barrerCache();
+    const heapMb = Math.round(process.memoryUsage().heapUsed / 1048576);
+    console.log(`[cache] ${cacheConsultas.size}/${CACHE_MAX_ENTRIES} entradas · heap ${heapMb} MB`);
+  }, CACHE_SWEEP_MS);
+  if (mantenimiento.unref) mantenimiento.unref();
 }
