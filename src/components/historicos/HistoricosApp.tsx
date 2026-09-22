@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { BarChart3, CalendarRange, Coins, Percent, TrendingUp, Trophy } from 'lucide-react';
 import type { Filters, HistoricosData, Metadatos } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
-import { formatNum } from '../../utils/formatters';
+import { formatCOP, formatNum } from '../../utils/formatters';
 import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
@@ -132,13 +132,14 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
 
         {/* En xl las 4 tarjetas se reparten a alto completo de la columna de
             gráficos (filas iguales, estiran solas). */}
-        <aside className="order-1 grid gap-3 sm:grid-cols-2 xl:order-2 xl:grid-cols-1 xl:grid-rows-4" aria-label="Indicadores">
+        <aside className="order-1 grid min-w-0 gap-3 sm:grid-cols-2 xl:order-2 xl:grid-cols-1 xl:grid-rows-4" aria-label="Indicadores">
           <KpiCard
             titulo="Total histórico"
             valor={totalHist}
             icono={<Trophy className="h-6 w-6" />}
             acento="azul"
             delay={0}
+            centrado
             sub={`${anios.length} año${anios.length === 1 ? '' : 's'} en rango`}
           />
           <KpiCard
@@ -147,6 +148,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
             icono={<Percent className="h-6 w-6" />}
             acento="verde-claro"
             delay={0.06}
+            centrado
             sub={`${formatNum(pagadosHist)} pagados en total`}
           />
           <KpiCard
@@ -155,6 +157,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
             icono={<CalendarRange className="h-6 w-6" />}
             acento="violeta"
             delay={0.12}
+            centrado
             sub={pico.anio > 0 ? `Año ${pico.anio}${pico.anio === 2026 ? ' (parcial)' : ''}` : 'Sin datos'}
           />
           <KpiCard
@@ -164,7 +167,9 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
             acento="verde-oscuro"
             delay={0.18}
             moneda
-            sub="Suma de pagos válidos (2018–2026)"
+            centrado
+            compacto
+            sub={totalPagadoHist >= 1e9 ? `${formatCOP(totalPagadoHist)} en pagos válidos` : 'Suma de pagos válidos (2018–2026)'}
           />
         </aside>
       </div>

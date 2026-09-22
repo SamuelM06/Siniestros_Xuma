@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { animate, motion, useInView } from 'motion/react';
-import { formatCOP, formatNum } from '../../utils/formatters';
+import { formatCOP, formatCOPMilesM, formatNum, formatNumCompact } from '../../utils/formatters';
 import type { ReactNode } from 'react';
 
 interface Props {
@@ -14,6 +14,10 @@ interface Props {
   grande?: boolean;
   hero?: boolean;
   className?: string;
+  // centrado: contenido centrado vertical y horizontalmente (laterales).
+  // compacto: cifra grande en formato corto (miles de millones / compacto).
+  centrado?: boolean;
+  compacto?: boolean;
 }
 
 const ACENTOS: Record<Props['acento'], { barra: string; glow: string; num: string }> = {
@@ -33,10 +37,15 @@ const icCls = {
 } as const;
 
 // Tarjeta KPI con contador animado (count-up) al entrar en pantalla.
-export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false, hero = false, className = '' }: Props) {
+export default function KpiCard({ titulo, valor, icono, moneda = false, acento, sub, delay = 0, grande = false, hero = false, className = '', centrado = false, compacto = false }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-40px' });
   const cfg = ACENTOS[acento];
+
+  const textoValor = (v: number): string => {
+    if (moneda) return compacto ? formatCOPMilesM(v) : formatCOP(v);
+    return compacto ? formatNumCompact(Math.round(v)) : formatNum(Math.round(v));
+  };
 
   useEffect(() => {
     if (!inView || !ref.current) return;
@@ -44,11 +53,11 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       duration: 1.4,
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (v) => {
-        if (ref.current) ref.current.textContent = moneda ? formatCOP(v) : formatNum(Math.round(v));
+        if (ref.current) ref.current.textContent = textoValor(v);
       },
     });
     return () => controls.stop();
-  }, [inView, valor, moneda]);
+  }, [inView, valor, moneda, compacto]);
 
   if (grande) {
     return (
@@ -101,18 +110,25 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       initial={{ opacity: 0, y: 26 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${cfg.glow}`}
+      className={`glass glass-hover relative min-w-0 overflow-hidden rounded-3xl p-4 ${cfg.glow}${centrado ? ' flex h-full flex-col items-center justify-center text-center' : ''}`}
     >
       <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.barra}`} />
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-tinta/70">{titulo}</p>
-        <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
-      </div>
+      {centrado ? (
+        <>
+          <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
+          <p className="mt-1 text-sm font-semibold text-tinta/70">{titulo}</p>
+        </>
+      ) : (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-semibold text-tinta/70">{titulo}</p>
+          <span className={`text-xl drop-shadow ${icCls[acento]}`}>{icono}</span>
+        </div>
+      )}
       <span
         ref={ref}
         className={`tabular mt-2 block text-3xl font-extrabold tracking-tight md:text-4xl ${cfg.num}`}
       >
-        {moneda ? formatCOP(0) : formatNum(0)}
+        {moneda ? (compacto ? formatCOPMilesM(0) : formatCOP(0)) : formatNum(0)}
       </span>
       {sub && <p className="mt-2 text-xs text-tinta/50">{sub}</p>}
     </motion.article>

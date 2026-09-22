@@ -37,6 +37,16 @@ export function formatCOPCompact(value: number | null | undefined): string {
   return COMPACTO_COP.format(value);
 }
 
+// Pesos en miles de millones ("$57,09 mil M") para espacios angostos como el
+// lateral de Históricos; debajo de mil millones muestra el valor completo.
+export function formatCOPMilesM(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '$0';
+  if (Math.abs(value) < 1e9) return COP.format(Math.round(value));
+  const milesM = value / 1e9;
+  const txt = milesM.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `$${txt} mil M`;
+}
+
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
