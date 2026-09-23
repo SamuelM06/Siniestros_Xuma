@@ -16,6 +16,10 @@ const estiloEtiqueta = {
   fontFamily: "'Raleway', sans-serif",
 } as const;
 
+// En modo día (filtro mes) las etiquetas van más pequeñas para que 30 días
+// no se encimen; los montos COP NO se etiquetan (solo hover en el tooltip).
+const estiloEtiquetaDia = { ...estiloEtiqueta, fontSize: 10.5 } as const;
+
 // Título del tooltip: en modo día muestra "12 de septiembre de 2026"
 // (el punto trae mes ISO YYYY-MM-DD); en modo mes el nombre del mes.
 function tituloPunto(p: PuntoTendencia | undefined, label: string): string {
@@ -84,9 +88,9 @@ export default function TendenciaLineChart({ data }: Props) {
                 <LabelList
                   dataKey="total"
                   position="top"
-                  offset={8}
+                  offset={modoDia ? 6 : 8}
                   formatter={(v) => (typeof v === 'number' ? formatNum(v) : v)}
-                  style={estiloEtiqueta}
+                  style={modoDia ? estiloEtiquetaDia : estiloEtiqueta}
                 />
               </Area>
             </AreaChart>
@@ -138,13 +142,17 @@ export default function TendenciaLineChart({ data }: Props) {
                 dot={modoDia ? false : { r: 3.5, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
                 activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }}
               >
-                <LabelList
-                  dataKey="valorPagado"
-                  position="top"
-                  offset={8}
-                  formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
-                  style={estiloEtiqueta}
-                />
+                {/* Montos solo en hover: en modo día las etiquetas COP se
+                    enciman entre sí y no se entienden. */}
+                {!modoDia && (
+                  <LabelList
+                    dataKey="valorPagado"
+                    position="top"
+                    offset={8}
+                    formatter={(v) => (typeof v === 'number' ? formatCOPCompact(v) : v)}
+                    style={estiloEtiqueta}
+                  />
+                )}
               </Area>
             </AreaChart>
           </ResponsiveContainer>
@@ -159,7 +167,7 @@ export default function TendenciaLineChart({ data }: Props) {
           <span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-2)' }} />
           Total pagado (COP)
         </span>
-        {modoDia && <span className="font-semibold text-tinta/50">Desglose por día del mes filtrado</span>}
+        {modoDia && <span className="font-semibold text-tinta/50">Días del mes · montos al pasar el cursor</span>}
       </div>
     </div>
   );

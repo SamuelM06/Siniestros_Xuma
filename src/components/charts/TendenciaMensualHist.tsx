@@ -7,19 +7,22 @@ interface Props {
   data: PuntoMesHist[];
 }
 
-function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
+// `compacto` = modo día: píldora más pequeña para que 31 cantidades no se
+// encimen. Solo lleva cantidad; el monto pagado se ve en el hover.
+function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string; compacto?: boolean }) {
   const cx = Number(props.x);
   const cy = Number(props.y);
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
   const texto = typeof props.value === 'number' ? formatNum(props.value) : String(props.value ?? '');
   if (!texto) return null;
-  const alto = 19;
-  const ancho = texto.length * 6.6 + 12;
-  const py = cy - 12;
+  const compacto = props.compacto === true;
+  const alto = compacto ? 14 : 19;
+  const ancho = texto.length * (compacto ? 5.4 : 6.6) + (compacto ? 8 : 12);
+  const py = cy - (compacto ? 9 : 12);
   return (
     <g>
       <rect x={cx - ancho / 2} y={py - alto / 2} width={ancho} height={alto} rx={alto / 2} fill="var(--cpanel-fondo)" fillOpacity={0.95} stroke="var(--cglass-borde)" strokeOpacity={0.8} />
-      <text x={cx} y={py + 0.5} textAnchor="middle" dominantBaseline="central" fill="var(--ctinta)" fontSize={10.5} fontWeight={800} fontFamily="'Raleway', sans-serif">{texto}</text>
+      <text x={cx} y={py + 0.5} textAnchor="middle" dominantBaseline="central" fill="var(--ctinta)" fontSize={compacto ? 9 : 10.5} fontWeight={800} fontFamily="'Raleway', sans-serif">{texto}</text>
     </g>
   );
 }
@@ -67,9 +70,9 @@ export default function TendenciaMensualHist({ data }: Props) {
               cursor={{ fill: 'var(--csombra-cursor)' }}
             />
             <Bar yAxisId="si" dataKey="total" name="Siniestros" fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={modoDia ? 14 : 26} animationDuration={1200} animationEasing="ease-out">
-              {/* En modo día las píldoras se encimarían (hasta 31 barras): el
-                  tooltip lleva los valores. */}
-              {!modoDia && <LabelList dataKey="total" position="top" offset={10} content={<EtiquetaPildora />} />}
+              {/* Cantidad siempre visible (píldora compacta en modo día);
+                  el monto pagado solo aparece en el tooltip al hacer hover. */}
+              <LabelList dataKey="total" position="top" offset={modoDia ? 7 : 10} content={<EtiquetaPildora compacto={modoDia} />} />
             </Bar>
             <Line yAxisId="dinero" type="monotone" dataKey="valorPagado" name="Total pagado" stroke="var(--cgraf-2)" strokeWidth={2.5} dot={modoDia ? false : { r: 3.5, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }} activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }} animationDuration={1400} animationEasing="ease-out" />
           </ComposedChart>
@@ -78,7 +81,7 @@ export default function TendenciaMensualHist({ data }: Props) {
       <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/70">
         <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm" style={{ background: 'var(--cgraf-1)' }} />Siniestros</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-2)' }} />Total pagado (COP)</span>
-        {modoDia && <span className="font-semibold text-tinta/50">Desglose por día del mes filtrado</span>}
+        {modoDia && <span className="font-semibold text-tinta/50">Días del mes · montos al pasar el cursor</span>}
       </div>
     </div>
   );
