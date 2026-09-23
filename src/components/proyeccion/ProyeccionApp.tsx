@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle, AlertTriangle, BarChart3, Calendar, CalendarRange, Coins, MapPin, Sparkles, TrendingDown, TrendingUp, Trophy, Minus,
+  AlertTriangle, BarChart3, Calendar, CalendarRange, Coins, MapPin, TrendingUp, Trophy,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { Filters, Metadatos, ProyeccionData } from '../../lib/types';
 import { queryString } from '../../utils/fetcher';
-import { formatCOP, formatCOPMilesM, formatNum } from '../../utils/formatters';
+import { formatNum } from '../../utils/formatters';
 import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
@@ -57,7 +57,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
     return () => { vivo = false; };
   }, [filtros]);
 
-  const { forecast, estacionalidad, tendencia, departamentos, tiposSiniestro, backtest, cambios, supuestos, anioObjetivo, aniosEntrenamiento } = data;
+  const { forecast, estacionalidad, tendencia, departamentos, tiposSiniestro, supuestos, anioObjetivo, aniosEntrenamiento } = data;
 
   const activos =
     (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
@@ -74,10 +74,8 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
   const top3Deptos = useMemo(() => [...departamentos].sort((a, b) => b.prob - a.prob).slice(0, 3), [departamentos]);
 
-  const IconoCrecimiento = tendencia.direccion === 'alza' ? TrendingUp : tendencia.direccion === 'baja' ? TrendingDown : Minus;
-
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2 xl:gap-2.5 xl:h-[calc(100vh-88px)] xl:overflow-hidden">
       <h1 className="sr-only">Proyección estadística de siniestros</h1>
 
       <FiltrosPanel
@@ -89,10 +87,10 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         cargando={cargando}
         modoProyeccion
       />
-      <p className="px-1 text-[10px] leading-tight text-tinta/45">Proyección probabilística {anioObjetivo} basada en {aniosEntrenamiento.length} años cerrados ({aniosEntrenamiento[0] ?? 2018}–{aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025}). Filtra por gasera, aseguradora o producto para recalcular la probabilidad del segmento.</p>
+      <p className="px-1 text-[10px] leading-none text-tinta/45">Proyección probabilística {anioObjetivo} basada en {aniosEntrenamiento.length} años cerrados ({aniosEntrenamiento[0] ?? 2018}–{aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025}). Filtra por gasera, aseguradora o producto para recalcular la probabilidad del segmento.</p>
 
-      {/* KPIs superiores: 4 tarjetas */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* KPIs superiores: 4 tarjetas — mismo tamaño, sin resalte */}
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 xl:gap-2.5">
         <KpiCard
           titulo={`Siniestros ${anioObjetivo}`}
           valor={tendencia.totalProyAnual}
@@ -118,7 +116,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           initial={{ opacity: 0, y: 26 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-          className="glass glass-hover relative flex h-full flex-col items-center justify-center overflow-hidden rounded-3xl p-4 text-center shadow-[0_0_35px_-10px_rgba(240,180,41,0.55)]"
+          className="glass glass-hover relative flex h-full flex-col items-center justify-center overflow-hidden rounded-3xl p-4 text-center"
         >
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#f0b429] to-[#ef7a6b]" />
           <span className="text-xl drop-shadow text-[#b45309] dark:text-[#ffd98a]"><MapPin className="h-6 w-6" /></span>
@@ -138,7 +136,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           initial={{ opacity: 0, y: 26 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          className="glass glass-hover relative flex h-full flex-col items-center justify-center overflow-hidden rounded-3xl p-4 text-center shadow-[0_0_35px_-10px_rgba(139,123,255,0.6)]"
+          className="glass glass-hover relative flex h-full flex-col items-center justify-center overflow-hidden rounded-3xl p-4 text-center"
         >
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#8b7bff] to-[#3d22c8]" />
           <span className="text-xl drop-shadow text-[#6a4fd8] dark:text-[#b8c0ff]"><Calendar className="h-6 w-6" /></span>
@@ -155,8 +153,8 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         </motion.article>
       </div>
 
-      {/* Fila 1: Forecast + columnas de probabilidad (intercambiado) */}
-      <div className="grid gap-3 xl:grid-cols-[1.55fr_380px]">
+      {/* Fila 1: Forecast + columnas de probabilidad */}
+      <div className="grid gap-2 xl:grid-cols-[1.55fr_380px] xl:gap-2.5 xl:flex-1 xl:min-h-0">
         <Panel
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
           icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
@@ -165,12 +163,12 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         >
           <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>
-        <div className="space-y-3">
+        <div className="space-y-2 xl:space-y-2.5 flex flex-col">
           <Panel
             titulo="Probabilidad por departamento"
             icono={<Trophy className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.1}
-            className="xl:p-3"
+            className="xl:p-3 flex-1"
           >
             {top3Deptos.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
@@ -188,81 +186,41 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             titulo="Probabilidad por tipo de siniestro"
             icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.12}
-            className="xl:p-3"
+            className="xl:p-3 flex-1"
           >
             <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
           </Panel>
         </div>
       </div>
 
-      {/* Fila 2: Índice estacional donde estaban las columnas + lateral compacto */}
-      <div className="grid gap-3 xl:grid-cols-[1fr_360px]">
+      {/* Fila 2: Índice estacional + alertas — mismo espacio, sin resalte */}
+      <div className="grid gap-2 xl:grid-cols-[1fr_360px] xl:gap-2.5 xl:flex-1 xl:min-h-0">
         <Panel
           titulo="Índice estacional · alerta de picos"
           icono={<CalendarRange className="h-5 w-5 text-xuma-ambar" />}
           delay={0.14}
-          className="xl:p-3"
+          className="xl:p-3 flex flex-col"
         >
           <EstacionalidadChart data={estacionalidad} />
         </Panel>
-        <aside className="space-y-3">
-          <Panel
-            titulo="Tendencia anual"
-            icono={<IconoCrecimiento className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
-            delay={0.16}
-            className="xl:p-3 py-3"
-          >
-            <div className="space-y-1 text-[11px]">
-              <div className="flex justify-between"><span className="text-tinta/65">Dirección</span><b>{tendencia.direccion === 'alza' ? '📈 Alza' : tendencia.direccion === 'baja' ? '📉 Baja' : '➡️ Estable'}</b></div>
-              <div className="flex justify-between"><span className="text-tinta/65">Pendiente</span><b>{tendencia.pendienteAnual >= 0 ? '+' : ''}{tendencia.pendienteAnual} casos/año</b></div>
-              <div className="flex justify-between"><span className="text-tinta/65">p-value</span><b>{tendencia.pValue < 0.05 ? `❌ ${tendencia.pValue}` : `✅ ${tendencia.pValue}`}</b></div>
-              <div className="flex justify-between"><span className="text-tinta/65">Crecimiento</span><b>{tendencia.crecimientoVsPrevio >= 0 ? '+' : ''}{tendencia.crecimientoVsPrevio}%</b></div>
-              <div className="mt-1.5 flex items-center justify-between rounded-lg bg-tinta/5 px-2 py-1">
-                <span className="text-[10px] font-semibold text-tinta/60">Precisión walk-forward</span>
-                <span className={`text-[10px] font-bold ${backtest.confiable ? 'text-xuma-verde-claro' : 'text-amber-600'}`}>{backtest.mape !== null ? `MAPE ${backtest.mape}%` : 'Sin historia'} {backtest.confiable ? '✓' : ''}</span>
-              </div>
-            </div>
-          </Panel>
-          <Panel
-            titulo="Cambio estructural"
-            icono={<AlertCircle className="h-5 w-5 text-xuma-ambar" />}
-            delay={0.18}
-            className="xl:p-3"
-          >
-            <div className="space-y-1 text-[11px]">
-              {cambios.map((c) => (
-                <div key={c.dimension} className="flex justify-between">
-                  <span className="text-tinta/65">{c.dimension}</span>
-                  <b className={c.hayCambio ? 'text-red-400' : 'text-xuma-verde-claro'}>
-                    p={c.pValue < 0.05 ? '❌' : '✅'} {c.pValue}
-                  </b>
-                </div>
-              ))}
-            </div>
-          </Panel>
-          {/* Supuestos metodológicos — barra lateral resaltada */}
-          <section className="glass rounded-3xl p-4 xl:p-4 border border-amber-400/20 bg-gradient-to-br from-amber-500/[0.07] via-orange-500/[0.04] to-amber-500/[0.07] shadow-[0_8px_32px_-12px_rgba(245,158,11,0.35)]">
-            <header className="mb-2 flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300"><AlertTriangle className="h-4 w-4" /></span>
-              <div>
-                <h2 className="text-sm font-extrabold leading-none text-tinta">Supuestos metodológicos</h2>
-                <p className="text-[10px] font-semibold leading-none text-amber-700/70 dark:text-amber-300/70">Alertas de lo que puede pasar</p>
-              </div>
-              <span className="ml-auto hidden items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold tracking-wide text-amber-700 dark:text-amber-300 sm:inline-flex"><Sparkles className="h-3 w-3" /> {anioObjetivo}</span>
-            </header>
-            <ul className="space-y-1.5">
-              {supuestos.map((s, i) => (
-                <li key={i} className="flex gap-2 text-[10px] leading-snug text-tinta/75">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/70" />
-                  <span>{s}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 rounded-lg bg-amber-500/10 px-2 py-1.5 text-[10px] font-semibold leading-snug text-amber-800/80 dark:text-amber-200/80">
-              Usa los filtros de gasera / aseguradora / producto para recalcular estas alertas sobre el segmento de interés.
-            </p>
-          </section>
-        </aside>
+        <Panel
+          titulo="Supuestos metodológicos · alertas"
+          icono={<AlertTriangle className="h-5 w-5 text-xuma-ambar" />}
+          delay={0.16}
+          className="xl:p-3 flex flex-col"
+        >
+          <ul className="space-y-1.5">
+            {supuestos.map((s, i) => (
+              <li key={i} className="flex gap-2 text-[10px] leading-snug text-tinta/70">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-tinta/30" />
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 rounded-lg bg-tinta/5 px-2 py-1.5 text-[10px] leading-snug text-tinta/60">
+            Filtra por gasera / aseguradora / producto para recalcular estas alertas sobre el segmento.
+          </p>
+        </Panel>
       </div>
     </div>
   );

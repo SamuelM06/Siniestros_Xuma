@@ -28,10 +28,10 @@ export default function EstacionalidadChart({ data }: Props) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos estacionales.</p>;
   }
   return (
-    <div>
-      <div className="h-[260px] w-full xl:h-[320px]">
+    <div className="flex flex-col">
+      <div className="h-[190px] w-full xl:h-[190px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 0 }} barCategoryGap="18%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barCategoryGap="18%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
             <XAxis dataKey="label" tick={{ fill: 'var(--ctinta-suave)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
             <YAxis tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} tick={{ fill: 'var(--ctinta-suave)', fontSize: 9.5 }} axisLine={false} tickLine={false} width={40} />
@@ -49,13 +49,12 @@ export default function EstacionalidadChart({ data }: Props) {
               }}
               cursor={{ fill: 'var(--csombra-cursor)' }}
             />
-            <Bar dataKey="indice" fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={26} animationDuration={1200} animationEasing="ease-out">
-              <LabelList dataKey="indice" position="top" offset={8} content={<EtiquetaIndice />} />
+            <Bar dataKey="indice" fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={22} animationDuration={1200} animationEasing="ease-out">
+              <LabelList dataKey="indice" position="top" offset={6} content={<EtiquetaIndice />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-1 text-[10px] text-tinta/55 text-center">Índice estacional (promedio 2018–2025). 100% = mes promedio; {'>'}100% = mes por encima del promedio.</p>
     </div>
   );
 }

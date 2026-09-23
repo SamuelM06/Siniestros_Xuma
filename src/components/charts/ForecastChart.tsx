@@ -43,8 +43,8 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
     label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], referencia: p.refAnioPrevio
   }));
   return (
-    <div>
-      <div className="h-[320px] w-full xl:h-[270px]">
+    <div className="flex flex-col">
+      <div className="h-[230px] w-full xl:h-[210px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={filas} margin={{ top: 24, right: 8, left: 4, bottom: 0 }} barCategoryGap="30%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
@@ -78,7 +78,7 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/70">
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-tinta/70">
         <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm" style={{ background: 'var(--cgraf-1)' }} />Siniestros {anioObjetivo}</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-2)' }} />Pagado {anioObjetivo} (COP)</span>
         <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed" style={{ borderColor: 'var(--ctinta-suave)' }} />Real {anioPrevio}</span>
