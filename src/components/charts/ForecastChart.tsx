@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PuntoForecast } from '../../lib/types';
 import { formatCOP, formatCOPCompact, formatNum } from '../../utils/formatters';
@@ -16,7 +15,7 @@ interface Fila {
   sinRango: [number, number];
   monto: number;
   montoRango: [number, number];
-  ref: number;
+  referencia: number;
 }
 
 function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
@@ -37,17 +36,12 @@ function EtiquetaPildora(props: { x?: number | string; y?: number | string; valu
 }
 
 export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props) {
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => { setHasMounted(true); }, []);
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos para el rango seleccionado.</p>;
   }
   const filas: Fila[] = data.map((p) => ({
-    label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], ref: p.refAnioPrevio,
+    label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], referencia: p.refAnioPrevio
   }));
-  if (!hasMounted) {
-    return <div className="h-[320px] w-full xl:h-[270px] animate-pulse rounded-xl bg-tinta/5" />;
-  }
   return (
     <div>
       <div className="h-[320px] w-full xl:h-[270px]">
@@ -68,7 +62,7 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
                       <>
                         <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-1)', marginRight: 6 }} />Siniestros: <b>{formatNum(fila.sin)}</b><span style={{ opacity: 0.7 }}> (80%: {formatNum(fila.sinRango[0])}–{formatNum(fila.sinRango[1])})</span></p>
                         <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-2)', marginRight: 6 }} />Pagado: <b>{formatCOP(fila.monto)}</b><span style={{ opacity: 0.7 }}> (80%: {formatCOPCompact(fila.montoRango[0])}–{formatCOPCompact(fila.montoRango[1])})</span></p>
-                        <p style={{ margin: 0, opacity: 0.75 }}>Real {anioPrevio}: <b>{formatNum(fila.ref)}</b></p>
+                        <p style={{ margin: 0, opacity: 0.75 }}>Real {anioPrevio}: <b>{formatNum(fila.referencia)}</b></p>
                       </>
                     )}
                   </div>
@@ -79,7 +73,7 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
             <Bar yAxisId="si" dataKey="sin" name={`Siniestros ${anioObjetivo}`} fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={26} animationDuration={1200} animationEasing="ease-out">
               <LabelList dataKey="sin" position="top" offset={10} content={<EtiquetaPildora />} />
             </Bar>
-            <Line yAxisId="si" type="monotone" dataKey="ref" name={`Real ${anioPrevio}`} stroke="var(--ctinta-suave)" strokeDasharray="5 4" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} animationDuration={1400} />
+            <Line yAxisId="si" type="monotone" dataKey="referencia" name={`Real ${anioPrevio}`} stroke="var(--ctinta-suave)" strokeDasharray="5 4" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} animationDuration={1400} />
             <Line yAxisId="dinero" type="monotone" dataKey="monto" name={`Pagado ${anioObjetivo}`} stroke="var(--cgraf-2)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }} activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }} animationDuration={1400} animationEasing="ease-out" />
           </ComposedChart>
         </ResponsiveContainer>

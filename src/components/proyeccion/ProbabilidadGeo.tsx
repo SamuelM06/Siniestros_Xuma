@@ -32,7 +32,7 @@ export default function ProbabilidadLista({ titulo, data, icono }: Props) {
             </div>
           </div>
           <span className="w-[52px] text-right font-bold tabular">{(d.prob * 100).toFixed(1)}%</span>
-          <span className="w-[72px] text-right tabular text-tinta/60">{(d.casos).toLocaleString()}</span>
+          <span className="w-[72px] text-right tabular text-tinta/60">{formatNum(d.casos)}</span>
         </motion.div>
       ))}
     </div>

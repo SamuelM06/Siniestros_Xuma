@@ -1,5 +1,4 @@
-﻿import { useEffect, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+﻿import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { IndiceEstacional } from '../../lib/types';
 import { GLASS_TOOLTIP } from './palette';
 
@@ -25,13 +24,8 @@ function EtiquetaIndice(props: { x?: number | string; y?: number | string; value
 }
 
 export default function EstacionalidadChart({ data }: Props) {
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => { setHasMounted(true); }, []);
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos estacionales.</p>;
-  }
-  if (!hasMounted) {
-    return <div className="h-[220px] w-full xl:h-[190px] animate-pulse rounded-xl bg-tinta/5" />;
   }
   return (
     <div>
