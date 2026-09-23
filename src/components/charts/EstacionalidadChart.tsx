@@ -29,9 +29,9 @@ export default function EstacionalidadChart({ data }: Props) {
   }
   return (
     <div>
-      <div className="h-[220px] w-full xl:h-[190px]">
+      <div className="h-[260px] w-full xl:h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }} barCategoryGap="20%">
+          <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 0 }} barCategoryGap="18%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
             <XAxis dataKey="label" tick={{ fill: 'var(--ctinta-suave)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
             <YAxis tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} tick={{ fill: 'var(--ctinta-suave)', fontSize: 9.5 }} axisLine={false} tickLine={false} width={40} />
@@ -49,8 +49,8 @@ export default function EstacionalidadChart({ data }: Props) {
               }}
               cursor={{ fill: 'var(--csombra-cursor)' }}
             />
-            <Bar dataKey="indice" fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={22} animationDuration={1200} animationEasing="ease-out">
-              <LabelList dataKey="indice" position="top" offset={4} content={<EtiquetaIndice />} />
+            <Bar dataKey="indice" fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={26} animationDuration={1200} animationEasing="ease-out">
+              <LabelList dataKey="indice" position="top" offset={8} content={<EtiquetaIndice />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

@@ -14,6 +14,7 @@ interface Props {
   cargando?: boolean;
   mostrarTipoSiniestro?: boolean;
   modoAnio?: boolean;
+  modoProyeccion?: boolean;
 }
 
 // Normaliza fechas que pueden llegar como string ISO o como Date (props del island).
@@ -49,8 +50,10 @@ function mesesDisponibles(minRaw: string | Date | null, maxRaw: string | Date | 
 // Panel de filtros en una sola línea horizontal con debounce en el input de contrato.
 // En modo año (vista Históricos) se muestra Año + Mes juntos y se ocultan
 // contrato/estado/tipo, dejando: Año, Mes, gasera, aseguradora y producto.
+// En modo proyección se muestran SOLO gasera, aseguradora y producto (sin Año,
+// sin Mes, sin contrato/estado/tipo) porque la proyección es probabilística.
 // Con Año seleccionado, las opciones de Mes se acotan a ese año.
-export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false, modoAnio = false }: Props) {
+export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, activos, cargando = false, mostrarTipoSiniestro = false, modoAnio = false, modoProyeccion = false }: Props) {
   const [texto, setTexto] = useState(filtros.contrato ?? '');
 
   const meses = useMemo(() => mesesDisponibles(metadatos.rangoFechas.min, metadatos.rangoFechas.max), [metadatos.rangoFechas.min, metadatos.rangoFechas.max]);
@@ -126,8 +129,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           <span>Filtros</span>
         </div>
 
-        {/* Buscador Contrato / Cédula (oculto en modo año) */}
-        {!modoAnio && (
+        {/* Buscador Contrato / Cédula (oculto en modo año y en proyección) */}
+        {!modoAnio && !modoProyeccion && (
         <div className="relative min-w-[130px] flex-1 sm:max-w-[180px]">
           <input
             type="text"
@@ -141,8 +144,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
         )}
 
-        {/* Año (solo en modo año) */}
-        {modoAnio && (
+        {/* Año (solo en modo año; nunca en proyección) */}
+        {modoAnio && !modoProyeccion && (
           <div className="min-w-[110px] flex-1">
             <SelectXuma
               valor={filtros.anio ?? ''}
@@ -155,7 +158,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           </div>
         )}
 
-        {/* Mes (en modo año se acota al año elegido) */}
+        {/* Mes (en modo año se acota al año elegido; oculto en proyección) */}
+        {!modoProyeccion && (
         <div className="min-w-[125px] flex-1">
           <SelectXuma
             valor={filtros.mes ?? ''}
@@ -166,6 +170,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             compact
           />
         </div>
+        )}
 
         {/* Aseguradora */}
         {aseguradoras.length > 0 && (
@@ -205,8 +210,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </div>
 
-        {/* Estado (oculto en modo año) */}
-        {!modoAnio && (
+        {/* Estado (oculto en modo año y en proyección) */}
+        {!modoAnio && !modoProyeccion && (
         <div className="min-w-[130px] flex-1">
           <SelectXuma
             valor={filtros.estado ?? ''}
@@ -219,8 +224,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
         )}
 
-        {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa) */}
-        {!modoAnio && mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
+        {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa; oculto en proyección) */}
+        {!modoAnio && !modoProyeccion && mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
           <div className="min-w-[140px] flex-1">
             <SelectXuma
               valor={filtros.tipo_siniestro ?? ''}
