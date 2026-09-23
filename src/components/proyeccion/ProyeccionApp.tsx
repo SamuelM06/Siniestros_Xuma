@@ -221,9 +221,10 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
           </Panel>
         </div>
-        {/* Cierre 2026 Oct-Dic — usa espacio sobrante abajo, misma gráfica */}
+        {/* Cierre 2026 — 12 meses: real hasta el último mes observado y
+            proyectado a partir de ahí (separador animado en ForecastChart). */}
         <Panel
-          titulo={`Cierre ${anioObjetivo - 1} · Oct–Dic proyectado`}
+          titulo={`Cierre ${anioObjetivo - 1} · real y proyectado`}
           icono={<Calendar className="h-5 w-5 text-xuma-ambar" />}
           delay={0.14}
           className="xl:col-span-2 xl:p-3 xl:pb-1 overflow-hidden flex flex-col"

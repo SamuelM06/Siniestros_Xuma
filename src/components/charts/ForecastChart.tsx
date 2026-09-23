@@ -1,4 +1,4 @@
-import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PuntoForecast } from '../../lib/types';
 import { formatCOP, formatCOPCompact, formatNum } from '../../utils/formatters';
 import { GLASS_TOOLTIP } from './palette';
@@ -17,12 +17,15 @@ interface Fila {
   monto: number;
   montoRango: [number, number];
   referencia: number;
+  proyectado: boolean;
 }
 
 const COLORES_MES = [
   '#1e40af', '#0e7490', '#0d9488', '#059669', '#16a34a', '#65a30d',
   '#ca8a04', '#ea580c', '#dc2626', '#9333ea', '#7c3aed', '#2563eb',
 ];
+
+const COLOR_CORTE = '#f59e0b';
 
 function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
   const cx = Number(props.x);
@@ -41,13 +44,32 @@ function EtiquetaPildora(props: { x?: number | string; y?: number | string; valu
   );
 }
 
+// Línea vertical animada (separador real→proyectado): dibuja el corte entre
+// el último mes observado y el primer mes proyectado con "marching dashes".
+function FormaCorte(props: { x1?: number | string; y1?: number | string; x2?: number | string; y2?: number | string }) {
+  const x1 = Number(props.x1);
+  const y1 = Number(props.y1);
+  const x2 = Number(props.x2);
+  const y2 = Number(props.y2);
+  if (![x1, y1, x2, y2].every(Number.isFinite)) return null;
+  return (
+    <g>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={COLOR_CORTE} strokeWidth={2.5} strokeLinecap="round" className="linea-corte" />
+      <text x={x1 + 6} y={y1 + 12} fill={COLOR_CORTE} fontSize={10} fontWeight={800} fontFamily="'Raleway', sans-serif">proyectado →</text>
+    </g>
+  );
+}
+
 export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact = false }: Props) {
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos para el rango seleccionado.</p>;
   }
   const filas: Fila[] = data.map((p) => ({
-    label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], referencia: p.refAnioPrevio
+    label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], referencia: p.refAnioPrevio, proyectado: p.proyectado === true,
   }));
+  // Primer mes proyectado: ahí se dibuja el separador animado (si lo hay).
+  const corte = filas.find((f) => f.proyectado)?.label;
+  const barSize = compact ? 22 : 36;
   return (
     <div className="flex min-h-0 flex-col overflow-hidden gap-0">
       <div className={compact ? "h-[190px] w-full xl:h-[180px]" : "h-[285px] w-full xl:h-[270px]"}>
@@ -63,11 +85,11 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact 
                 const fila = filas.find((f) => f.label === String(label ?? ''));
                 return (
                   <div style={GLASS_TOOLTIP as React.CSSProperties}>
-                    <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{String(label ?? '')} {anioObjetivo}</p>
+                    <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{String(label ?? '')} {anioObjetivo}{fila?.proyectado ? ' · proyectado' : ' · real'}</p>
                     {fila && (
                       <>
-                        <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-1)', marginRight: 6 }} />Siniestros: <b>{formatNum(fila.sin)}</b><span style={{ opacity: 0.7 }}> (80%: {formatNum(fila.sinRango[0])}–{formatNum(fila.sinRango[1])})</span></p>
-                        <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-2)', marginRight: 6 }} />Pagado: <b>{formatCOP(fila.monto)}</b><span style={{ opacity: 0.7 }}> (80%: {formatCOPCompact(fila.montoRango[0])}–{formatCOPCompact(fila.montoRango[1])})</span></p>
+                        <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-1)', marginRight: 6 }} />Siniestros: <b>{formatNum(fila.sin)}</b>{fila.proyectado && <span style={{ opacity: 0.7 }}> (80%: {formatNum(fila.sinRango[0])}–{formatNum(fila.sinRango[1])})</span>}</p>
+                        <p style={{ margin: 0 }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: 'var(--cgraf-2)', marginRight: 6 }} />Pagado: <b>{formatCOP(fila.monto)}</b>{fila.proyectado && <span style={{ opacity: 0.7 }}> (80%: {formatCOPCompact(fila.montoRango[0])}–{formatCOPCompact(fila.montoRango[1])})</span>}</p>
                         <p style={{ margin: 0, opacity: 0.75 }}>Real {anioPrevio}: <b>{formatNum(fila.referencia)}</b></p>
                       </>
                     )}
@@ -76,9 +98,12 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact 
               }}
               cursor={{ fill: 'var(--csombra-cursor)' }}
             />
-            <Bar yAxisId="si" dataKey="sin" name={`Siniestros ${anioObjetivo}`} radius={[6, 6, 0, 0]} barSize={36} animationDuration={1200} animationEasing="ease-out">
-              {filas.map((_, i) => (
-                <Cell key={`c-${i}`} fill={COLORES_MES[i % COLORES_MES.length]} />
+            {corte && (
+              <ReferenceLine x={corte} yAxisId="si" position="start" stroke="none" shape={<FormaCorte />} />
+            )}
+            <Bar yAxisId="si" dataKey="sin" name={`Siniestros ${anioObjetivo}`} radius={[6, 6, 0, 0]} barSize={barSize} animationDuration={1200} animationEasing="ease-out">
+              {filas.map((f, i) => (
+                <Cell key={`c-${i}`} fill={COLORES_MES[i % COLORES_MES.length]} fillOpacity={f.proyectado ? 0.45 : 1} />
               ))}
               <LabelList dataKey="sin" position="top" offset={12} content={<EtiquetaPildora />} />
             </Bar>
@@ -91,6 +116,12 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact 
         <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm" style={{ background: 'var(--cgraf-1)' }} />Siniestros {anioObjetivo}</span>
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-2)' }} />Pagado {anioObjetivo} (COP)</span>
         <span className="flex items-center gap-1.5"><span className="h-0 w-4 border-t-2 border-dashed" style={{ borderColor: 'var(--ctinta-suave)' }} />Real {anioPrevio}</span>
+        {corte && (
+          <span className="flex items-center gap-1.5 font-semibold" style={{ color: COLOR_CORTE }}>
+            <span className="h-3 w-0 border-l-2 border-dashed" style={{ borderColor: COLOR_CORTE }} />
+            Corte real → proyectado
+          </span>
+        )}
       </div>
     </div>
   );
