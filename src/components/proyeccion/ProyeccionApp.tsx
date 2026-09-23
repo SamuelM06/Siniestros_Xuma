@@ -155,7 +155,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         </motion.article>
       </div>
 
-      {/* Fila 1: Forecast + Estacionalidad (estacionalidad más grande, no agrupado) */}
+      {/* Fila 1: Forecast + columnas de probabilidad (intercambiado) */}
       <div className="grid gap-3 xl:grid-cols-[1.55fr_380px]">
         <Panel
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
@@ -165,57 +165,59 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         >
           <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>
+        <div className="space-y-3">
+          <Panel
+            titulo="Probabilidad por departamento"
+            icono={<Trophy className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
+            delay={0.1}
+            className="xl:p-3"
+          >
+            {top3Deptos.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {top3Deptos.map((d, i) => (
+                  <span key={d.nombre} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${i === 0 ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-tinta/10 bg-tinta/5 text-tinta/70'}`}>
+                    <span className="tabular">{i + 1}. {d.nombre}</span>
+                    <span className="tabular opacity-80">{(d.prob * 100).toFixed(1)}%</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            <ProbabilidadGeo titulo="Departamentos" data={departamentos} icono={null} />
+          </Panel>
+          <Panel
+            titulo="Probabilidad por tipo de siniestro"
+            icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
+            delay={0.12}
+            className="xl:p-3"
+          >
+            <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
+          </Panel>
+        </div>
+      </div>
+
+      {/* Fila 2: Índice estacional donde estaban las columnas + lateral compacto */}
+      <div className="grid gap-3 xl:grid-cols-[1fr_360px]">
         <Panel
           titulo="Índice estacional · alerta de picos"
           icono={<CalendarRange className="h-5 w-5 text-xuma-ambar" />}
-          delay={0.1}
-          className="glass rounded-3xl p-4 xl:p-4 border border-amber-400/10"
+          delay={0.14}
+          className="xl:p-3"
         >
           <EstacionalidadChart data={estacionalidad} />
-        </Panel>
-      </div>
-
-      {/* Fila 2: Probabilidades + lateral destacado */}
-      <div className="grid gap-3 xl:grid-cols-[1fr_1fr_360px]">
-        <Panel
-          titulo="Probabilidad por departamento"
-          icono={<Trophy className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
-          delay={0.12}
-          className="xl:p-4"
-        >
-          {top3Deptos.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {top3Deptos.map((d, i) => (
-                <span key={d.nombre} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${i === 0 ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-tinta/10 bg-tinta/5 text-tinta/70'}`}>
-                  <span className="tabular">{i + 1}. {d.nombre}</span>
-                  <span className="tabular opacity-80">{(d.prob * 100).toFixed(1)}%</span>
-                </span>
-              ))}
-            </div>
-          )}
-          <ProbabilidadGeo titulo="Departamentos" data={departamentos} icono={null} />
-        </Panel>
-        <Panel
-          titulo="Probabilidad por tipo de siniestro"
-          icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
-          delay={0.14}
-          className="xl:p-4"
-        >
-          <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
         </Panel>
         <aside className="space-y-3">
           <Panel
             titulo="Tendencia anual"
             icono={<IconoCrecimiento className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.16}
-            className="xl:p-4"
+            className="xl:p-3 py-3"
           >
-            <div className="space-y-1.5 text-[11px]">
+            <div className="space-y-1 text-[11px]">
               <div className="flex justify-between"><span className="text-tinta/65">Dirección</span><b>{tendencia.direccion === 'alza' ? '📈 Alza' : tendencia.direccion === 'baja' ? '📉 Baja' : '➡️ Estable'}</b></div>
               <div className="flex justify-between"><span className="text-tinta/65">Pendiente</span><b>{tendencia.pendienteAnual >= 0 ? '+' : ''}{tendencia.pendienteAnual} casos/año</b></div>
               <div className="flex justify-between"><span className="text-tinta/65">p-value</span><b>{tendencia.pValue < 0.05 ? `❌ ${tendencia.pValue}` : `✅ ${tendencia.pValue}`}</b></div>
               <div className="flex justify-between"><span className="text-tinta/65">Crecimiento</span><b>{tendencia.crecimientoVsPrevio >= 0 ? '+' : ''}{tendencia.crecimientoVsPrevio}%</b></div>
-              <div className="mt-2 flex items-center justify-between rounded-lg bg-tinta/5 px-2 py-1">
+              <div className="mt-1.5 flex items-center justify-between rounded-lg bg-tinta/5 px-2 py-1">
                 <span className="text-[10px] font-semibold text-tinta/60">Precisión walk-forward</span>
                 <span className={`text-[10px] font-bold ${backtest.confiable ? 'text-xuma-verde-claro' : 'text-amber-600'}`}>{backtest.mape !== null ? `MAPE ${backtest.mape}%` : 'Sin historia'} {backtest.confiable ? '✓' : ''}</span>
               </div>
@@ -224,10 +226,10 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           <Panel
             titulo="Cambio estructural"
             icono={<AlertCircle className="h-5 w-5 text-xuma-ambar" />}
-            delay={0.2}
-            className="xl:p-4"
+            delay={0.18}
+            className="xl:p-3"
           >
-            <div className="space-y-1.5 text-[11px]">
+            <div className="space-y-1 text-[11px]">
               {cambios.map((c) => (
                 <div key={c.dimension} className="flex justify-between">
                   <span className="text-tinta/65">{c.dimension}</span>
