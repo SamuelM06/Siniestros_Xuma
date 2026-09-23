@@ -1,4 +1,4 @@
-import { Bar, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PuntoForecast } from '../../lib/types';
 import { formatCOP, formatCOPCompact, formatNum } from '../../utils/formatters';
 import { GLASS_TOOLTIP } from './palette';
@@ -18,19 +18,24 @@ interface Fila {
   referencia: number;
 }
 
+const COLORES_MES = [
+  '#1e40af', '#0e7490', '#0d9488', '#059669', '#16a34a', '#65a30d',
+  '#ca8a04', '#ea580c', '#dc2626', '#9333ea', '#7c3aed', '#2563eb',
+];
+
 function EtiquetaPildora(props: { x?: number | string; y?: number | string; value?: number | string }) {
   const cx = Number(props.x);
   const cy = Number(props.y);
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
   const texto = typeof props.value === 'number' ? formatNum(props.value) : String(props.value ?? '');
   if (!texto) return null;
-  const alto = 19;
-  const ancho = texto.length * 6.6 + 12;
-  const py = cy - 12;
+  const alto = 21;
+  const ancho = texto.length * 7 + 14;
+  const py = cy - 14;
   return (
     <g>
-      <rect x={cx - ancho / 2} y={py - alto / 2} width={ancho} height={alto} rx={alto / 2} fill="var(--cpanel-fondo)" fillOpacity={0.95} stroke="var(--cglass-borde)" strokeOpacity={0.8} />
-      <text x={cx} y={py + 0.5} textAnchor="middle" dominantBaseline="central" fill="var(--ctinta)" fontSize={10.5} fontWeight={800} fontFamily="'Raleway', sans-serif">{texto}</text>
+      <rect x={cx - ancho / 2} y={py - alto / 2} width={ancho} height={alto} rx={alto / 2} fill="var(--cpanel-fondo)" fillOpacity={0.97} stroke="var(--cglass-borde)" strokeOpacity={0.9} />
+      <text x={cx} y={py + 0.5} textAnchor="middle" dominantBaseline="central" fill="var(--ctinta)" fontSize={12} fontWeight={800} fontFamily="'Raleway', sans-serif">{texto}</text>
     </g>
   );
 }
@@ -44,13 +49,13 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
   }));
   return (
     <div className="flex min-h-0 flex-col overflow-hidden">
-      <div className="h-[210px] w-full xl:h-[210px]">
+      <div className="h-[280px] w-full xl:h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={filas} margin={{ top: 24, right: 8, left: 4, bottom: 0 }} barCategoryGap="30%">
+          <ComposedChart data={filas} margin={{ top: 28, right: 8, left: 8, bottom: 0 }} barCategoryGap="14%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: 'var(--ctinta-suave)', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} interval={0} />
-            <YAxis yAxisId="si" tickFormatter={(v: number) => formatNum(v)} tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }} axisLine={false} tickLine={false} width={48} />
-            <YAxis yAxisId="dinero" orientation="right" tickFormatter={(v: number) => (v === 0 ? '0' : formatCOPCompact(v))} tick={{ fill: 'var(--ctinta-suave)', fontSize: 10.5 }} axisLine={false} tickLine={false} width={64} />
+            <XAxis dataKey="label" tick={{ fill: 'var(--ctinta)', fontSize: 13, fontWeight: 800 }} axisLine={false} tickLine={false} interval={0} />
+            <YAxis yAxisId="si" tickFormatter={(v: number) => formatNum(v)} tick={{ fill: 'var(--ctinta-suave)', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} width={56} />
+            <YAxis yAxisId="dinero" orientation="right" tickFormatter={(v: number) => (v === 0 ? '0' : formatCOPCompact(v))} tick={{ fill: 'var(--ctinta-suave)', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} width={72} />
             <Tooltip
               content={({ active, payload, label }) => {
                 if (!active || !payload || payload.length === 0) return null;
@@ -70,11 +75,14 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
               }}
               cursor={{ fill: 'var(--csombra-cursor)' }}
             />
-            <Bar yAxisId="si" dataKey="sin" name={`Siniestros ${anioObjetivo}`} fill="var(--cgraf-1)" radius={[4, 4, 0, 0]} barSize={26} animationDuration={1200} animationEasing="ease-out">
-              <LabelList dataKey="sin" position="top" offset={10} content={<EtiquetaPildora />} />
+            <Bar yAxisId="si" dataKey="sin" name={`Siniestros ${anioObjetivo}`} radius={[6, 6, 0, 0]} barSize={36} animationDuration={1200} animationEasing="ease-out">
+              {filas.map((_, i) => (
+                <Cell key={`c-${i}`} fill={COLORES_MES[i % COLORES_MES.length]} />
+              ))}
+              <LabelList dataKey="sin" position="top" offset={12} content={<EtiquetaPildora />} />
             </Bar>
-            <Line yAxisId="si" type="monotone" dataKey="referencia" name={`Real ${anioPrevio}`} stroke="var(--ctinta-suave)" strokeDasharray="5 4" strokeWidth={1.5} dot={false} activeDot={{ r: 4 }} animationDuration={1400} />
-            <Line yAxisId="dinero" type="monotone" dataKey="monto" name={`Pagado ${anioObjetivo}`} stroke="var(--cgraf-2)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }} activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }} animationDuration={1400} animationEasing="ease-out" />
+            <Line yAxisId="si" type="monotone" dataKey="referencia" name={`Real ${anioPrevio}`} stroke="var(--ctinta-suave)" strokeDasharray="5 4" strokeWidth={2} dot={false} activeDot={{ r: 4 }} animationDuration={1400} />
+            <Line yAxisId="dinero" type="monotone" dataKey="monto" name={`Pagado ${anioObjetivo}`} stroke="var(--cgraf-2)" strokeWidth={3} dot={{ r: 4, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }} activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }} animationDuration={1400} animationEasing="ease-out" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
