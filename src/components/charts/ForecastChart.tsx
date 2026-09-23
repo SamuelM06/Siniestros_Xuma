@@ -7,6 +7,7 @@ interface Props {
   data: PuntoForecast[];
   anioObjetivo: number;
   anioPrevio: number;
+  compact?: boolean;
 }
 
 interface Fila {
@@ -40,7 +41,7 @@ function EtiquetaPildora(props: { x?: number | string; y?: number | string; valu
   );
 }
 
-export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props) {
+export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact = false }: Props) {
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos para el rango seleccionado.</p>;
   }
@@ -49,7 +50,7 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
   }));
   return (
     <div className="flex min-h-0 flex-col overflow-hidden gap-0">
-      <div className="h-[285px] w-full xl:h-[270px]">
+      <div className={compact ? "h-[190px] w-full xl:h-[180px]" : "h-[285px] w-full xl:h-[270px]"}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={filas} margin={{ top: 28, right: 8, left: 8, bottom: 4 }} barCategoryGap="14%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />

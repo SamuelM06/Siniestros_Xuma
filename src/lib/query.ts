@@ -921,6 +921,20 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
     }));
 
+    // Cierre 2026 Oct-Dic: mismo motor pero para el año en curso (pasos=1)
+    const pron2026 = pronosticar(filas, ANIO_REPORTE);
+    const forecast2026: PuntoForecast[] = pron2026.filter((p) => p.mes >= 10).map((p) => ({
+      mes: p.mes,
+      label: MESES_CORTOS_HIST[p.mes - 1] ?? String(p.mes),
+      siniestros: p.siniestros,
+      sinLow: p.sinLow,
+      sinHigh: p.sinHigh,
+      monto: p.monto,
+      montoLow: p.montoLow,
+      montoHigh: p.montoHigh,
+      refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
+    }));
+
     const estacionalidad: IndiceEstacional[] = indicesEstacionales(filas).map((e) => ({
       mes: e.mes,
       label: MESES_CORTOS_HIST[e.mes - 1] ?? String(e.mes),
@@ -972,6 +986,7 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       anioObjetivo: ANIO_OBJETIVO,
       aniosEntrenamiento,
       forecast,
+      forecast2026,
       estacionalidad,
       tendencia: {
         pendienteAnual: Math.round(pendiente * 10) / 10,

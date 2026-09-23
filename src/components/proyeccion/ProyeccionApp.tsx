@@ -87,7 +87,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
     };
   }, [filtros]);
 
-  const { forecast, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
+  const { forecast, forecast2026, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
 
   const activos =
     (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
@@ -184,7 +184,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
       </div>
 
       {/* Forecast + probabilidades — todo en una vista sin scroll */}
-      <div className="grid gap-2 xl:flex-1 xl:grid-cols-[1.55fr_380px] xl:gap-2.5 xl:items-stretch xl:min-h-0">
+      <div className="grid gap-2 xl:flex-1 xl:grid-cols-[1.55fr_380px] xl:grid-rows-[1fr_auto] xl:gap-2.5 xl:items-stretch xl:min-h-0">
         <Panel
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
           icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
@@ -221,6 +221,15 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
           </Panel>
         </div>
+        {/* Cierre 2026 Oct-Dic — usa espacio sobrante abajo, misma gráfica */}
+        <Panel
+          titulo={`Cierre ${anioObjetivo - 1} · Oct–Dic proyectado`}
+          icono={<Calendar className="h-5 w-5 text-xuma-ambar" />}
+          delay={0.14}
+          className="xl:col-span-2 xl:p-3 xl:pb-1 overflow-hidden flex flex-col"
+        >
+          <ForecastChart data={forecast2026} anioObjetivo={anioObjetivo - 1} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} compact />
+        </Panel>
       </div>
     </div>
   );

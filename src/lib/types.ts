@@ -228,6 +228,7 @@ export interface ProyeccionData {
   anioObjetivo: number;
   aniosEntrenamiento: number[];
   forecast: PuntoForecast[];
+  forecast2026: PuntoForecast[]; // Oct-Dic 2026 proyectado (cierre año en curso)
   estacionalidad: IndiceEstacional[];
   tendencia: TendenciaProy;
   departamentos: ProbItem[];
