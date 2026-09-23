@@ -341,9 +341,25 @@ async function getTotalAnio(anio: number): Promise<number | null> {
 }
 
 // ---- Tendencia mensual --------------------------------------------------------
+// Con filtro `mes` activo la serie baja a granularidad de DÍA (1..último día
+// del mes) para que el gráfico muestre cómo va el mes; sin filtro vuelve a
+// los meses del rango. `dia` en el punto marca el modo día.
 export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   return conCache(`tendencia:${serializarFiltros(f)}`, async () => {
   const w = construirWhere(f);
+  if (f.mes) {
+    const sqlDia = `
+      WITH base AS (${BASE})
+      SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+             count(*)::int            AS total,
+             COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
+      FROM base
+      WHERE ${w.cond}
+      GROUP BY 1 ORDER BY 1
+    `;
+    const rowsDia = await query<{ dia: number; total: number; valor: string }>(sqlDia, w.params);
+    return rellenarDias(f.mes, rowsDia);
+  }
   const sql = `
     WITH base AS (${BASE})
     SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
@@ -356,6 +372,31 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   const rows = await query<{ mes: string; total: number; valor: string }>(sql, w.params);
   return rellenarMeses(rows, f);
   });
+}
+
+// Último día real de un mes (respeta años bisiestos).
+function ultimoDiaMes(mes: string): number {
+  const [yy, mm] = mes.split('-').map(Number);
+  if (!yy || !mm || mm < 1 || mm > 12) return 31;
+  return new Date(yy, mm, 0).getDate();
+}
+
+// Rellena 1..último día del mes filtrado con 0 en los días sin casos.
+function rellenarDias(mes: string, rows: { dia: number; total: number; valor: string }[]): PuntoTendencia[] {
+  const mapa = new Map(rows.map((r) => [Number(r.dia), r]));
+  const n = ultimoDiaMes(mes);
+  const out: PuntoTendencia[] = [];
+  for (let d = 1; d <= n; d += 1) {
+    const r = mapa.get(d);
+    out.push({
+      mes: `${mes}-${String(d).padStart(2, '0')}`,
+      label: String(d),
+      dia: d,
+      total: r ? Number(r.total) : 0,
+      valorPagado: r ? Number(r.valor) : 0,
+    });
+  }
+  return out;
 }
 
 // Lista de meses (YYYY-MM) del rango filtrado, recortada al último mes con datos.
@@ -676,7 +717,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       WHERE ${cond.join(' AND ')}
       GROUP BY 1 ORDER BY 1
     `;
-    const [rows, filasMensuales, filasTendencia, sinFechaR] = await Promise.all([
+    const [rows, filasMensuales, filasTendencia, sinFechaR, filasDiarias] = await Promise.all([
       query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
       query<{ anio: number; mes: number; total: number }>(
         `WITH base AS (${BASE})
@@ -710,6 +751,20 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
           paramsSF,
         );
       })(),
+      // Solo con filtro mes: serie diaria del mes (agrega el mismo día de
+      // todos los años del rango) para la tendencia en granularidad de día.
+      f.mes
+        ? query<{ dia: number; total: number; valor: string }>(
+            `WITH base AS (${BASE})
+             SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+                    count(*)::int AS total,
+                    COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
+             FROM base
+             WHERE ${cond.join(' AND ')}
+             GROUP BY 1 ORDER BY 1`,
+            params,
+          )
+        : Promise.resolve([] as { dia: number; total: number; valor: string }[]),
     ]);
     const mapa = new Map(rows.map((r) => [Number(r.anio), r]));
     const anios: AnioHist[] = [];
@@ -745,7 +800,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       }
       mensual.push({ anio: y, meses });
     }
-    const tendencia = armarTendenciaMes(filasTendencia, f);
+    const tendencia = armarTendenciaMes(filasTendencia, f, filasDiarias);
     return { anios, mensual, tendencia, sinFecha: Number(sinFechaR?.n ?? 0) };
   });
 }
@@ -753,13 +808,31 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
 const MESES_CORTOS_HIST = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 // Tendencia mensual agregada por mes calendario (siniestros + dinero pagado):
-// - Con filtro mes: solo ese mes.
+// - Con filtro mes: desglose POR DÍA de ese mes (1..último día), agregando el
+//   mismo día de todos los años del rango.
 // - Con filtro del año en curso (2026): se corta en el último mes con dato.
 // - Años cerrados o sin filtro (agregado de todos los años): los 12 meses.
 function armarTendenciaMes(
   rows: { anio: number; mes: number; total: number; valor: string }[],
   f: Filters,
+  filasDiarias?: { dia: number; total: number; valor: string }[],
 ): PuntoMesHist[] {
+  if (f.mes) {
+    const n = ultimoDiaMes(f.mes);
+    const mapa = new Map((filasDiarias ?? []).map((r) => [Number(r.dia), r]));
+    const out: PuntoMesHist[] = [];
+    for (let d = 1; d <= n; d += 1) {
+      const r = mapa.get(d);
+      out.push({
+        mes: d,
+        label: String(d),
+        dia: d,
+        total: r ? Number(r.total) : 0,
+        valorPagado: r ? Number(r.valor) : 0,
+      });
+    }
+    return out;
+  }
   // Las filas vienen por (anio, mes): se suman por mes calendario para
   // agregar todos los años cuando no hay filtro de año.
   const agg = new Map<number, { total: number; valor: number }>();
@@ -769,16 +842,6 @@ function armarTendenciaMes(
     e.total += Number(r.total);
     e.valor += Number(r.valor);
     agg.set(m, e);
-  }
-  if (f.mes) {
-    const m = Number(f.mes.slice(5, 7));
-    const r = agg.get(m);
-    return [{
-      mes: m,
-      label: MESES_CORTOS_HIST[m - 1] ?? f.mes,
-      total: r ? r.total : 0,
-      valorPagado: r ? r.valor : 0,
-    }];
   }
   const ultimo = rows.reduce((mx, r) => Math.max(mx, Number(r.mes)), 0);
   const anioSel = f.anio ? Number(f.anio) : null;
@@ -830,8 +893,25 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       cond.push('aseguradora_norm = $' + params.length);
     }
     const where = cond.join(' AND ');
+    // Mismos filtros dimensionales pero apuntando al año en curso (2026) para
+    // el cierre real; el `where` principal corta en 2018–2025 (entrenamiento).
+    const cond2026: string[] = ['fecha_radicacion IS NOT NULL', 'EXTRACT(YEAR FROM fecha_radicacion) = ' + ANIO_REPORTE];
+    const params2026: unknown[] = [];
+    if (f.gasera) {
+      params2026.push(f.gasera);
+      cond2026.push('gasera_norm = $' + params2026.length);
+    }
+    if (f.producto) {
+      params2026.push(f.producto);
+      cond2026.push('producto_norm = $' + params2026.length);
+    }
+    if (f.aseguradora) {
+      params2026.push(f.aseguradora);
+      cond2026.push('aseguradora_norm = $' + params2026.length);
+    }
+    const where2026 = cond2026.join(' AND ');
     const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_radicacion) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
-    const [mensual, deptos, tipos, tiposPeriodo, deptosPeriodo] = await Promise.all([
+    const [mensual, deptos, tipos, tiposPeriodo, deptosPeriodo, reales2026] = await Promise.all([
       query<{ anio: number; mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
          SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
@@ -874,6 +954,17 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
          WHERE ${where}
          GROUP BY 1, 2`,
         params,
+      ),
+      // Reales 2026 mes a mes (siniestros + pagado) para el cierre del año.
+      query<{ mes: number; total: number; valor: string }>(
+        `WITH base AS (${BASE})
+         SELECT EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+                count(*)::int AS total,
+                COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
+         FROM base
+         WHERE ${where2026}
+         GROUP BY 1 ORDER BY 1`,
+        params2026,
       ),
     ]);
 
@@ -921,19 +1012,30 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
     }));
 
-    // Cierre 2026 Oct-Dic: mismo motor pero para el año en curso (pasos=1)
+    // Cierre 2026 (12 meses): meses reales observados en la BD + meses
+    // restantes proyectados con el mismo motor (pasos=1). El separador
+    // real→proyectado se marca con `proyectado` en cada punto.
     const pron2026 = pronosticar(filas, ANIO_REPORTE);
-    const forecast2026: PuntoForecast[] = pron2026.filter((p) => p.mes >= 10).map((p) => ({
-      mes: p.mes,
-      label: MESES_CORTOS_HIST[p.mes - 1] ?? String(p.mes),
-      siniestros: p.siniestros,
-      sinLow: p.sinLow,
-      sinHigh: p.sinHigh,
-      monto: p.monto,
-      montoLow: p.montoLow,
-      montoHigh: p.montoHigh,
-      refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
-    }));
+    const mapaReal2026 = new Map(reales2026.map((r) => [Number(r.mes), r]));
+    const ultimoMesReal = reales2026.reduce((mx, r) => Math.max(mx, Number(r.mes)), 0);
+    const forecast2026: PuntoForecast[] = pron2026.map((p) => {
+      const real = mapaReal2026.get(p.mes);
+      const esReal = p.mes <= ultimoMesReal && real !== undefined;
+      const sin = esReal ? Number(real?.total ?? 0) : p.siniestros;
+      const monto2026 = esReal ? Number(real?.valor ?? 0) : p.monto;
+      return {
+        mes: p.mes,
+        label: MESES_CORTOS_HIST[p.mes - 1] ?? String(p.mes),
+        siniestros: sin,
+        sinLow: esReal ? sin : p.sinLow,
+        sinHigh: esReal ? sin : p.sinHigh,
+        monto: monto2026,
+        montoLow: esReal ? monto2026 : p.montoLow,
+        montoHigh: esReal ? monto2026 : p.montoHigh,
+        refAnioPrevio: mapaRealPrevio.get(p.mes) ?? 0,
+        proyectado: !esReal,
+      };
+    });
 
     const estacionalidad: IndiceEstacional[] = indicesEstacionales(filas).map((e) => ({
       mes: e.mes,

@@ -29,10 +29,11 @@ export interface KpisData {
 }
 
 export interface PuntoTendencia {
-  mes: string;
+  mes: string;      // YYYY-MM (modo mes) o YYYY-MM-DD (modo día, filtro mes activo)
   label: string;
   total: number;
   valorPagado: number;
+  dia?: number;     // 1..31 presente SOLO en modo día (filtro mes activo)
 }
 
 export interface SerieAseguradora {
@@ -131,10 +132,11 @@ export interface SerieMensualAnio {
 // Punto de la tendencia mensual agregada de la vista Históricos:
 // totales de todos los años (o del año filtrado) por mes calendario.
 export interface PuntoMesHist {
-  mes: number;      // 1..12
-  label: string;    // Ene..Dic
+  mes: number;      // 1..12 (modo mes) o día 1..31 (modo día, filtro mes activo)
+  label: string;    // Ene..Dic o número de día
   total: number;
   valorPagado: number;
+  dia?: number;     // 1..31 presente SOLO en modo día (filtro mes activo)
 }
 
 export interface HistoricosData {
@@ -182,6 +184,7 @@ export interface PuntoForecast {
   montoLow: number;
   montoHigh: number;
   refAnioPrevio: number; // real del mismo mes en el último año cerrado
+  proyectado?: boolean;  // true = valor proyectado; false/ausente = real observado
 }
 
 // Índice estacional: 1 = mes promedio; 1.4 = 40% sobre el promedio.
@@ -228,7 +231,7 @@ export interface ProyeccionData {
   anioObjetivo: number;
   aniosEntrenamiento: number[];
   forecast: PuntoForecast[];
-  forecast2026: PuntoForecast[]; // Oct-Dic 2026 proyectado (cierre año en curso)
+  forecast2026: PuntoForecast[]; // 12 meses de cierre 2026: real hasta último mes observado + proyectado
   estacionalidad: IndiceEstacional[];
   tendencia: TendenciaProy;
   departamentos: ProbItem[];

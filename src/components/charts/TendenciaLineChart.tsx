@@ -16,9 +16,27 @@ const estiloEtiqueta = {
   fontFamily: "'Raleway', sans-serif",
 } as const;
 
+// Título del tooltip: en modo día muestra "12 de septiembre de 2026"
+// (el punto trae mes ISO YYYY-MM-DD); en modo mes el nombre del mes.
+function tituloPunto(p: PuntoTendencia | undefined, label: string): string {
+  if (p?.dia != null) {
+    const iso = p.mes; // YYYY-MM-DD
+    const fecha = new Date(`${iso}T12:00:00`);
+    if (!Number.isNaN(fecha.getTime())) {
+      return `Día ${p.dia} · ${fecha.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`;
+    }
+    return `Día ${p.dia}`;
+  }
+  return mesLabel(label);
+}
+
 // Tendencia mensual en dos paneles apilados (siniestros arriba, montos abajo)
 // con el mismo eje X: las dos series nunca se cruzan y siempre se entienden.
+// Con filtro de mes activo el backend entrega puntos por DÍA y el eje cambia
+// a números de día automáticamente (p.dia != null); sin filtro vuelve a meses.
 export default function TendenciaLineChart({ data }: Props) {
+  const modoDia = data.length > 0 && data[0]?.dia != null;
+  const tickDias = { fill: 'var(--ctinta-suave)', fontSize: 10.5, fontWeight: 700 } as const;
   return (
     <div>
       <div className="flex h-40 flex-col gap-2">
@@ -41,9 +59,10 @@ export default function TendenciaLineChart({ data }: Props) {
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload || payload.length === 0) return null;
+                  const p = payload[0]?.payload as PuntoTendencia | undefined;
                   return (
                     <div style={GLASS_TOOLTIP as React.CSSProperties}>
-                      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{mesLabel(String(label ?? ''))}</p>
+                      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{tituloPunto(p, String(label ?? ''))}</p>
                       <p style={{ margin: 0 }}>Siniestros: <b>{formatNum(Number(payload[0]?.value ?? 0))}</b></p>
                     </div>
                   );
@@ -59,7 +78,7 @@ export default function TendenciaLineChart({ data }: Props) {
                 fill="url(#gradAreaTotal)"
                 animationDuration={1500}
                 animationEasing="ease-out"
-                dot={{ r: 3.5, fill: 'var(--cgraf-1)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
+                dot={modoDia ? false : { r: 3.5, fill: 'var(--cgraf-1)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
                 activeDot={{ r: 6, fill: 'var(--cgraf-1)', stroke: '#ffffff', strokeWidth: 2 }}
               >
                 <LabelList
@@ -87,19 +106,20 @@ export default function TendenciaLineChart({ data }: Props) {
               <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
               <XAxis
                 dataKey="mes"
-                tickFormatter={mesCorto}
-                tick={{ fill: 'var(--ctinta-suave)', fontSize: 11 }}
+                tickFormatter={modoDia ? (v: string) => v.slice(8, 10).replace(/^0/, '') : mesCorto}
+                tick={modoDia ? tickDias : { fill: 'var(--ctinta-suave)', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-                interval={0}
+                interval={modoDia ? (data.length > 20 ? 1 : 0) : 0}
                 padding={{ left: 16, right: 16 }}
               />
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (!active || !payload || payload.length === 0) return null;
+                  const p = payload[0]?.payload as PuntoTendencia | undefined;
                   return (
                     <div style={GLASS_TOOLTIP as React.CSSProperties}>
-                      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{mesLabel(String(label ?? ''))}</p>
+                      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4 }}>{tituloPunto(p, String(label ?? ''))}</p>
                       <p style={{ margin: 0 }}>Total pagado: <b>{formatCOP(Number(payload[0]?.value ?? 0))}</b></p>
                     </div>
                   );
@@ -115,7 +135,7 @@ export default function TendenciaLineChart({ data }: Props) {
                 fill="url(#gradAreaValor)"
                 animationDuration={1500}
                 animationEasing="ease-out"
-                dot={{ r: 3.5, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
+                dot={modoDia ? false : { r: 3.5, fill: 'var(--cgraf-2)', stroke: 'var(--qtooltip-fondo)', strokeWidth: 1.5 }}
                 activeDot={{ r: 6, fill: 'var(--cgraf-2)', stroke: '#ffffff', strokeWidth: 2 }}
               >
                 <LabelList
@@ -139,6 +159,7 @@ export default function TendenciaLineChart({ data }: Props) {
           <span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--cgraf-2)' }} />
           Total pagado (COP)
         </span>
+        {modoDia && <span className="font-semibold text-tinta/50">Desglose por día del mes filtrado</span>}
       </div>
     </div>
   );
