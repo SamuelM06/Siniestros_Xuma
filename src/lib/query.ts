@@ -1107,6 +1107,20 @@ export async function precalentarCache(): Promise<void> {
       getMapa(f),
       getEstatus({ anio: ANIO_REPORTE }),
     ]);
+    // Fase 3: Proyecciones por segmento (solo proyección tiene demora percibida de ~5s
+    // en primer filtro). Precarga las combinaciones más comunes para que el primer
+    // cambio de filtro sea instantáneo (cache hit).
+    try {
+      const meta = await getMetadatos(f);
+      const topGaseras = meta.gaseras.slice(0, 4);
+      const topAseg = meta.aseguradoras.slice(0, 3);
+      const topProd = meta.productos.slice(0, 3);
+      await Promise.allSettled([
+        ...topGaseras.map((g) => getProyeccion({ gasera: g })),
+        ...topAseg.map((a) => getProyeccion({ aseguradora: a })),
+        ...topProd.map((p) => getProyeccion({ producto: p })),
+      ]);
+    } catch {}
   } catch {
     // Silencioso en segundo plano
   }

@@ -24,6 +24,13 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
   const [data, setData] = useState<ProyeccionData>(datosIniciales);
   const [cargando, setCargando] = useState(false);
   const primeraCarga = useRef(true);
+  const cacheRef = useRef<Map<string, ProyeccionData>>(new Map());
+  const debounceRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  if (cacheRef.current.size === 0) {
+    const k0 = JSON.stringify({ gasera: filtrosIniciales.gasera ?? null, producto: filtrosIniciales.producto ?? null, aseguradora: filtrosIniciales.aseguradora ?? null });
+    cacheRef.current.set(k0, datosIniciales);
+  }
 
   const cambioFiltro = useCallback((cambio: Partial<Filters>) => {
     setFiltros((prev) => {
@@ -45,15 +52,39 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
   useEffect(() => {
     if (primeraCarga.current) { primeraCarga.current = false; return; }
-    let vivo = true;
+    const key = JSON.stringify({ gasera: filtros.gasera ?? null, producto: filtros.producto ?? null, aseguradora: filtros.aseguradora ?? null });
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      setData(cached);
+      setCargando(false);
+      return;
+    }
+    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setCargando(true);
-    const q = queryString(filtros);
-    fetch(`/api/proyeccion?${q}`)
-      .then(async (res) => { if (!res.ok) throw new Error(res.statusText); return (await res.json()) as ProyeccionData; })
-      .then((d) => { if (vivo) setData(d); })
-      .catch(() => undefined)
-      .finally(() => { if (vivo) setCargando(false); });
-    return () => { vivo = false; };
+    debounceRef.current = window.setTimeout(() => {
+      const q = queryString(filtros);
+      fetch(`/api/proyeccion?${q}`, { signal: ac.signal })
+        .then(async (res) => { if (!res.ok) throw new Error(res.statusText); return (await res.json()) as ProyeccionData; })
+        .then((d) => {
+          if (ac.signal.aborted) return;
+          cacheRef.current.set(key, d);
+          // LRU simple: máximo 30 entradas
+          if (cacheRef.current.size > 30) {
+            const first = cacheRef.current.keys().next().value as string | undefined;
+            if (first) cacheRef.current.delete(first);
+          }
+          setData(d);
+        })
+        .catch((e) => { if ((e as Error)?.name === 'AbortError') return; })
+        .finally(() => { if (!ac.signal.aborted) setCargando(false); });
+    }, 280);
+    return () => {
+      if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+      ac.abort();
+    };
   }, [filtros]);
 
   const { forecast, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
