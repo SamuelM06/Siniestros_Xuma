@@ -158,7 +158,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
           icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
           delay={0.05}
-          className="xl:p-3 xl:pb-2 overflow-hidden flex flex-col"
+          className="xl:p-3 xl:pb-1 overflow-hidden flex flex-col"
         >
           <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>

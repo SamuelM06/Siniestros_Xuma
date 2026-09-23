@@ -49,11 +49,11 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
   }));
   return (
     <div className="flex min-h-0 flex-col overflow-hidden gap-0">
-      <div className="h-[270px] w-full xl:h-[250px]">
+      <div className="h-[285px] w-full xl:h-[270px]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={filas} margin={{ top: 28, right: 8, left: 8, bottom: 0 }} barCategoryGap="14%">
+          <ComposedChart data={filas} margin={{ top: 28, right: 8, left: 8, bottom: 4 }} barCategoryGap="14%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: 'var(--ctinta)', fontSize: 13, fontWeight: 800 }} axisLine={false} tickLine={false} interval={0} />
+            <XAxis dataKey="label" tick={{ fill: 'var(--ctinta)', fontSize: 13, fontWeight: 800 }} axisLine={false} tickLine={false} interval={0} height={22} tickMargin={4} />
             <YAxis yAxisId="si" tickFormatter={(v: number) => formatNum(v)} tick={{ fill: 'var(--ctinta-suave)', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} width={56} />
             <YAxis yAxisId="dinero" orientation="right" tickFormatter={(v: number) => (v === 0 ? '0' : formatCOPCompact(v))} tick={{ fill: 'var(--ctinta-suave)', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} width={72} />
             <Tooltip
