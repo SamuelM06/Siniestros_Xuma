@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PuntoForecast } from '../../lib/types';
 import { formatCOP, formatCOPCompact, formatNum } from '../../utils/formatters';
@@ -36,12 +37,17 @@ function EtiquetaPildora(props: { x?: number | string; y?: number | string; valu
 }
 
 export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props) {
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos para el rango seleccionado.</p>;
   }
   const filas: Fila[] = data.map((p) => ({
     label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], ref: p.refAnioPrevio,
   }));
+  if (!hasMounted) {
+    return <div className="h-[320px] w-full xl:h-[270px] animate-pulse rounded-xl bg-tinta/5" />;
+  }
   return (
     <div>
       <div className="h-[320px] w-full xl:h-[270px]">

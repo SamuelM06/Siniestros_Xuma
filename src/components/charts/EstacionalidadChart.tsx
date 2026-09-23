@@ -1,3 +1,4 @@
+﻿import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { IndiceEstacional } from '../../lib/types';
 import { GLASS_TOOLTIP } from './palette';
@@ -24,8 +25,13 @@ function EtiquetaIndice(props: { x?: number | string; y?: number | string; value
 }
 
 export default function EstacionalidadChart({ data }: Props) {
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
   if (data.length === 0) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos estacionales.</p>;
+  }
+  if (!hasMounted) {
+    return <div className="h-[220px] w-full xl:h-[190px] animate-pulse rounded-xl bg-tinta/5" />;
   }
   return (
     <div>
@@ -55,7 +61,7 @@ export default function EstacionalidadChart({ data }: Props) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-1 text-[10px] text-tinta/55 text-center">Índice estacional (promedio 2018–2025). 100% = mes promedio; &gt;100% = mes por encima del promedio.</p>
+      <p className="mt-1 text-[10px] text-tinta/55 text-center">Índice estacional (promedio 2018–2025). 100% = mes promedio; {'>'}100% = mes por encima del promedio.</p>
     </div>
   );
 }
