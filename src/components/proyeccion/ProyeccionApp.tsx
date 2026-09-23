@@ -158,7 +158,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
           icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
           delay={0.05}
-          className="glass rounded-3xl p-4 xl:p-3 overflow-hidden flex flex-col"
+          className="xl:p-3 xl:pb-2 overflow-hidden flex flex-col"
         >
           <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>
@@ -167,7 +167,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             titulo="Probabilidad por departamento"
             icono={<Trophy className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.1}
-            className="glass rounded-3xl p-4 xl:p-3 overflow-hidden flex flex-col"
+            className="xl:p-3 xl:pb-2 overflow-hidden flex flex-col"
           >
             {top3Deptos.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
@@ -185,7 +185,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             titulo="Probabilidad por tipo de siniestro"
             icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.12}
-            className="glass rounded-3xl p-4 xl:p-3 overflow-hidden flex flex-col"
+            className="xl:p-3 xl:pb-2 overflow-hidden flex flex-col"
           >
             <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
           </Panel>
