@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, BarChart3, Calendar, CalendarRange, Coins, MapPin, TrendingUp, Trophy,
+  BarChart3, Calendar, CalendarRange, Coins, MapPin, TrendingUp, Trophy,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { Filters, Metadatos, ProyeccionData } from '../../lib/types';
@@ -57,7 +57,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
     return () => { vivo = false; };
   }, [filtros]);
 
-  const { forecast, estacionalidad, tendencia, departamentos, tiposSiniestro, supuestos, anioObjetivo, aniosEntrenamiento } = data;
+  const { forecast, estacionalidad, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
 
   const activos =
     (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
@@ -75,7 +75,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
   const top3Deptos = useMemo(() => [...departamentos].sort((a, b) => b.prob - a.prob).slice(0, 3), [departamentos]);
 
   return (
-    <div className="flex flex-col gap-2 xl:gap-2.5 xl:h-[calc(100vh-88px)] xl:overflow-hidden">
+    <div className="space-y-2 xl:space-y-2.5">
       <h1 className="sr-only">Proyección estadística de siniestros</h1>
 
       <FiltrosPanel
@@ -153,22 +153,22 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
         </motion.article>
       </div>
 
-      {/* Fila 1: Forecast + columnas de probabilidad */}
-      <div className="grid gap-2 xl:grid-cols-[1.55fr_380px] xl:gap-2.5 xl:flex-1 xl:min-h-0">
+      {/* Fila 1: Forecast + columnas de probabilidad — alturas iguales, sin solape */}
+      <div className="grid gap-2 xl:grid-cols-[1.55fr_380px] xl:gap-2.5 xl:items-stretch">
         <Panel
           titulo={`Pronóstico ${anioObjetivo}: siniestros y dinero pagado`}
           icono={<TrendingUp className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
           delay={0.05}
-          className="xl:p-4"
+          className="xl:p-3 overflow-hidden flex flex-col"
         >
           <ForecastChart data={forecast} anioObjetivo={anioObjetivo} anioPrevio={aniosEntrenamiento[aniosEntrenamiento.length - 1] ?? 2025} />
         </Panel>
-        <div className="space-y-2 xl:space-y-2.5 flex flex-col">
+        <div className="grid gap-2 xl:gap-2.5 xl:grid-rows-2">
           <Panel
             titulo="Probabilidad por departamento"
             icono={<Trophy className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.1}
-            className="xl:p-3 flex-1"
+            className="xl:p-3 overflow-hidden flex flex-col"
           >
             {top3Deptos.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
@@ -186,40 +186,22 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             titulo="Probabilidad por tipo de siniestro"
             icono={<BarChart3 className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />}
             delay={0.12}
-            className="xl:p-3 flex-1"
+            className="xl:p-3 overflow-hidden flex flex-col"
           >
             <ProbabilidadCategorica titulo="Tipos" data={tiposSiniestro} />
           </Panel>
         </div>
       </div>
 
-      {/* Fila 2: Índice estacional + alertas — mismo espacio, sin resalte */}
-      <div className="grid gap-2 xl:grid-cols-[1fr_360px] xl:gap-2.5 xl:flex-1 xl:min-h-0">
+      {/* Fila 2: Índice estacional — ancho completo, sin espacio sobrante */}
+      <div className="grid gap-2 xl:gap-2.5">
         <Panel
           titulo="Índice estacional · alerta de picos"
           icono={<CalendarRange className="h-5 w-5 text-xuma-ambar" />}
           delay={0.14}
-          className="xl:p-3 flex flex-col"
+          className="xl:p-3 overflow-hidden flex flex-col"
         >
           <EstacionalidadChart data={estacionalidad} />
-        </Panel>
-        <Panel
-          titulo="Supuestos metodológicos · alertas"
-          icono={<AlertTriangle className="h-5 w-5 text-xuma-ambar" />}
-          delay={0.16}
-          className="xl:p-3 flex flex-col"
-        >
-          <ul className="space-y-1.5">
-            {supuestos.map((s, i) => (
-              <li key={i} className="flex gap-2 text-[10px] leading-snug text-tinta/70">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-tinta/30" />
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 rounded-lg bg-tinta/5 px-2 py-1.5 text-[10px] leading-snug text-tinta/60">
-            Filtra por gasera / aseguradora / producto para recalcular estas alertas sobre el segmento.
-          </p>
         </Panel>
       </div>
     </div>

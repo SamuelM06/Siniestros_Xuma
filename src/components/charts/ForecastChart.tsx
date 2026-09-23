@@ -43,8 +43,8 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio }: Props)
     label: p.label, sin: p.siniestros, sinRango: [p.sinLow, p.sinHigh], monto: p.monto, montoRango: [p.montoLow, p.montoHigh], referencia: p.refAnioPrevio
   }));
   return (
-    <div className="flex flex-col">
-      <div className="h-[230px] w-full xl:h-[210px]">
+    <div className="flex min-h-0 flex-col overflow-hidden">
+      <div className="h-[210px] w-full xl:h-[210px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={filas} margin={{ top: 24, right: 8, left: 4, bottom: 0 }} barCategoryGap="30%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />

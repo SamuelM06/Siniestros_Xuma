@@ -28,8 +28,8 @@ export default function EstacionalidadChart({ data }: Props) {
     return <p className="py-10 text-center text-xs text-tinta/55">Sin datos estacionales.</p>;
   }
   return (
-    <div className="flex flex-col">
-      <div className="h-[190px] w-full xl:h-[190px]">
+    <div className="flex min-h-0 flex-col overflow-hidden">
+      <div className="h-[210px] w-full xl:h-[210px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barCategoryGap="18%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
