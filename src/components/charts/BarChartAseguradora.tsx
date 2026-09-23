@@ -48,7 +48,7 @@ export default function BarChartAseguradora({ data }: Props) {
   return (
     <div style={{ height: 140 }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={totales} layout="vertical" margin={{ top: 4, right: 28, left: 0, bottom: 4 }} barCategoryGap="26%">
+        <BarChart data={totales} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 4 }} barCategoryGap="26%">
           <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" horizontal={false} />
           <XAxis
             type="number"
