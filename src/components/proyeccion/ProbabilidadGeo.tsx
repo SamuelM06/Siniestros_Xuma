@@ -3,17 +3,15 @@ import type { ProbItem } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 
 interface Props {
-  titulo: string;
   data: ProbItem[];
-  icono: React.ReactNode;
 }
 
-export default function ProbabilidadLista({ titulo, data, icono }: Props) {
+export default function ProbabilidadLista({ data }: Props) {
+  // Sin header interno: el Panel que lo envuelve ya lleva el título, y al
+  // estar en fila de altura fija cada píxel cuenta (el último item, p.ej.
+  // Caldas, se cortaba con overflow-hidden).
   return (
-    <div className="space-y-1">
-      <header className="flex items-center gap-1.5 text-xs font-bold text-tinta mb-1">
-        {icono} {titulo}
-      </header>
+    <div className="min-h-0 flex-1 space-y-0.5">
       {data.map((d) => (
         <motion.div
           key={d.nombre}

@@ -201,7 +201,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
             className="xl:p-3 xl:pb-2 overflow-hidden flex flex-col"
           >
             {top3Deptos.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
+              <div className="mb-1 flex flex-wrap gap-1.5">
                 {top3Deptos.map((d, i) => (
                   <span key={d.nombre} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${i === 0 ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'border-tinta/10 bg-tinta/5 text-tinta/70'}`}>
                     <span className="tabular">{i + 1}. {d.nombre}</span>
@@ -210,7 +210,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
                 ))}
               </div>
             )}
-            <ProbabilidadGeo titulo="Departamentos" data={departamentos} icono={null} />
+            <ProbabilidadGeo data={departamentos} />
           </Panel>
           <Panel
             titulo="Probabilidad por tipo de siniestro"
