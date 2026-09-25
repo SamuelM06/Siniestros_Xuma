@@ -48,6 +48,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       hasta: DEFAULT_HASTA,
       gasera: undefined,
       producto: undefined,
+      linea: undefined,
       estado: undefined,
       aseguradora: undefined,
       tipo_siniestro: undefined,
@@ -100,6 +101,7 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
     (filtros.contrato ? 1 : 0) +
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
+    (filtros.linea ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
     (filtros.tipo_siniestro ? 1 : 0) +

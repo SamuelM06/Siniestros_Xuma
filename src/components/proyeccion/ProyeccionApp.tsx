@@ -28,7 +28,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
   const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   if (cacheRef.current.size === 0) {
-    const k0 = JSON.stringify({ gasera: filtrosIniciales.gasera ?? null, producto: filtrosIniciales.producto ?? null, aseguradora: filtrosIniciales.aseguradora ?? null });
+    const k0 = JSON.stringify({ gasera: filtrosIniciales.gasera ?? null, producto: filtrosIniciales.producto ?? null, linea: filtrosIniciales.linea ?? null, aseguradora: filtrosIniciales.aseguradora ?? null });
     cacheRef.current.set(k0, datosIniciales);
   }
 
@@ -43,7 +43,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
   const resetFiltros = useCallback(() => {
     setFiltros({
-      anio: undefined, gasera: undefined, producto: undefined,
+      anio: undefined, gasera: undefined, producto: undefined, linea: undefined,
       aseguradora: undefined, contrato: undefined, mes: undefined,
       estado: undefined, tipo_siniestro: undefined,
       desde: '2018-01-01', hasta: '2026-12-31',
@@ -52,7 +52,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
   useEffect(() => {
     if (primeraCarga.current) { primeraCarga.current = false; return; }
-    const key = JSON.stringify({ gasera: filtros.gasera ?? null, producto: filtros.producto ?? null, aseguradora: filtros.aseguradora ?? null });
+    const key = JSON.stringify({ gasera: filtros.gasera ?? null, producto: filtros.producto ?? null, linea: filtros.linea ?? null, aseguradora: filtros.aseguradora ?? null });
     const cached = cacheRef.current.get(key);
     if (cached) {
       setData(cached);
@@ -90,7 +90,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
   const { forecast, forecast2026, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
 
   const activos =
-    (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
+    (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.linea ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
 
   const deptoTop = useMemo(() => {
     if (departamentos.length === 0) return null;

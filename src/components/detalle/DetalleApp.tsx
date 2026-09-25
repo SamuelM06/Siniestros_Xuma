@@ -28,6 +28,7 @@ export default function DetalleApp({ metadatos, filtrosIniciales, datosIniciales
       hasta: DEFAULT_HASTA,
       gasera: undefined,
       producto: undefined,
+      linea: undefined,
       estado: undefined,
     });
   }, []);
@@ -36,6 +37,7 @@ export default function DetalleApp({ metadatos, filtrosIniciales, datosIniciales
     (filtros.contrato ? 1 : 0) +
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
+    (filtros.linea ? 1 : 0) +
     (filtros.estado ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0) +
     (filtros.mes ? 1 : 0) +

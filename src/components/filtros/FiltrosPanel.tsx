@@ -68,6 +68,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
   );
   const aseguradoras = useMemo(() => (metadatos.aseguradoras ?? []).map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
   const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
+  const lineas = useMemo(() => [{ valor: 'Deudor', etiqueta: 'Deudor' }, { valor: 'Microseguros', etiqueta: 'Microseguros' }], []);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const estados = useMemo(
     () => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })),
@@ -98,6 +99,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
   const elegirProducto = useCallback((v: string) => {
     onChange({ producto: v || undefined });
+  }, [onChange]);
+
+  const elegirLinea = useCallback((v: string) => {
+    onChange({ linea: v || undefined });
   }, [onChange]);
 
   const elegirEstado = useCallback((v: string) => {
@@ -194,6 +199,18 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             alCambiar={elegirGasera}
             placeholder="Gasera"
             etiquetaTodo="Todas las gaseras"
+            compact
+          />
+        </div>
+
+        {/* Línea de negocio */}
+        <div className="min-w-[120px] flex-1">
+          <SelectXuma
+            valor={filtros.linea ?? ''}
+            opciones={lineas}
+            alCambiar={elegirLinea}
+            placeholder="Línea"
+            etiquetaTodo="Deudor y Microseguros"
             compact
           />
         </div>

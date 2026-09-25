@@ -40,6 +40,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
       anio: undefined,
       gasera: undefined,
       producto: undefined,
+      linea: undefined,
       aseguradora: undefined,
       contrato: undefined,
       mes: undefined,
@@ -90,6 +91,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
     (filtros.mes ? 1 : 0) +
     (filtros.gasera ? 1 : 0) +
     (filtros.producto ? 1 : 0) +
+    (filtros.linea ? 1 : 0) +
     (filtros.aseguradora ? 1 : 0);
 
   return (

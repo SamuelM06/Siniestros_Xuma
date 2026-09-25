@@ -7,6 +7,7 @@ export interface Filters {
   mes?: string;     // YYYY-MM (tiene prioridad sobre desde/hasta)
   gasera?: string;
   producto?: string;
+  linea?: string;   // Deudor | Microseguros
   anio?: string;       // YYYY (vista de estatus)
   estado?: string;
   aseguradora?: string;

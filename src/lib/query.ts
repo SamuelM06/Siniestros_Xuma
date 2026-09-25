@@ -16,7 +16,12 @@ import type {
 // que no aparezca en ningún gráfico, filtro ni total.
 // ============================================================================
 const BASE = `
-  SELECT sub.*
+  SELECT sub.*,
+    -- Línea de negocio: Deudor (Vida Deudor / Grupo Deudores) vs Microseguros (el resto)
+    CASE
+      WHEN sub.producto_norm = 'Grupo Deudores' OR sub.nombre_archivo_origen ILIKE '%deudor%' THEN 'Deudor'
+      ELSE 'Microseguros'
+    END AS linea_norm
   FROM (
     SELECT c.*,
       ${ESTADO_SQL}       AS estado_norm,
@@ -37,6 +42,7 @@ const BASE = `
     JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
   ) sub
   WHERE sub.gasera_norm <> 'Promigas'
+    AND sub.vigente
 `;
 
 const ANIO_REPORTE = 2026;
@@ -66,6 +72,12 @@ function parseTexto(raw: string | null | undefined, max = 80): string | undefine
   return v === '' ? undefined : v;
 }
 
+const LINEAS = ['Deudor', 'Microseguros'];
+function parseLinea(raw: string | null | undefined): string | undefined {
+  const v = parseTexto(raw, 20);
+  return v && LINEAS.includes(v) ? v : undefined;
+}
+
 const VAL_ANIO = /^\d{4}$/;
 const VAL_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -93,12 +105,13 @@ export function parseFilters(url: URL): Filters {
   const contrato = parseTexto(url.searchParams.get('contrato'));
   const gasera = parseTexto(url.searchParams.get('gasera'), 120);
   const producto = parseTexto(url.searchParams.get('producto'), 160);
+  const linea = parseLinea(url.searchParams.get('linea'));
   const estado = parseTexto(url.searchParams.get('estado'), 80);
   const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
   const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
   const anio = parseAnio(url.searchParams.get('anio'));
   const mes = parseMes(url.searchParams.get('mes'));
-  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, anio, mes, desde: rango.desde, hasta: rango.hasta };
+  return { contrato, gasera, producto, linea, estado, aseguradora, tipo_siniestro, anio, mes, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -268,6 +281,10 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
   if (f.producto) {
     params.push(f.producto);
     cond.push(`producto_norm = $${params.length}`);
+  }
+  if (f.linea) {
+    params.push(f.linea);
+    cond.push(`linea_norm = $${params.length}`);
   }
   if (f.estado) {
     params.push(f.estado);
@@ -622,6 +639,7 @@ export interface EstatusFiltros {
   anio: number;
   gasera?: string;
   producto?: string;
+  linea?: string;
   estado?: string;
   aseguradora?: string;
 }
@@ -638,6 +656,10 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   if (ef.producto) {
     params.push(ef.producto);
     cond.push(`producto_norm = $${params.length}`);
+  }
+  if (ef.linea) {
+    params.push(ef.linea);
+    cond.push(`linea_norm = $${params.length}`);
   }
   if (ef.estado) {
     params.push(ef.estado);
@@ -678,7 +700,7 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
 // por mes calendario) para el panel inferior de la vista.
 export async function getHistoricos(f: Filters): Promise<HistoricosData> {
   const rel = serializarFiltros({
-    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto,
+    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto, linea: f.linea,
   });
   return conCache(`historicos:${rel}`, async () => {
     const cond: string[] = [
@@ -701,6 +723,10 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
     if (f.producto) {
       params.push(f.producto);
       cond.push('producto_norm = $' + params.length);
+    }
+    if (f.linea) {
+      params.push(f.linea);
+      cond.push('linea_norm = $' + params.length);
     }
     if (f.aseguradora) {
       params.push(f.aseguradora);
@@ -745,6 +771,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
         const paramsSF: unknown[] = [];
         if (f.gasera) { paramsSF.push(f.gasera); condSF.push(`gasera_norm = $${paramsSF.length}`); }
         if (f.producto) { paramsSF.push(f.producto); condSF.push(`producto_norm = $${paramsSF.length}`); }
+        if (f.linea) { paramsSF.push(f.linea); condSF.push(`linea_norm = $${paramsSF.length}`); }
         if (f.aseguradora) { paramsSF.push(f.aseguradora); condSF.push(`aseguradora_norm = $${paramsSF.length}`); }
         return queryOne<{ n: number }>(
           `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${condSF.join(' AND ')}`,
@@ -873,7 +900,7 @@ const ANIO_OBJETIVO = ANIO_REPORTE + 1; // 2027
 const ANIO_CORTE_CAMBIO = 2022; // temprano 2018–2022 vs reciente 2023–2025
 
 export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
-  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, aseguradora: f.aseguradora });
+  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, linea: f.linea, aseguradora: f.aseguradora });
   return conCache(`proyeccion:${rel}`, async () => {
     const cond: string[] = [
       'fecha_radicacion IS NOT NULL',
@@ -887,6 +914,10 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
     if (f.producto) {
       params.push(f.producto);
       cond.push('producto_norm = $' + params.length);
+    }
+    if (f.linea) {
+      params.push(f.linea);
+      cond.push('linea_norm = $' + params.length);
     }
     if (f.aseguradora) {
       params.push(f.aseguradora);
@@ -904,6 +935,10 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
     if (f.producto) {
       params2026.push(f.producto);
       cond2026.push('producto_norm = $' + params2026.length);
+    }
+    if (f.linea) {
+      params2026.push(f.linea);
+      cond2026.push('linea_norm = $' + params2026.length);
     }
     if (f.aseguradora) {
       params2026.push(f.aseguradora);

@@ -21,6 +21,7 @@ export function queryString(f: Filters): string {
   }
   if (f.gasera) p.set('gasera', f.gasera);
   if (f.producto) p.set('producto', f.producto);
+  if (f.linea) p.set('linea', f.linea);
   if (f.estado) p.set('estado', f.estado);
   if (f.aseguradora) p.set('aseguradora', f.aseguradora);
   if (f.tipo_siniestro) p.set('tipo_siniestro', f.tipo_siniestro);
