@@ -161,16 +161,42 @@ type RowBase = Record<string, unknown>;
 const CACHE_SOFT_TTL_MS = 15 * 60_000;  // 15 minutos fresco
 const CACHE_STALE_TTL_MS = 120 * 60_000; // 2 horas utilizable stale
 const CACHE_MAX_ENTRIES = 300;           // tope de entradas en memoria (LRU)
-const CACHE_SWEEP_MS = 10 * 60_000;      // barrido de expiración cada 10 min
+const CACHE_MAX_BYTES = 24 * 1024 * 1024; // tope de 24 MB: 300 entradas de geodata
+                                              // o matrices pesan mucho más que un KPI
+const CACHE_SWEEP_MS = 5 * 60_000;       // barrido de expiración cada 5 min
 
 interface EntradaCache<T> {
   t: number;    // cuándo se validó por última vez contra la BD
   last: number; // último acceso (lectura o escritura), para LRU
+  bytes: number;// tamaño aproximado del payload, para el tope en MB
   v: T;
 }
 
 const cacheConsultas = new Map<string, EntradaCache<unknown>>();
-const enVuelo = new Map<string, Promise<unknown>>();
+const enVuelo = new Map<string, { t: number; p: Promise<unknown> }>();
+let bytesEnCache = 0;
+
+// Tamaño aproximado en bytes. JSON.stringify es nativo y sobre payloads de BD
+// cuesta microsegundos; evita tener un tope solo por número de entradas, que
+// trataría igual un KPI de 2 KB que un mapa con miles de puntos.
+function tamanoAprox(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'string') return v.length * 2;
+  try {
+    return JSON.stringify(v)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function guardar(clave: string, v: unknown): void {
+  const anterior = cacheConsultas.get(clave);
+  const bytes = tamanoAprox(v);
+  if (anterior) bytesEnCache -= anterior.bytes;
+  bytesEnCache += bytes;
+  cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), bytes, v });
+  if (bytesEnCache > CACHE_MAX_BYTES) barrerCache();
+}
 
 // Marca un acceso (en branches de lectura) o escritura.
 function tocar(clave: string, e: EntradaCache<unknown>): void {
@@ -178,29 +204,53 @@ function tocar(clave: string, e: EntradaCache<unknown>): void {
   cacheConsultas.set(clave, e);
 }
 
-// Evita que la caché crezca sin límite: si llegó al tope, expulsa la entrada
-// con acceso más antiguo (least-recently-used).
+// Evita que la caché crezca sin límite: expulsa entradas con acceso más antiguo
+// (least-recently-used) hasta cumplir los dos topes, el de entradas y el de bytes.
 function expulsarSiLleno(): void {
-  if (cacheConsultas.size < CACHE_MAX_ENTRIES) return;
-  let viejaClave: string | null = null;
-  let viejoLast = Infinity;
-  for (const [k, e] of cacheConsultas) {
-    if (e.last < viejoLast) {
-      viejoLast = e.last;
-      viejaClave = k;
+  while (
+    cacheConsultas.size >= CACHE_MAX_ENTRIES ||
+    (bytesEnCache > CACHE_MAX_BYTES && cacheConsultas.size > 0)
+  ) {
+    let viejaClave: string | null = null;
+    let viejoLast = Infinity;
+    for (const [k, e] of cacheConsultas) {
+      if (e.last < viejoLast) {
+        viejoLast = e.last;
+        viejaClave = k;
+      }
     }
+    if (viejaClave == null) return;
+    const saliendo = cacheConsultas.get(viejaClave);
+    if (saliendo) bytesEnCache -= saliendo.bytes;
+    cacheConsultas.delete(viejaClave);
   }
-  if (viejaClave != null) cacheConsultas.delete(viejaClave);
 }
 
 // Barrido periódico: descarta entradas que no se usan desde hace más de
 // CACHE_STALE_TTL_MS (2 h). Libera memoria y datos (incluidos los delicados
 // que aún puedan quedar) aunque nunca se vuelvan a pedir esas combinaciones.
+// También suelta promesas en vuelo que quedaron colgadas.
 function barrerCache(): void {
   const ahora = Date.now();
+  let libres = 0;
   for (const [k, e] of cacheConsultas) {
-    if (ahora - e.last > CACHE_STALE_TTL_MS) cacheConsultas.delete(k);
+    if (ahora - e.last > CACHE_STALE_TTL_MS) {
+      bytesEnCache -= e.bytes;
+      libres++;
+      cacheConsultas.delete(k);
+    }
   }
+  if (libres) console.log(`[cache] barrido: ${libres} entradas liberadas`);
+
+  // Red de seguridad: una promesa que no se resuelve en 2 min queda huérfana.
+  for (const [k, en] of enVuelo) {
+    if (ahora - en.t > 2 * 60_000) {
+      enVuelo.delete(k);
+      console.log(`[cache] promesa en vuelo abandonada: ${k.slice(0, 60)}`);
+    }
+  }
+
+  if (bytesEnCache > CACHE_MAX_BYTES) expulsarSiLleno();
 }
 
 async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
@@ -219,14 +269,14 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
     if (!enVuelo.has(clave)) {
       const p = fn()
         .then((nuevo) => {
-          cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: nuevo });
+          guardar(clave, nuevo);
           enVuelo.delete(clave);
           return nuevo;
         })
         .catch(() => {
           enVuelo.delete(clave);
         });
-      enVuelo.set(clave, p);
+      enVuelo.set(clave, { t: Date.now(), p });
     }
     return hit.v as T;
   }
@@ -235,13 +285,13 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
   // Reutilizar promesa en vuelo si existe para no duplicar queries
   const pendiente = enVuelo.get(clave);
   if (pendiente) {
-    return pendiente as Promise<T>;
+    return pendiente.p as Promise<T>;
   }
 
   expulsarSiLleno();
   const promesa = fn()
     .then((resultado) => {
-      cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: resultado });
+      guardar(clave, resultado);
       enVuelo.delete(clave);
       return resultado;
     })
@@ -251,7 +301,7 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
       throw err;
     });
 
-  enVuelo.set(clave, promesa);
+  enVuelo.set(clave, { t: Date.now(), p: promesa });
   return promesa;
 }
 
@@ -1368,12 +1418,15 @@ if (typeof process !== 'undefined' && !gQuery.__initMantenimiento) {
   // Higiene del rate-limiter (descarta buckets vencidos por IP).
   configurarLimpieza();
 
-  // Mantenimiento periódico de la caché: barre entradas sin uso > 2 h y
-  // registra el tamaño del cache y la memoria del heap para detectar fugas.
+  // Mantenimiento periódico de la caché: barre entradas sin uso > 2 h, aplica
+  // el tope de MB y registra tamaño y heap para detectar fugas de memoria.
   const mantenimiento = setInterval(() => {
     barrerCache();
     const heapMb = Math.round(process.memoryUsage().heapUsed / 1048576);
-    console.log(`[cache] ${cacheConsultas.size}/${CACHE_MAX_ENTRIES} entradas · heap ${heapMb} MB`);
+    const cacheMb = Math.round((bytesEnCache / 1048576) * 10) / 10;
+    console.log(
+      `[cache] ${cacheConsultas.size}/${CACHE_MAX_ENTRIES} entradas · ${cacheMb}/${Math.round(CACHE_MAX_BYTES / 1048576)} MB · heap ${heapMb} MB · ${enVuelo.size} en vuelo`,
+    );
   }, CACHE_SWEEP_MS);
   if (mantenimiento.unref) mantenimiento.unref();
 }
