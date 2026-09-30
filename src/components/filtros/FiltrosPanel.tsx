@@ -128,9 +128,9 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       transition={{ duration: 0.35 }}
       className="glass relative z-20 rounded-2xl px-3 py-2 shadow-md"
     >
-      {/* Badge superior: filtros activos */}
+      {/* Badge superior: filtros activos + cargando */}
       <AnimatePresence mode="wait">
-        {activos > 0 && (
+        {(activos > 0 || cargando) && (
           <motion.div
             initial={{ opacity: 0, y: -10, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -144,17 +144,26 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
             role="status"
             aria-live="polite"
           >
-            <Filter className="h-4 w-4 flex-shrink-0" />
-            <span>{activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}</span>
-            <button
-              type="button"
-              title="Limpiar todos los filtros"
-              onClick={() => { setTexto(''); onReset(); }}
-              className="ml-auto flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
-              aria-label="Limpiar todos los filtros"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {cargando ? (
+              <>
+                <RefreshCw className="h-4 w-4 flex-shrink-0 animate-spin" />
+                <span>Actualizando…</span>
+              </>
+            ) : (
+              <>
+                <Filter className="h-4 w-4 flex-shrink-0" />
+                <span>{activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}</span>
+                <button
+                  type="button"
+                  title="Limpiar todos los filtros"
+                  onClick={() => { setTexto(''); onReset(); }}
+                  className="ml-auto flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
+                  aria-label="Limpiar todos los filtros"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -291,22 +300,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           </div>
         )}
 
-        {/* Acciones y Estados */}
+        {/* Acciones */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          <AnimatePresence>
-            {cargando && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2 py-0.5 text-[10px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
-              >
-                <RefreshCw className="h-2.5 w-2.5 animate-spin" />
-                <span className="hidden md:inline">Actualizando</span>
-              </motion.span>
-            )}
-          </AnimatePresence>
-
           <button
             type="button"
             title="Restablecer filtros del reporte"
