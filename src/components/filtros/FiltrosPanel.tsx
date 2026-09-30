@@ -128,21 +128,22 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       transition={{ duration: 0.35 }}
       className="glass relative z-20 rounded-2xl px-3 py-2 shadow-md"
     >
-      {/* Badge superior: filtros activos + cargando */}
+      {/* Toast superior derecho: cargando / filtros activos (no ocupa espacio en el flow) */}
       <AnimatePresence mode="wait">
         {(activos > 0 || cargando) && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.9, filter: 'blur(4px)' }}
+            initial={{ opacity: 0, y: -12, scale: 0.9, x: 20 }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+            exit={{ opacity: 0, y: -12, scale: 0.9, x: 20, filter: 'blur(4px)' }}
             transition={{
               initial: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] },
               animate: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
               exit: { duration: 0.4, ease: [0.33, 1, 0.68, 1] },
             }}
-            className="mb-2 flex items-center gap-2 rounded-lg border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-2 text-sm font-medium text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+            className="absolute top-2 right-2 flex items-center gap-2 rounded-lg border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1.5 text-sm font-medium text-xuma-verde-oscuro dark:text-xuma-verde-claro shadow-lg"
             role="status"
             aria-live="polite"
+            style={{ minWidth: '180px' }}
           >
             {cargando ? (
               <>
@@ -157,7 +158,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
                   type="button"
                   title="Limpiar todos los filtros"
                   onClick={() => { setTexto(''); onReset(); }}
-                  className="ml-auto flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
+                  className="ml-1 flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
                   aria-label="Limpiar todos los filtros"
                 >
                   <X className="h-3.5 w-3.5" />
