@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { IdCard, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Filter, IdCard, RefreshCw, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
 import { formatNum, mesLabel } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
@@ -128,6 +128,33 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       transition={{ duration: 0.35 }}
       className="glass relative z-20 rounded-2xl px-3 py-2 shadow-md"
     >
+      {/* Badge superior: filtros activos */}
+      <AnimatePresence>
+        {activos > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="mb-2 flex items-center gap-2 rounded-lg border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-2 text-sm font-medium text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+            role="status"
+            aria-live="polite"
+          >
+            <Filter className="h-4 w-4 flex-shrink-0" />
+            <span>{activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}</span>
+            <button
+              type="button"
+              title="Limpiar todos los filtros"
+              onClick={() => { setTexto(''); onReset(); }}
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
+              aria-label="Limpiar todos los filtros"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
         {/* Etiqueta / Ícono */}
         <div className="flex items-center gap-1.5 font-bold text-tinta text-xs whitespace-nowrap shrink-0 mr-1">
@@ -272,19 +299,6 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
               >
                 <RefreshCw className="h-2.5 w-2.5 animate-spin" />
                 <span className="hidden md:inline">Actualizando</span>
-              </motion.span>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {activos > 0 && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2 py-0.5 text-[10px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
-              >
-                {activos} act.
               </motion.span>
             )}
           </AnimatePresence>
