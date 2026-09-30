@@ -105,7 +105,8 @@ export default function MultiSelectXuma({ valores, opciones, alCambiar, placehol
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className={`glass absolute z-30 mt-2 max-h-64 overflow-auto rounded-2xl p-1.5 shadow-2xl ${desplegableClase}`}
+            className={`glass absolute z-30 mt-2 rounded-2xl p-1.5 shadow-2xl ${desplegableClase}`}
+            style={{ maxHeight: 'none', overflow: 'visible' }}
           >
             <li role="option" aria-selected={elegidos.length === 0}>
               <button
