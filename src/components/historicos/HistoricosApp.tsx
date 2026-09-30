@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BarChart3, CalendarRange, Coins, Percent, TrendingUp, Trophy } from 'lucide-react';
 import type { Filters, HistoricosData, Metadatos } from '../../lib/types';
-import { queryString } from '../../utils/fetcher';
+import { queryString, queryStringOpciones } from '../../utils/fetcher';
 import { formatCOP, formatNum } from '../../utils/formatters';
 import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
@@ -23,6 +23,7 @@ interface Props {
 export default function HistoricosApp({ datosIniciales, filtrosIniciales, metadatos }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
   const [data, setData] = useState<HistoricosData>(datosIniciales);
+  const [opciones, setOpciones] = useState<Metadatos>(metadatos);
   const [cargando, setCargando] = useState(false);
   const primeraCarga = useRef(true);
 
@@ -45,10 +46,42 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
       mes: undefined,
       estado: undefined,
       tipo_siniestro: undefined,
+      clase: undefined,
       desde: '2018-01-01',
       hasta: '2026-12-31',
     });
   }, []);
+
+  // Cascada Clase → Gasera/Producto con data en tiempo real.
+  const claseKey = JSON.stringify(filtros.clase ?? null);
+  useEffect(() => {
+    let vivo = true;
+    fetch(`/api/metadatos?${queryStringOpciones(filtros)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return (await res.json()) as Metadatos;
+      })
+      .then((m) => {
+        if (!vivo) return;
+        setOpciones(m);
+        setFiltros((prev) => {
+          const gaserasOk = (prev.gasera ?? []).filter((g) => m.gaseras.includes(g));
+          const productosOk = (prev.producto ?? []).filter((p) => m.productos.includes(p));
+          const ng = gaserasOk.length > 0 ? gaserasOk : undefined;
+          const np = productosOk.length > 0 ? productosOk : undefined;
+          if (
+            (ng?.length ?? 0) === (prev.gasera?.length ?? 0) &&
+            (np?.length ?? 0) === (prev.producto?.length ?? 0)
+          ) return prev;
+          return { ...prev, gasera: ng, producto: np };
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claseKey]);
 
   useEffect(() => {
     if (primeraCarga.current) {
@@ -88,9 +121,10 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
   const activos =
     (filtros.anio ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
-    (filtros.gasera ? 1 : 0) +
-    (filtros.producto ? 1 : 0) +
-    (filtros.aseguradora ? 1 : 0);
+    ((filtros.clase?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.gasera?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.producto?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.aseguradora?.length ?? 0) > 0 ? 1 : 0);
 
   return (
     <div className="space-y-3">
@@ -98,7 +132,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
 
       <FiltrosPanel
         filtros={filtros}
-        metadatos={metadatos}
+        metadatos={opciones}
         onChange={cambioFiltro}
         onReset={resetFiltros}
         activos={activos}

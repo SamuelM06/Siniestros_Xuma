@@ -1,6 +1,6 @@
 import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
-import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
+import { DEPARTAMENTO_SQL, CLASE_SQL, ESTADO_SQL, FECHA_EFECTIVA_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import {
   backtest, chiCuadradoP, distribucion, indicesEstacionales, mannKendall, pronosticar, theilSen,
 } from './estadistica';
@@ -12,8 +12,13 @@ import type {
 // ============================================================================
 // CTE base: agrega las columnas normalizadas + aseguradora canónica.
 // Alias de la tabla origen: SIEMPRE `c`. Join a catálogo de aseguradoras.
-// Promigas no es una gasera (dato escrito mal en la fuente): se excluye para
-// que no aparezca en ningún gráfico, filtro ni total.
+// - Promigas no es una gasera (dato escrito mal en la fuente): se excluye para
+//   que no aparezca en ningún gráfico, filtro ni total.
+// - Las hojas `*PLANILLA*` son soportes de pago, no siniestros: se excluyen para
+//   no duplicar el conteo (la data manda: un siniestro = una fila base).
+// - `fecha_efectiva` consume la fecha real de la DB: fecha_radicacion primero,
+//   luego FECHA RECIBIDO (Salvafactura) y MES+AÑO (PROEXEQUIAL). Lo que no trae
+//   fecha útil queda NULL y se excluye de los rangos.
 // ============================================================================
 const BASE = `
   SELECT sub.*
@@ -22,6 +27,8 @@ const BASE = `
       ${ESTADO_SQL}       AS estado_norm,
       ${GASERA_SQL}       AS gasera_norm,
       ${PRODUCTO_SQL}     AS producto_norm,
+      ${CLASE_SQL}        AS clase_norm,
+      ${FECHA_EFECTIVA_SQL} AS fecha_efectiva,
       ${DEPARTAMENTO_SQL} AS departamento_norm,
       ${MUNICIPIO_SQL}    AS municipio_norm,
       ${MONTO_SQL}        AS monto,
@@ -35,6 +42,7 @@ const BASE = `
       END               AS aseguradora_norm
     FROM siniestros.casos c
     JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
+    WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
   ) sub
   WHERE sub.gasera_norm <> 'Promigas'
 `;
@@ -66,6 +74,29 @@ function parseTexto(raw: string | null | undefined, max = 80): string | undefine
   return v === '' ? undefined : v;
 }
 
+// Lee un filtro de selección múltiple: recoge todas las repeticiones del
+// parámetro (?gasera=A&gasera=B), limpia y descarta vacíos.
+// Devuelve undefined cuando no hay selección (= Todos).
+function parseLista(raw: (string | null)[] | null | undefined, max = 80): string[] | undefined {
+  if (!raw) return undefined;
+  const vistos = new Set<string>();
+  for (const r of raw) {
+    if (!r) continue;
+    const v = r.trim().slice(0, max);
+    if (v !== '') vistos.add(v);
+  }
+  return vistos.size > 0 ? [...vistos] : undefined;
+}
+
+// Agrega una condición `columna = ANY($n)` cuando la lista trae valores.
+// pg serializa el arreglo JS como text[], así que un solo parámetro basta.
+function empujarLista(params: unknown[], cond: string[], columna: string, valores?: string[]): void {
+  const lista = (valores ?? []).map((v) => v.trim()).filter((v) => v !== '');
+  if (lista.length === 0) return;
+  params.push(lista);
+  cond.push(`${columna} = ANY($${params.length})`);
+}
+
 const VAL_ANIO = /^\d{4}$/;
 const VAL_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -91,14 +122,15 @@ function clampMinMax(desde?: string, hasta?: string): { desde: string; hasta: st
 export function parseFilters(url: URL): Filters {
   const rango = clampMinMax(parseFecha(url.searchParams.get('desde')), parseFecha(url.searchParams.get('hasta')));
   const contrato = parseTexto(url.searchParams.get('contrato'));
-  const gasera = parseTexto(url.searchParams.get('gasera'), 120);
-  const producto = parseTexto(url.searchParams.get('producto'), 160);
-  const estado = parseTexto(url.searchParams.get('estado'), 80);
-  const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
-  const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
+  const gasera = parseLista(url.searchParams.getAll('gasera'), 120);
+  const producto = parseLista(url.searchParams.getAll('producto'), 160);
+  const estado = parseLista(url.searchParams.getAll('estado'), 80);
+  const aseguradora = parseLista(url.searchParams.getAll('aseguradora'), 80);
+  const tipo_siniestro = parseLista(url.searchParams.getAll('tipo_siniestro'), 80);
+  const clase = parseLista(url.searchParams.getAll('clase'), 40);
   const anio = parseAnio(url.searchParams.get('anio'));
   const mes = parseMes(url.searchParams.get('mes'));
-  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, anio, mes, desde: rango.desde, hasta: rango.hasta };
+  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, clase, anio, mes, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -223,12 +255,13 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
   return promesa;
 }
 
-// Clave de caché estable para un conjunto de filtros.
+// Clave de caché estable para un conjunto de filtros (listas ordenadas).
 function serializarFiltros(f: Filters | EstatusFiltros): string {
   const ordenado: Record<string, unknown> = {};
   for (const k of Object.keys(f).sort()) {
     const v = (f as Record<string, unknown>)[k];
-    if (v !== undefined && v !== null) ordenado[k] = v;
+    if (v === undefined || v === null) continue;
+    ordenado[k] = Array.isArray(v) ? [...v].sort() : v;
   }
   return JSON.stringify(ordenado);
 }
@@ -239,6 +272,7 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
 
   // Si se busca un contrato específico, buscar de forma flexible en numero_contrato
   // y campos originales (incluso identificaciones), sin que el rango estricto de fechas lo oculte
+  // La fecha que manda es `fecha_efectiva` (radicación o fecha propia del archivo).
   if (f.contrato) {
     params.push(f.contrato);
     cond.push(`(
@@ -254,32 +288,31 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
     // Si el usuario fijó fechas personalizadas (distintas al año default), se respetan
     if (f.desde && f.hasta && (f.desde !== `${ANIO_REPORTE}-01-01` || f.hasta !== `${ANIO_REPORTE}-12-31`)) {
       params.push(f.desde, f.hasta);
-      cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
+      cond.push(`fecha_efectiva >= $${params.length - 1}::date AND fecha_efectiva < ($${params.length}::date + interval '1 day')`);
     }
   } else {
     params.push(f.desde, f.hasta);
-    cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
+    cond.push(`fecha_efectiva >= $${params.length - 1}::date AND fecha_efectiva < ($${params.length}::date + interval '1 day')`);
   }
 
-  if (f.gasera) {
-    params.push(f.gasera);
-    cond.push(`gasera_norm = $${params.length}`);
+  if (f.clase?.length) {
+    empujarLista(params, cond, 'clase_norm', f.clase);
   }
-  if (f.producto) {
-    params.push(f.producto);
-    cond.push(`producto_norm = $${params.length}`);
+
+  if (f.gasera?.length) {
+    empujarLista(params, cond, 'gasera_norm', f.gasera);
   }
-  if (f.estado) {
-    params.push(f.estado);
-    cond.push(`estado_norm = $${params.length}`);
+  if (f.producto?.length) {
+    empujarLista(params, cond, 'producto_norm', f.producto);
   }
-  if (f.aseguradora) {
-    params.push(f.aseguradora);
-    cond.push(`aseguradora_norm = $${params.length}`);
+  if (f.estado?.length) {
+    empujarLista(params, cond, 'estado_norm', f.estado);
   }
-  if (f.tipo_siniestro) {
-    params.push(f.tipo_siniestro);
-    cond.push(`tipo_siniestro_norm = $${params.length}`);
+  if (f.aseguradora?.length) {
+    empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
+  }
+  if (f.tipo_siniestro?.length) {
+    empujarLista(params, cond, 'tipo_siniestro_norm', f.tipo_siniestro);
   }
   return { cond: cond.join(' AND '), params };
 }
@@ -330,10 +363,11 @@ async function getTotalAnio(anio: number): Promise<number | null> {
     `
     SELECT count(*)::int AS n
     FROM (
-      SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+      SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
       FROM siniestros.casos c
+      WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
     ) sub
-    WHERE sub.fecha_radicacion BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
+    WHERE sub.fecha_efectiva BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
     `,
     [`${anio}-01-01`, `${anio}-12-31`],
   );
@@ -350,7 +384,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   if (f.mes) {
     const sqlDia = `
       WITH base AS (${BASE})
-      SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+      SELECT EXTRACT(DAY FROM fecha_efectiva)::int AS dia,
              count(*)::int            AS total,
              COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
       FROM base
@@ -362,7 +396,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   }
   const sql = `
     WITH base AS (${BASE})
-    SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
+    SELECT to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') AS mes,
            count(*)::int            AS total,
            COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
     FROM base
@@ -439,7 +473,7 @@ export async function getPorAseguradora(f: Filters): Promise<SerieAseguradora[]>
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
-    SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
+    SELECT to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') AS mes,
            aseguradora_norm AS aseguradora,
            count(*)::int AS total
     FROM base
@@ -519,10 +553,11 @@ export async function getPorTipoSiniestro(f: Filters, top = 6): Promise<ItemTipo
 // sin datos personales); las páginas se consultan a BD bajo demanda.
 const CAMPOS_TABLA = `
   id_caso, numero_contrato, nombre_asegurado,
-  fecha_radicacion,
+  fecha_efectiva AS fecha_radicacion,
   aseguradora_norm AS aseguradora,
   gasera_norm AS gasera,
   producto_norm AS producto,
+  clase_norm AS clase,
   estado_norm AS estado,
   monto
 `;
@@ -541,7 +576,7 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
     SELECT ${CAMPOS_TABLA}
     FROM base
     WHERE ${w.cond}
-    ORDER BY fecha_radicacion DESC NULLS LAST, id_caso DESC
+    ORDER BY fecha_efectiva DESC NULLS LAST, id_caso DESC
     LIMIT $${w.params.length + 1} OFFSET $${w.params.length + 2}
   `;
   const filas = await query<RegistroTabla>(sql, [...w.params, pageSize, off]);
@@ -553,6 +588,7 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
       aseguradora: r.aseguradora ?? '',
       gasera: r.gasera ?? '',
       producto: r.producto ?? '',
+      clase: r.clase ?? '',
       estado: r.estado ?? '',
       fecha_radicacion: r.fecha_radicacion,
       monto: r.monto == null ? null : Number(r.monto),
@@ -570,7 +606,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     const sql = `
       WITH base AS (${BASE}),
       filtrado AS (
-        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_radicacion, tipo_siniestro_norm
+        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_efectiva, tipo_siniestro_norm, clase_norm
         FROM base
         WHERE ${w.cond}
       )
@@ -580,8 +616,9 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         (SELECT json_agg(e) FROM (SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) e) AS estados,
         (SELECT json_agg(a.aseguradora) FROM (SELECT DISTINCT aseguradora_norm AS aseguradora FROM filtrado ORDER BY 1) a) AS aseguradoras,
         (SELECT json_agg(t) FROM (SELECT COALESCE(btrim(tipo_siniestro_norm),'Sin tipo') AS tipo_siniestro, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) t) AS tipos_siniestro,
-        min(fecha_radicacion) AS min_fecha,
-        max(fecha_radicacion) AS max_fecha
+        (SELECT json_agg(c.clase) FROM (SELECT DISTINCT clase_norm AS clase FROM filtrado WHERE clase_norm IS NOT NULL ORDER BY 1) c) AS clases,
+        min(fecha_efectiva) AS min_fecha,
+        max(fecha_efectiva) AS max_fecha
       FROM filtrado
     `;
     const [row, aniosR] = await Promise.all([
@@ -591,16 +628,18 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         estados: { estado: string; total: number }[] | null;
         aseguradoras: string[] | null;
         tipos_siniestro: { tipo_siniestro: string; total: number }[] | null;
+        clases: string[] | null;
         min_fecha: string | null;
         max_fecha: string | null;
       }>(sql, w.params),
       query<{ anio: number }>(
-        `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_radicacion)::int AS anio
+        `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_efectiva)::int AS anio
         FROM (
-          SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+          SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
           FROM siniestros.casos c
+          WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
         ) sub
-        WHERE sub.fecha_radicacion IS NOT NULL AND sub.gasera_norm <> 'Promigas'
+        WHERE sub.fecha_efectiva IS NOT NULL AND sub.gasera_norm <> 'Promigas'
         ORDER BY 1 DESC`,
       ),
     ]);
@@ -611,6 +650,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
       estados: (row?.estados ?? []).map((e) => ({ estado: e.estado, total: Number(e.total) })),
       aseguradoras: row?.aseguradoras ?? [],
       tipos_siniestro: (row?.tipos_siniestro ?? []).map((t) => ({ tipo_siniestro: t.tipo_siniestro, total: Number(t.total) })),
+      clases: row?.clases ?? [],
       anios: aniosR.map((r) => Number(r.anio)),
       rangoFechas: { min: aISO(row?.min_fecha), max: aISO(row?.max_fecha) },
     };
@@ -620,52 +660,68 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
 // ---- Estatus de siniestros por gasera y mes (matriz) --------------------------
 export interface EstatusFiltros {
   anio: number;
-  gasera?: string;
-  producto?: string;
-  estado?: string;
-  aseguradora?: string;
+  gasera?: string[];
+  producto?: string[];
+  aseguradora?: string[];
+  clase?: string[];
 }
 
 export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   return conCache(`estatus:${serializarFiltros(ef)}`, async () => {
   const cond: string[] = [];
   const params: unknown[] = [`${ef.anio}-01-01`, `${ef.anio}-12-31`];
-  cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
-  if (ef.gasera) {
-    params.push(ef.gasera);
-    cond.push(`gasera_norm = $${params.length}`);
+  cond.push('fecha_efectiva >= $1::date AND fecha_efectiva <= $2::date');
+  if (ef.gasera?.length) {
+    empujarLista(params, cond, 'gasera_norm', ef.gasera);
   }
-  if (ef.producto) {
-    params.push(ef.producto);
-    cond.push(`producto_norm = $${params.length}`);
+  if (ef.producto?.length) {
+    empujarLista(params, cond, 'producto_norm', ef.producto);
   }
-  if (ef.estado) {
-    params.push(ef.estado);
-    cond.push(`estado_norm = $${params.length}`);
+  if (ef.aseguradora?.length) {
+    empujarLista(params, cond, 'aseguradora_norm', ef.aseguradora);
   }
-  if (ef.aseguradora) {
-    params.push(ef.aseguradora);
-    cond.push(`aseguradora_norm = $${params.length}`);
+  if (ef.clase?.length) {
+    empujarLista(params, cond, 'clase_norm', ef.clase);
   }
   const sql = `
     WITH base AS (${BASE})
     SELECT COALESCE(gasera_norm,'Sin gasera') AS gasera,
-           EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+           COALESCE(estado_norm,'Sin estado')   AS estado,
+           EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
            count(*)::int AS total
     FROM base
     WHERE ${cond.join(' AND ')}
-    GROUP BY 1, 2 ORDER BY 1, 2
+    GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
   `;
   const rows = await query<FilaEstatus>(sql, params);
-  const gaseras = [...new Set(rows.map((r) => r.gasera))].sort((a, b) => {
-    const ta = rows.filter((r) => r.gasera === a).reduce((s, r) => s + Number(r.total), 0);
-    const tb = rows.filter((r) => r.gasera === b).reduce((s, r) => s + Number(r.total), 0);
+  const mapa = new Map<string, number[]>();
+  const mapaEstados = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (!mapa.has(r.gasera)) mapa.set(r.gasera, Array.from({ length: 12 }, () => 0));
+    const idx = (r.mes - 1) % 12;
+    const fila = mapa.get(r.gasera);
+    if (fila !== undefined) {
+      fila[idx] = fila[idx]! + r.total;
+    }
+    if (!mapaEstados.has(r.gasera)) mapaEstados.set(r.gasera, new Map());
+    const em = mapaEstados.get(r.gasera)!;
+    em.set(r.estado, (em.get(r.estado) ?? 0) + r.total);
+  }
+  const gaseras = [...mapa.keys()].sort((a, b) => {
+    const ta = mapa.get(a)!.reduce((s, n) => s + n, 0);
+    const tb = mapa.get(b)!.reduce((s, n) => s + n, 0);
+    return tb - ta;
+  });
+  const estados = [...mapaEstados.keys()].sort((a, b) => {
+    const ta = mapaEstados.get(a)!.values().reduce((s, n) => s + n, 0);
+    const tb = mapaEstados.get(b)!.values().reduce((s, n) => s + n, 0);
     return tb - ta;
   });
   return {
     anio: ef.anio,
     gaseras,
-    filas: rows.map((r) => ({ gasera: r.gasera, mes: Number(r.mes), total: Number(r.total) })),
+    estados,
+    filas: rows.map((r) => ({ gasera: r.gasera, estado: r.estado, mes: Number(r.mes), total: Number(r.total) })),
   };
   });
 }
@@ -678,37 +734,37 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
 // por mes calendario) para el panel inferior de la vista.
 export async function getHistoricos(f: Filters): Promise<HistoricosData> {
   const rel = serializarFiltros({
-    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto,
+    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto, clase: f.clase,
   });
   return conCache(`historicos:${rel}`, async () => {
     const cond: string[] = [
-      'fecha_radicacion IS NOT NULL',
-      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+      'fecha_efectiva IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_efectiva) BETWEEN $1 AND $2',
     ];
     const params: unknown[] = [ANIO_HIST_MIN, ANIO_HIST_MAX];
     if (f.anio) {
       params.push(Number(f.anio));
-      cond.push('EXTRACT(YEAR FROM fecha_radicacion) = $' + params.length);
+      cond.push('EXTRACT(YEAR FROM fecha_efectiva) = $' + params.length);
     }
     if (f.mes) {
       params.push(f.mes);
-      cond.push(`to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') = $${params.length}`);
+      cond.push(`to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') = $${params.length}`);
     }
-    if (f.gasera) {
-      params.push(f.gasera);
-      cond.push('gasera_norm = $' + params.length);
+    if (f.gasera?.length) {
+      empujarLista(params, cond, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params.push(f.producto);
-      cond.push('producto_norm = $' + params.length);
+    if (f.producto?.length) {
+      empujarLista(params, cond, 'producto_norm', f.producto);
     }
-    if (f.aseguradora) {
-      params.push(f.aseguradora);
-      cond.push('aseguradora_norm = $' + params.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
+    }
+    if (f.clase?.length) {
+      empujarLista(params, cond, 'clase_norm', f.clase);
     }
     const sql = `
       WITH base AS (${BASE})
-      SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+      SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
              count(*)::int AS total,
              count(*) FILTER (WHERE estado_norm = 'Pagado')::int AS pagados,
              count(*) FILTER (WHERE estado_norm = 'Objetado')::int AS objetados,
@@ -721,8 +777,8 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
       query<{ anio: number; mes: number; total: number }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total
          FROM base
          WHERE ${cond.join(' AND ')}
@@ -731,8 +787,8 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       ),
       query<{ anio: number; mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -741,11 +797,12 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
         params,
       ),
       (async () => {
-        const condSF: string[] = ['fecha_radicacion IS NULL'];
+        const condSF: string[] = ['fecha_efectiva IS NULL'];
         const paramsSF: unknown[] = [];
-        if (f.gasera) { paramsSF.push(f.gasera); condSF.push(`gasera_norm = $${paramsSF.length}`); }
-        if (f.producto) { paramsSF.push(f.producto); condSF.push(`producto_norm = $${paramsSF.length}`); }
-        if (f.aseguradora) { paramsSF.push(f.aseguradora); condSF.push(`aseguradora_norm = $${paramsSF.length}`); }
+        if (f.gasera?.length) { empujarLista(paramsSF, condSF, 'gasera_norm', f.gasera); }
+        if (f.producto?.length) { empujarLista(paramsSF, condSF, 'producto_norm', f.producto); }
+        if (f.aseguradora?.length) { empujarLista(paramsSF, condSF, 'aseguradora_norm', f.aseguradora); }
+        if (f.clase?.length) { empujarLista(paramsSF, condSF, 'clase_norm', f.clase); }
         return queryOne<{ n: number }>(
           `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${condSF.join(' AND ')}`,
           paramsSF,
@@ -756,7 +813,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       f.mes
         ? query<{ dia: number; total: number; valor: string }>(
             `WITH base AS (${BASE})
-             SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+             SELECT EXTRACT(DAY FROM fecha_efectiva)::int AS dia,
                     count(*)::int AS total,
                     COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
              FROM base
@@ -873,49 +930,49 @@ const ANIO_OBJETIVO = ANIO_REPORTE + 1; // 2027
 const ANIO_CORTE_CAMBIO = 2022; // temprano 2018–2022 vs reciente 2023–2025
 
 export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
-  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, aseguradora: f.aseguradora });
+  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, aseguradora: f.aseguradora, clase: f.clase });
   return conCache(`proyeccion:${rel}`, async () => {
     const cond: string[] = [
-      'fecha_radicacion IS NOT NULL',
-      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+      'fecha_efectiva IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_efectiva) BETWEEN $1 AND $2',
     ];
     const params: unknown[] = [ANIO_HIST_MIN, ANIO_ENTRENA_MAX];
-    if (f.gasera) {
-      params.push(f.gasera);
-      cond.push('gasera_norm = $' + params.length);
+    if (f.gasera?.length) {
+      empujarLista(params, cond, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params.push(f.producto);
-      cond.push('producto_norm = $' + params.length);
+    if (f.producto?.length) {
+      empujarLista(params, cond, 'producto_norm', f.producto);
     }
-    if (f.aseguradora) {
-      params.push(f.aseguradora);
-      cond.push('aseguradora_norm = $' + params.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
+    }
+    if (f.clase?.length) {
+      empujarLista(params, cond, 'clase_norm', f.clase);
     }
     const where = cond.join(' AND ');
     // Mismos filtros dimensionales pero apuntando al año en curso (2026) para
     // el cierre real; el `where` principal corta en 2018–2025 (entrenamiento).
-    const cond2026: string[] = ['fecha_radicacion IS NOT NULL', 'EXTRACT(YEAR FROM fecha_radicacion) = ' + ANIO_REPORTE];
+    const cond2026: string[] = ['fecha_efectiva IS NOT NULL', 'EXTRACT(YEAR FROM fecha_efectiva) = ' + ANIO_REPORTE];
     const params2026: unknown[] = [];
-    if (f.gasera) {
-      params2026.push(f.gasera);
-      cond2026.push('gasera_norm = $' + params2026.length);
+    if (f.gasera?.length) {
+      empujarLista(params2026, cond2026, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params2026.push(f.producto);
-      cond2026.push('producto_norm = $' + params2026.length);
+    if (f.producto?.length) {
+      empujarLista(params2026, cond2026, 'producto_norm', f.producto);
     }
-    if (f.aseguradora) {
-      params2026.push(f.aseguradora);
-      cond2026.push('aseguradora_norm = $' + params2026.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params2026, cond2026, 'aseguradora_norm', f.aseguradora);
+    }
+    if (f.clase?.length) {
+      empujarLista(params2026, cond2026, 'clase_norm', f.clase);
     }
     const where2026 = cond2026.join(' AND ');
-    const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_radicacion) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
+    const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_efectiva) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
     const [mensual, deptos, tipos, tiposPeriodo, deptosPeriodo, reales2026] = await Promise.all([
       query<{ anio: number; mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -958,7 +1015,7 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       // Reales 2026 mes a mes (siniestros + pagado) para el cierre del año.
       query<{ mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -1232,10 +1289,12 @@ export async function precalentarCache(): Promise<void> {
       const topGaseras = meta.gaseras.slice(0, 4);
       const topAseg = meta.aseguradoras.slice(0, 3);
       const topProd = meta.productos.slice(0, 3);
+      const topClases = (meta.clases ?? []).slice(0, 4);
       await Promise.allSettled([
-        ...topGaseras.map((g) => getProyeccion({ gasera: g })),
-        ...topAseg.map((a) => getProyeccion({ aseguradora: a })),
-        ...topProd.map((p) => getProyeccion({ producto: p })),
+        ...topGaseras.map((g) => getProyeccion({ gasera: [g] })),
+        ...topAseg.map((a) => getProyeccion({ aseguradora: [a] })),
+        ...topProd.map((p) => getProyeccion({ producto: [p] })),
+        ...topClases.map((c) => getProyeccion({ clase: [c] })),
       ]);
     } catch {}
   } catch {

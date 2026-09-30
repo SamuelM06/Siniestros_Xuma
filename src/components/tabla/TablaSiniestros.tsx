@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, Download, FileSearch, FileSpreadsheet, Loader2, Table2, Upload, X } from 'lucide-react';
 import type { Filters, PaginaTabla, RegistroTabla } from '../../lib/types';
-import { formatCOP, formatFecha, formatNum } from '../../utils/formatters';
+import { formatAsegurado, formatCOP, formatFecha, formatNum } from '../../utils/formatters';
 import { queryString } from '../../utils/fetcher';
 import { descargarExcel } from '../../utils/excel';
-import { estadoColorCat } from '../../lib/normalizacion';
+import { estadoBadge } from '../../components/estatus/estados';
 
 interface Props {
   filtros: Filters;
@@ -13,16 +13,6 @@ interface Props {
 }
 
 export const TAMANO_PAGINA = 15;
-
-const ESTADO_STYLE: Record<string, string> = {
-  verde: 'bg-emerald-100/80 text-emerald-800 border-emerald-300/80 dark:bg-xuma-verde-claro/15 dark:text-xuma-verde-claro dark:border-xuma-verde-claro/40',
-  rojo: 'bg-red-500/15 text-red-700 border-red-300/70 dark:text-red-300 dark:border-red-400/40',
-  ambar: 'bg-amber-400/15 text-amber-800 border-amber-300/70 dark:text-amber-300 dark:border-amber-300/40',
-  azul: 'bg-sky-400/15 text-sky-800 border-sky-300/70 dark:text-sky-300 dark:border-sky-300/40',
-  cyan: 'bg-cyan-300/15 text-cyan-800 border-cyan-300/70 dark:text-cyan-200 dark:border-cyan-300/40',
-  morado: 'bg-violet-400/15 text-violet-800 border-violet-300/70 dark:text-violet-300 dark:border-violet-300/40',
-  gris: 'bg-tinta/10 text-tinta/75 border-tinta/20',
-};
 
 type ModoExport = 'pagina' | 'rango' | 'todo';
 
@@ -181,6 +171,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               <th className="py-3.5 pr-4">Asegurado</th>
               <th className="py-3.5 pr-4">Aseguradora</th>
               <th className="py-3.5 pr-4">Gasera</th>
+              <th className="py-3.5 pr-4">Clase</th>
               <th className="py-3.5 pr-4">Producto</th>
               <th className="py-3.5 pr-4">Estado</th>
               <th className="py-3.5 pr-4">Radicación</th>
@@ -191,7 +182,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  {Array.from({ length: 8 }).map((__, j) => (
+                  {Array.from({ length: 9 }).map((__, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="skeleton h-4" />
                     </td>
@@ -210,21 +201,22 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                 >
                   {data && data.registros.length > 0 ? (
                     data.registros.map((r) => {
-                      const cat = estadoColorCat(r.estado);
+                      const cat = estadoBadge(r.estado).cat;
                       return (
                         <tr
                           key={r.id_caso}
                           className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
                         >
-                          <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
-                          <td className="py-3.5 pr-4 font-medium text-tinta/90">{r.nombre_asegurado ?? '—'}</td>
+                           <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
+                           <td className="py-3.5 pr-4 font-medium capitalize text-tinta/90" title={r.nombre_asegurado ?? ''}>{formatAsegurado(r.nombre_asegurado)}</td>
                           <td className="py-3.5 pr-4 text-tinta/80">{r.aseguradora}</td>
-                          <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
-                          <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
-                          <td className="py-3.5 pr-4">
-                            <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${ESTADO_STYLE[cat] ?? ESTADO_STYLE.gris}`}>
-                              {r.estado}
-                            </span>
+                           <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
+                           <td className="py-3.5 pr-4 text-tinta/80">{r.clase}</td>
+                           <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
+                           <td className="py-3.5 pr-4">
+                             <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${estadoBadge(r.estado).cls}`}>
+                               {r.estado}
+                             </span>
                           </td>
                           <td className="whitespace-nowrap py-3.5 pr-4 text-xs text-tinta/75">{formatFecha(r.fecha_radicacion)}</td>
                           <td className="py-3.5 pr-4 text-right font-bold text-emerald-800 tabular dark:text-xuma-verde-claro">
@@ -235,7 +227,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-tinta/50">
+                      <td colSpan={9} className="py-12 text-center text-tinta/50">
                         <FileSearch className="mx-auto mb-2 h-10 w-10 text-tinta-dim" />
                         <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
                       </td>

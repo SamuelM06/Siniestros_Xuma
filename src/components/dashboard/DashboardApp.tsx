@@ -3,8 +3,8 @@ import {
   CheckCircle2, Coins, FileText, Fuel, Landmark,
   OctagonX, PieChart, RefreshCw, TrendingUp, Trophy, Siren,
 } from 'lucide-react';
-import type { DashboardData, Filters } from '../../lib/types';
-import { queryString } from '../../utils/fetcher';
+import type { DashboardData, Filters, Metadatos } from '../../lib/types';
+import { queryString, queryStringOpciones } from '../../utils/fetcher';
 import Panel from './Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
@@ -33,6 +33,7 @@ const DEFAULT_HASTA = '2026-12-31';
 export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
   const [data, setData] = useState<DashboardData>(datosIniciales);
+  const [opciones, setOpciones] = useState<Metadatos>(datosIniciales.metadatos);
   const [cargando, setCargando] = useState(false);
   const primeraCarga = useRef(true);
 
@@ -51,8 +52,44 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       estado: undefined,
       aseguradora: undefined,
       tipo_siniestro: undefined,
+      clase: undefined,
     });
   }, []);
+
+  // Cascada Clase → Gasera/Producto con data en tiempo real: al cambiar la clase
+  // (o el rango) se re-piden las opciones a la DB y se podan gasera/producto que
+  // ya no existan para esa clase (p. ej. Deudor → solo Caribe y Surtigas).
+  const claseKey = JSON.stringify(filtros.clase ?? null);
+  const rangoKey = `${filtros.desde ?? ''}|${filtros.hasta ?? ''}|${filtros.mes ?? ''}`;
+  useEffect(() => {
+    let vivo = true;
+    fetch(`/api/metadatos?${queryStringOpciones(filtros)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return (await res.json()) as Metadatos;
+      })
+      .then((m) => {
+        if (!vivo) return;
+        setOpciones(m);
+        setFiltros((prev) => {
+          const gaserasOk = (prev.gasera ?? []).filter((g) => m.gaseras.includes(g));
+          const productosOk = (prev.producto ?? []).filter((p) => m.productos.includes(p));
+          const ng = gaserasOk.length > 0 ? gaserasOk : undefined;
+          const np = productosOk.length > 0 ? productosOk : undefined;
+          if (ng === prev.gasera && np === prev.producto) return prev;
+          if (
+            (ng?.length ?? 0) === (prev.gasera?.length ?? 0) &&
+            (np?.length ?? 0) === (prev.producto?.length ?? 0)
+          ) return prev;
+          return { ...prev, gasera: ng, producto: np };
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claseKey, rangoKey]);
 
   useEffect(() => {
     if (primeraCarga.current) {
@@ -98,23 +135,24 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
 
   const activos =
     (filtros.contrato ? 1 : 0) +
-    (filtros.gasera ? 1 : 0) +
-    (filtros.producto ? 1 : 0) +
-    (filtros.estado ? 1 : 0) +
-    (filtros.aseguradora ? 1 : 0) +
-    (filtros.tipo_siniestro ? 1 : 0) +
+    ((filtros.clase?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.gasera?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.producto?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.estado?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.aseguradora?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.tipo_siniestro?.length ?? 0) > 0 ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);
 
-  const { kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro, metadatos } = data;
+  const { kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro } = data;
 
   return (
     <div className="space-y-3">
       {/* Título accesible (screen reader) para SEO/a11y */}
       <h1 className="sr-only">Tablero de siniestros 2026</h1>
 
-      <FiltrosPanel filtros={filtros} metadatos={metadatos} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} mostrarTipoSiniestro />
+      <FiltrosPanel filtros={filtros} metadatos={opciones} onChange={cambioFiltro} onReset={resetFiltros} activos={activos} cargando={cargando} mostrarTipoSiniestro />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         <KpiCard

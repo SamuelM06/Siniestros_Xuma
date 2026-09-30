@@ -242,6 +242,18 @@ body {
   .linea-corte { animation: none; }
 }
 
+/* Pill ACTUALIDAD: pulso sutil + brillo para acompañar la línea */
+.actualidad-pill {
+  animation: actualidad-pulso 2.2s ease-in-out infinite;
+}
+@keyframes actualidad-pulso {
+  0%, 100% { transform: scale(1); box-shadow: 0 1px 8px rgba(0,0,0,0.08); }
+  50% { transform: scale(1.03); box-shadow: 0 2px 14px rgba(0,0,0,0.14); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .actualidad-pill { animation: none; }
+}
+
 @keyframes orbe1 {
   0%   { transform: translate3d(-8%, -6%, 0) scale(1); }
   100% { transform: translate3d(28%, 18%, 0) scale(1.25); }

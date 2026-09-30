@@ -104,9 +104,72 @@ CASE
   ELSE 'Sin producto'
 END`;
 
+// ---- CLASE → categoría de cartera canónica ------------------------------------
+// La data manda: se deriva del archivo origen (lo que la DB trae), sin asumir.
+// - Deudor: archivos vida deudor (Caribe + Surtigas) y deudores históricos.
+// - Salvafactura: archivo salvafactura (solo Surtigas).
+// - Microseguros: microseguros Guajira/Efigas, BASE Caribe, seguimiento CEO y CMK GDO.
+// - Otros: Brilla-Cardiff, SURA, Proexequial, Informes (agregados, no siniestros).
+export const CLASE_SQL = `
+CASE
+  WHEN c.nombre_archivo_origen ILIKE '%vida deudor%' THEN 'Deudor'
+  WHEN c.nombre_archivo_origen ILIKE '%salvafactura%' THEN 'Salvafactura'
+  WHEN c.nombre_archivo_origen ILIKE '%deudor%' THEN 'Deudor'
+  WHEN c.nombre_archivo_origen ILIKE '%microseguro%' THEN 'Microseguros'
+  WHEN c.nombre_archivo_origen ILIKE 'BASE SINIESTROS CARIBE%' THEN 'Microseguros'
+  WHEN c.nombre_archivo_origen ILIKE 'SINIESTROS 2026 - EFIGAS%' THEN 'Microseguros'
+  WHEN c.nombre_archivo_origen ILIKE 'Siniestros CEO%' THEN 'Microseguros'
+  WHEN c.nombre_archivo_origen ILIKE 'Registro de Siniestros CMK - GDO%' THEN 'Microseguros'
+  ELSE 'Otros'
+END`;
+
+// ---- FECHA EFECTIVA → fecha real del siniestro ---------------------------------
+// La data manda: `fecha_radicacion` es la principal, pero hay archivos que no la
+// traen y sí traen fecha propia en `datos_originales`:
+// - Salvafactura sin radicación trae 'FECHA RECIBIDO' (ISO con hora).
+// - PROEXEQUIAL.xlsx son agregados mensuales (MES + AÑO) sin fecha: se les asigna
+//   el día 1 del mes para que caigan en su año/mes real en vez de perderse.
+// - Todo lo demás sin fecha (CARIBE/GUAJIRA históricos sin fecha útil) sigue NULL
+//   y se excluye de las vistas con rango, igual que antes.
+export const FECHA_EFECTIVA_SQL = `
+COALESCE(
+  c.fecha_radicacion,
+  CASE
+    WHEN btrim(COALESCE(c.datos_originales->>'FECHA RECIBIDO','')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+    THEN substring(btrim(c.datos_originales->>'FECHA RECIBIDO') from 1 for 10)::date
+    ELSE NULL
+  END,
+  CASE
+    WHEN c.nombre_archivo_origen ILIKE 'PROEXEQUIAL%'
+     AND btrim(COALESCE(c.datos_originales->>'AÑO','')) ~ '^[0-9]{4}$'
+     AND (btrim(COALESCE(c.datos_originales->>'AÑO',''))::int BETWEEN 2018 AND 2100)
+    THEN make_date(
+      btrim(c.datos_originales->>'AÑO')::int,
+      CASE upper(btrim(COALESCE(c.datos_originales->>'MES','')))
+        WHEN 'ENERO' THEN 1 WHEN 'FEBRERO' THEN 2 WHEN 'MARZO' THEN 3
+        WHEN 'ABRIL' THEN 4 WHEN 'MAYO' THEN 5 WHEN 'JUNIO' THEN 6
+        WHEN 'JULIO' THEN 7 WHEN 'AGOSTO' THEN 8 WHEN 'SEPTIEMBRE' THEN 9
+        WHEN 'OCTUBRE' THEN 10 WHEN 'NOVIEMBRE' THEN 11 WHEN 'DICIEMBRE' THEN 12
+        ELSE NULL
+      END, 1)
+    ELSE NULL
+  END
+)`;
+
+// ---- Clases canónicas para la UI ----------------------------------------------
+export const CATEGORIAS_CLASES = [
+  'Deudor',
+  'Microseguros',
+  'Salvafactura',
+  'Otros',
+] as const;
+
 // ---- MONTO (Total Pagado) ----------------------------------------------------
 // Captura todas las variantes de columnas usadas por aseguradoras (Cardif, HDI, Alfa, etc.)
 // y sanea centavos ([,.]\\d{2}$) para evitar que valores con decimales se multipliquen por 100.
+// La data manda: cada archivo trae su propia columna — CEO trae 'Valor pagado'
+// (y 'VALOR COBRAR SEGURO'), Salvafactura trae 'VALOR ' (con espacio final);
+// si el archivo no trae columna de valor (BASE Caribe), el monto queda NULL.
 export const MONTO_SQL = `
 COALESCE(
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGOS'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
@@ -115,7 +178,10 @@ COALESCE(
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR -PAGADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR PAGADO '), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Valor pagado'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR COBRAR SEGURO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR_SOLICITUD_GIRO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR '), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PagoReal'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Pagocomercial'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,

@@ -4,6 +4,7 @@ import { IdCard, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
 import { formatNum, mesLabel } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
+import MultiSelectXuma from '../ui/MultiSelectXuma';
 
 interface Props {
   filtros: Filters;
@@ -67,6 +68,7 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
     [metadatos.anios],
   );
   const aseguradoras = useMemo(() => (metadatos.aseguradoras ?? []).map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
+  const clases = useMemo(() => (metadatos.clases ?? []).map((c) => ({ valor: c, etiqueta: c })), [metadatos.clases]);
   const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const estados = useMemo(
@@ -88,24 +90,28 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
     onChange({ anio: v || undefined, mes });
   }, [onChange, filtros.mes]);
 
-  const elegirAseguradora = useCallback((v: string) => {
-    onChange({ aseguradora: v || undefined });
+  const elegirClase = useCallback((v: string[]) => {
+    onChange({ clase: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirGasera = useCallback((v: string) => {
-    onChange({ gasera: v || undefined });
+  const elegirAseguradora = useCallback((v: string[]) => {
+    onChange({ aseguradora: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirProducto = useCallback((v: string) => {
-    onChange({ producto: v || undefined });
+  const elegirGasera = useCallback((v: string[]) => {
+    onChange({ gasera: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirEstado = useCallback((v: string) => {
-    onChange({ estado: v || undefined });
+  const elegirProducto = useCallback((v: string[]) => {
+    onChange({ producto: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirTipoSiniestro = useCallback((v: string) => {
-    onChange({ tipo_siniestro: v || undefined });
+  const elegirEstado = useCallback((v: string[]) => {
+    onChange({ estado: v.length > 0 ? v : undefined });
+  }, [onChange]);
+
+  const elegirTipoSiniestro = useCallback((v: string[]) => {
+    onChange({ tipo_siniestro: v.length > 0 ? v : undefined });
   }, [onChange]);
 
   useEffect(() => {
@@ -172,11 +178,27 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
         )}
 
+        {/* Clase de cartera (Deudor / Microseguros / Salvafactura / Otros).
+            En todas las vistas, incluso proyección: la data manda y la clase
+            recorta Gasera y Producto en cascada. */}
+        {clases.length > 0 && (
+          <div className="min-w-[125px] flex-1">
+            <MultiSelectXuma
+              valores={filtros.clase ?? []}
+              opciones={clases}
+              alCambiar={elegirClase}
+              placeholder="Clase"
+              etiquetaTodo="Todas las clases"
+              compact
+            />
+          </div>
+        )}
+
         {/* Aseguradora */}
         {aseguradoras.length > 0 && (
           <div className="min-w-[125px] flex-1">
-            <SelectXuma
-              valor={filtros.aseguradora ?? ''}
+            <MultiSelectXuma
+              valores={filtros.aseguradora ?? []}
               opciones={aseguradoras}
               alCambiar={elegirAseguradora}
               placeholder="Aseguradora"
@@ -188,8 +210,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
         {/* Gasera */}
         <div className="min-w-[120px] flex-1">
-          <SelectXuma
-            valor={filtros.gasera ?? ''}
+          <MultiSelectXuma
+            valores={filtros.gasera ?? []}
             opciones={gaseras}
             alCambiar={elegirGasera}
             placeholder="Gasera"
@@ -200,8 +222,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
         {/* Producto */}
         <div className="min-w-[130px] flex-1">
-          <SelectXuma
-            valor={filtros.producto ?? ''}
+          <MultiSelectXuma
+            valores={filtros.producto ?? []}
             opciones={productos}
             alCambiar={elegirProducto}
             placeholder="Producto"
@@ -213,8 +235,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         {/* Estado (oculto en modo año y en proyección) */}
         {!modoAnio && !modoProyeccion && (
         <div className="min-w-[130px] flex-1">
-          <SelectXuma
-            valor={filtros.estado ?? ''}
+          <MultiSelectXuma
+            valores={filtros.estado ?? []}
             opciones={estados}
             alCambiar={elegirEstado}
             placeholder="Estado"
@@ -227,8 +249,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa; oculto en proyección) */}
         {!modoAnio && !modoProyeccion && mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
           <div className="min-w-[140px] flex-1">
-            <SelectXuma
-              valor={filtros.tipo_siniestro ?? ''}
+            <MultiSelectXuma
+              valores={filtros.tipo_siniestro ?? []}
               opciones={tiposSiniestro}
               alCambiar={elegirTipoSiniestro}
               placeholder="Tipo Siniestro"
