@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Download, FileSearch, FileSpreadsheet, Loader2, Table2, Upload, X } from 'lucide-react';
-import type { Filters, PaginaTabla, RegistroTabla } from '../../lib/types';
+import { AlertTriangle, Download, FileSearch, FileSpreadsheet, FileText, Loader2, Table2, Upload, X } from 'lucide-react';
+import type { Filters, PaginaTabla } from '../../lib/types';
 import { formatAsegurado, formatCOP, formatFecha, formatNum } from '../../utils/formatters';
 import { queryString } from '../../utils/fetcher';
-import { descargarExcel } from '../../utils/excel';
+import { descargarDetalle } from '../../utils/excel';
 import { estadoBadge } from '../../components/estatus/estados';
 
 interface Props {
@@ -15,20 +15,7 @@ interface Props {
 export const TAMANO_PAGINA = 15;
 
 type ModoExport = 'pagina' | 'rango' | 'todo';
-
-// Trae todas las filas del rango de páginas indicado (páginas de la vista actual).
-async function obtenerPaginas(q: string, desdePag: number, hastaPag: number, tamano: number): Promise<RegistroTabla[]> {
-  const filas: RegistroTabla[] = [];
-  const tope = Math.min(hastaPag, 2000);
-  for (let p = desdePag; p <= tope; p++) {
-    const res = await fetch(`/api/tabla?${q}&page=${p}&size=${tamano}`);
-    if (!res.ok) throw new Error('No autorizado o error de servidor');
-    const d = (await res.json()) as PaginaTabla;
-    filas.push(...d.registros);
-    if (d.registros.length === 0) break;
-  }
-  return filas;
-}
+type FormatoExport = 'excel' | 'pdf';
 
 // Tabla de detalle paginada, animada y exportable a Excel.
 export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
@@ -39,6 +26,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
   const [error, setError] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoExport, setModoExport] = useState<ModoExport>('todo');
+  const [formatoExport, setFormatoExport] = useState<FormatoExport>('excel');
   const [rangoDesde, setRangoDesde] = useState(1);
   const [rangoHasta, setRangoHasta] = useState(1);
   const [exportando, setExportando] = useState(false);
@@ -77,10 +65,11 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
   const totalPaginas = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const mostrando = data ? Math.min(data.pageSize, data.total) : 0;
 
-  const abrirExportar = () => {
+  const abrirExportar = (formato: FormatoExport) => {
     setRangoDesde(1);
     setRangoHasta(totalPaginas);
     setModoExport('todo');
+    setFormatoExport(formato);
     setErrorExport('');
     setModalAbierto(true);
   };
@@ -90,27 +79,20 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
     setExportando(true);
     setErrorExport('');
     try {
-      const q = queryString(filtros);
-      let desde = 1;
-      let hasta = totalPaginas;
-      let extra = '_total';
-      if (modoExport === 'pagina') {
-        desde = pagina;
-        hasta = pagina;
-        extra = `_pagina${pagina}`;
-      } else if (modoExport === 'rango') {
-        const d = Math.max(1, Math.min(rangoDesde, totalPaginas));
-        const h = Math.max(d, Math.min(rangoHasta, totalPaginas));
-        desde = d;
-        hasta = h;
-        extra = h === d ? `_pagina${d}` : `_paginas${d}_a_${h}`;
-      }
-      const filas = await obtenerPaginas(q, desde, hasta, tamano);
-      if (filas.length === 0) throw new Error('No hay registros para exportar.');
-      await descargarExcel(filas, extra);
+      const d = Math.max(1, Math.min(rangoDesde, totalPaginas));
+      const h = Math.max(d, Math.min(rangoHasta, totalPaginas));
+      await descargarDetalle({
+        filtros,
+        formato: formatoExport,
+        modo: modoExport,
+        pagina,
+        desde: d,
+        hasta: h,
+        tamano,
+      });
       setModalAbierto(false);
-    } catch {
-      setErrorExport('No se pudo exportar. Intente nuevamente.');
+    } catch (err) {
+      setErrorExport(err instanceof Error ? err.message : 'No se pudo exportar. Intente nuevamente.');
     } finally {
       setExportando(false);
     }
@@ -141,15 +123,26 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               )}
             </span>
           )}
-          <button
-            type="button"
-            onClick={abrirExportar}
-            disabled={!data || data.total === 0 || cargando}
-            className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-xuma-verde-claro/40 dark:bg-xuma-verde-claro/10 dark:text-xuma-verde-claro dark:hover:bg-xuma-verde-claro/20"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Exportar Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => abrirExportar('pdf')}
+              disabled={!data || data.total === 0 || cargando}
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/40 dark:bg-red-400/10 dark:text-red-300 dark:hover:bg-red-400/20"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => abrirExportar('excel')}
+              disabled={!data || data.total === 0 || cargando}
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-xuma-verde-claro/40 dark:bg-xuma-verde-claro/10 dark:text-xuma-verde-claro dark:hover:bg-xuma-verde-claro/20"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Exportar Excel
+            </button>
+          </div>
         </div>
       </header>
 
@@ -201,7 +194,6 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                 >
                   {data && data.registros.length > 0 ? (
                     data.registros.map((r) => {
-                      const cat = estadoBadge(r.estado).cat;
                       return (
                         <tr
                           key={r.id_caso}
@@ -300,13 +292,17 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               className="glass w-full max-w-md rounded-3xl p-6"
               role="dialog"
               aria-modal="true"
-              aria-label="Exportar a Excel"
+              aria-label={formatoExport === 'pdf' ? 'Exportar a PDF' : 'Exportar a Excel'}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-bold text-tinta">
-                    <FileSpreadsheet className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
-                    Exportar a Excel
+                    {formatoExport === 'pdf' ? (
+                      <FileText className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <FileSpreadsheet className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+                    )}
+                    Exportar a {formatoExport === 'pdf' ? 'PDF' : 'Excel'}
                   </h3>
                   <p className="mt-1 text-xs text-tinta/60">
                     {formatNum(data?.total ?? 0)} registros coinciden con los filtros. Elige qué páginas incluir.
@@ -422,7 +418,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                   ) : (
                     <>
                       <Download className="h-4 w-4" />
-                      Descargar Excel
+                      Descargar {formatoExport === 'pdf' ? 'PDF' : 'Excel'}
                     </>
                   )}
                 </button>

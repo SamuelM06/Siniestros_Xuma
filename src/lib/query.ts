@@ -581,21 +581,68 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
   `;
   const filas = await query<RegistroTabla>(sql, [...w.params, pageSize, off]);
   return {
-    registros: filas.map((r) => ({
-      id_caso: Number(r.id_caso),
-      numero_contrato: r.numero_contrato,
-      nombre_asegurado: r.nombre_asegurado,
-      aseguradora: r.aseguradora ?? '',
-      gasera: r.gasera ?? '',
-      producto: r.producto ?? '',
-      clase: r.clase ?? '',
-      estado: r.estado ?? '',
-      fecha_radicacion: r.fecha_radicacion,
-      monto: r.monto == null ? null : Number(r.monto),
-    })),
+    registros: mapearFilasTabla(filas),
     total,
     page,
     pageSize,
+  };
+}
+
+// Normaliza los tipos que entrega pg (numeric → number, null → cadena vacía).
+function mapearFilasTabla(filas: RegistroTabla[]): RegistroTabla[] {
+  return filas.map((r) => ({
+    id_caso: Number(r.id_caso),
+    numero_contrato: r.numero_contrato,
+    nombre_asegurado: r.nombre_asegurado,
+    aseguradora: r.aseguradora ?? '',
+    gasera: r.gasera ?? '',
+    producto: r.producto ?? '',
+    clase: r.clase ?? '',
+    estado: r.estado ?? '',
+    fecha_radicacion: r.fecha_radicacion,
+    monto: r.monto == null ? null : Number(r.monto),
+  }));
+}
+
+// ---- Exportación del detalle (servidor) ----------------------------------------
+// El .xlsx se arma en el servidor con UNA sola consulta (sin paginación en el
+// navegador): el cliente antes encadenaba cientos de peticiones a /api/tabla, lo
+// que agotaba el rate limit de la API (429) y saturaba la DB compartida (53300).
+export const LIMITE_EXPORT_FILAS = 50_000;
+
+export interface DetalleExport {
+  registros: RegistroTabla[];
+  total: number;
+  truncado: boolean;
+}
+
+export async function getDetalleExport(
+  f: Filters,
+  offset: number,
+  limite: number,
+): Promise<DetalleExport> {
+  const w = construirWhere(f);
+  const total = await conCache(`tabla-total:${serializarFiltros(f)}`, async () => {
+    const totalRow = await queryOne<{ n: number }>(
+      `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${w.cond}`, w.params,
+    );
+    return Number(totalRow ? totalRow.n : 0);
+  });
+  const top = Math.max(1, Math.min(Math.floor(limite) || LIMITE_EXPORT_FILAS, LIMITE_EXPORT_FILAS));
+  const off = Math.max(0, Math.floor(offset) || 0);
+  const sql = `
+    WITH base AS (${BASE})
+    SELECT ${CAMPOS_TABLA}
+    FROM base
+    WHERE ${w.cond}
+    ORDER BY fecha_efectiva DESC NULLS LAST, id_caso DESC
+    LIMIT $${w.params.length + 1} OFFSET $${w.params.length + 2}
+  `;
+  const filas = await query<RegistroTabla>(sql, [...w.params, top, off]);
+  return {
+    registros: mapearFilasTabla(filas),
+    total,
+    truncado: off + filas.length < total,
   };
 }
 
