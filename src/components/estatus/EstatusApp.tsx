@@ -476,7 +476,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
                         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                         className="border-t border-tinta/5 backdrop-blur-md transition-colors hover:bg-tinta/5"
                       >
-                        <td className="sticky left-0 z-10 border-t border-tinta/5 bg-white/60 py-3 pr-4 font-semibold whitespace-nowrap text-tinta/90 backdrop-blur-md dark:bg-[#0f1c15]/70">
+                        <td className="sticky left-0 z-10 border-t border-tinta/5 bg-white/95 py-3 pr-4 font-semibold whitespace-nowrap text-tinta/90 backdrop-blur-md dark:bg-[#0f1c15]/92">
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
@@ -540,7 +540,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
                             transition={{ duration: 0.28, delay: Math.min(ei * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
                             className="border-t border-xuma-azul-3/25 backdrop-blur-md"
                           >
-                            <td className="sticky left-0 z-10 border-t border-tinta/5 bg-white/45 py-2.5 pr-4 pl-10 font-medium whitespace-nowrap text-tinta/80 backdrop-blur-md dark:bg-[#0f1c15]/55">
+                            <td className="sticky left-0 z-10 border-t border-tinta/5 bg-white/90 py-2.5 pr-4 pl-10 font-medium whitespace-nowrap text-tinta/80 backdrop-blur-md dark:bg-[#0f1c15]/85">
                               <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${cls}`}>
                                 {estado}
                               </span>

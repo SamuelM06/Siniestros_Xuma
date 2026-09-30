@@ -153,7 +153,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-tinta/15 bg-white/40 dark:bg-transparent">
+      <div className="overflow-x-auto rounded-2xl border border-tinta/10 bg-transparent dark:border-tinta/15">
         <table
           aria-busy={cargando}
           className={`w-full min-w-[880px] border-collapse text-sm transition-opacity ${cargando && data ? 'opacity-60' : ''}`}
