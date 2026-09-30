@@ -1352,7 +1352,14 @@ export async function precalentarCache(): Promise<void> {
 // Iniciar precalentamiento únicamente al arrancar el servidor. Después de eso,
 // la caché se revalida bajo demanda (SWR): no hay trabajo innecesario de BD con
 // cero usuarios.
-if (typeof process !== 'undefined') {
+//
+// Se registra una sola vez por proceso: en desarrollo, Vite reevalúa este módulo
+// en cada recarga en caliente, y sin este candado se acumulaban un precalentado
+// y un intervalo de mantenimiento por recarga (cada uno disparando consultas).
+const gQuery = globalThis as typeof globalThis & { __initMantenimiento?: boolean };
+if (typeof process !== 'undefined' && !gQuery.__initMantenimiento) {
+  gQuery.__initMantenimiento = true;
+
   // Disparar precalentamiento inicial tras 100ms
   setTimeout(() => {
     precalentarCache();
