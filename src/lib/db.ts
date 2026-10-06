@@ -11,8 +11,10 @@ const pool = new Pool({
   ssl: ENV.dbSsl ? { rejectUnauthorized: false } : false,
   connectionTimeoutMillis: 15_000,
   idleTimeoutMillis: 300_000, // 5 minutos antes de cerrar conexiones inactivas
-  max: 20, // Suficiente holgura para consultas concurrentes del SSR
-  min: 2,  // Al menos 2 conexiones calientes siempre abiertas
+  // El servidor de BD admite pocas conexiones (50 en total, compartidas con el Hub y otras apps):
+  // el tope es configurable por despliegue (DB_POOL_MAX) y no se mantienen conexiones ociosas.
+  max: ENV.dbPoolMax,
+  min: 0,
 });
 
 // Heartbeat periódico (cada 45s) para mantener caliente el túnel SSL/TCP con Azure y evitar demoras

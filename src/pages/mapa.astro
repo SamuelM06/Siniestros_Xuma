@@ -1,5 +1,6 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { ruta } from '../lib/base';
 import MapaApp from '../components/mapa/MapaApp.tsx';
 import { filtrosPorDefecto, getMetadatos, getMapa } from '../lib/query';
 
@@ -12,6 +13,6 @@ const [metadatos, mapaInicial] = await Promise.all([
 ]);
 ---
 <DashboardLayout title="Mapa de Siniestralidad · Gestión de Siniestros | Promigas">
-  <link rel="preload" href="/data/colombia.geo.json" as="fetch" crossorigin="anonymous" slot="head" />
+  <link rel="preload" href={ruta('/data/colombia.geo.json')} as="fetch" crossorigin="anonymous" slot="head" />
   <MapaApp client:load metadatos={metadatos} filtrosIniciales={f} mapaInicial={mapaInicial} />
 </DashboardLayout>

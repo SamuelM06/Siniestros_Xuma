@@ -7,6 +7,7 @@ import { queryString } from '../../utils/fetcher';
 import { descargarExcel } from '../../utils/excel';
 import { estadoColorCat } from '../../lib/normalizacion';
 
+import { ruta } from '../../lib/base';
 interface Props {
   filtros: Filters;
   datosIniciales?: PaginaTabla;
@@ -31,7 +32,7 @@ async function obtenerPaginas(q: string, desdePag: number, hastaPag: number, tam
   const filas: RegistroTabla[] = [];
   const tope = Math.min(hastaPag, 2000);
   for (let p = desdePag; p <= tope; p++) {
-    const res = await fetch(`/api/tabla?${q}&page=${p}&size=${tamano}`);
+    const res = await fetch(ruta(`/api/tabla?${q}&page=${p}&size=${tamano}`));
     if (!res.ok) throw new Error('No autorizado o error de servidor');
     const d = (await res.json()) as PaginaTabla;
     filas.push(...d.registros);
@@ -65,7 +66,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
     setCargando(true);
     setError('');
     const q = queryString(filtros);
-    fetch(`/api/tabla?${q}&page=${pagina}&size=${tamano}`)
+    fetch(ruta(`/api/tabla?${q}&page=${pagina}&size=${tamano}`))
       .then(async (res) => {
         if (!res.ok) throw new Error('No autorizado o error de servidor');
         return (await res.json()) as PaginaTabla;

@@ -13,6 +13,7 @@ import ForecastChart from '../charts/ForecastChart';
 import ProbabilidadGeo from '../proyeccion/ProbabilidadGeo';
 import ProbabilidadCategorica from '../proyeccion/ProbabilidadCategorica';
 
+import { ruta } from '../../lib/base';
 interface Props {
   datosIniciales: ProyeccionData;
   filtrosIniciales: Filters;
@@ -66,7 +67,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
     setCargando(true);
     debounceRef.current = window.setTimeout(() => {
       const q = queryString(filtros);
-      fetch(`/api/proyeccion?${q}`, { signal: ac.signal })
+      fetch(ruta(`/api/proyeccion?${q}`), { signal: ac.signal })
         .then(async (res) => { if (!res.ok) throw new Error(res.statusText); return (await res.json()) as ProyeccionData; })
         .then((d) => {
           if (ac.signal.aborted) return;

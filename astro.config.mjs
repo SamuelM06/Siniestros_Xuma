@@ -3,8 +3,12 @@ import node from '@astrojs/node';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
+// BASE_PATH: subruta pública (p. ej. '/siniestros'). Se fija al compilar; vacío = raíz (local).
+const base = (process.env.BASE_PATH ?? '').trim().replace(/\/+$/, '');
+
 // https://astro.build/config
 export default defineConfig({
+  ...(base ? { base } : {}),
   output: 'server',
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],

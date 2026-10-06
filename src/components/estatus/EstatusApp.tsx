@@ -5,6 +5,7 @@ import type { EstatusData, Metadatos } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
 
+import { ruta } from '../../lib/base';
 interface Props {
   metadatos: Metadatos;
   anioInicial: number;
@@ -73,7 +74,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
     let vivo = true;
     setCargando(true);
     setError('');
-    fetch(`/api/estatus?${construirQs(filtros)}`)
+    fetch(ruta(`/api/estatus?${construirQs(filtros)}`))
       .then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as EstatusData;

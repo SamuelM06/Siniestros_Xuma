@@ -6,6 +6,7 @@ import { formatCOP, formatNum } from '../../utils/formatters';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 import MapaColombia from './MapaColombia';
 
+import { ruta } from '../../lib/base';
 interface Props {
   metadatos: Metadatos;
   filtrosIniciales: Filters;
@@ -63,11 +64,11 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
     setCargando(true);
     const q = queryString(filtros);
     Promise.all([
-      fetch(`/api/mapa?${q}`).then(async (res) => {
+      fetch(ruta(`/api/mapa?${q}`)).then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as MapaData;
       }),
-      fetch(`/api/metadatos?${q}`).then(async (res) => {
+      fetch(ruta(`/api/metadatos?${q}`)).then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as Metadatos;
       }),

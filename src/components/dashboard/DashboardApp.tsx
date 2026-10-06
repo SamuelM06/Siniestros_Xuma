@@ -9,6 +9,7 @@ import Panel from './Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 
+import { ruta } from '../../lib/base';
 // Los gráficos se cargan bajo demanda: Recharts (~400 KB) se descarga en un chunk
 // separado tras la carga inicial, así el tablero pinta primero los KPIs y filtros.
 const TendenciaLineChart = lazy(() => import('../charts/TendenciaLineChart'));
@@ -69,12 +70,12 @@ export default function DashboardApp({ datosIniciales, filtrosIniciales }: Props
       return (await res.json()) as T;
     };
     Promise.all([
-      get(`/api/kpis?${q}`),
-      get(`/api/tendencia?${q}`),
-      get(`/api/por-aseguradora?${q}`),
-      get(`/api/por-gasera?${q}`),
-      get(`/api/por-producto?${q}`),
-      get(`/api/por-tipo-siniestro?${q}`),
+      get(ruta(`/api/kpis?${q}`)),
+      get(ruta(`/api/tendencia?${q}`)),
+      get(ruta(`/api/por-aseguradora?${q}`)),
+      get(ruta(`/api/por-gasera?${q}`)),
+      get(ruta(`/api/por-producto?${q}`)),
+      get(ruta(`/api/por-tipo-siniestro?${q}`)),
     ])
       .then(([kpis, tendencia, porAseguradora, porGasera, porProducto, porTipoSiniestro]) => {
         if (!vivo) return;

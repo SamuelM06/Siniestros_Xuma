@@ -7,6 +7,7 @@ import type { ItemMunicipio, MapaData } from '../../lib/types';
 import { leafletEnPromesa } from '../../lib/leaflet';
 import { formatCOP, formatNum } from '../../utils/formatters';
 
+import { ruta } from '../../lib/base';
 interface Props {
   data: MapaData;
   deptoSeleccionado: string | null;
@@ -21,30 +22,46 @@ function norm(s: string | null | undefined): string {
     .trim();
 }
 
-function matchDeptoName(geoName: string, deptoTarget: string): boolean {
-  const g = norm(geoName);
-  const t = norm(deptoTarget);
-  if (g === t) return true;
-  if (g.includes('SANTAFE DE BOGOTA') && t.includes('BOGOTA')) return true;
-  if (g.includes('ARCHIPIELAGO') && t.includes('ANDRES')) return true;
-  if (g.includes('VALLE') && t.includes('VALLE')) return true;
-  if (g.includes('GUAJIRA') && t.includes('GUAJIRA')) return true;
-  return g.includes(t) || t.includes(g);
+// Alias de nombres que la cartografía DANE escribe distinto a la BD
+function claveDepto(s: string): string {
+  const n = norm(s).replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (n.includes('BOGOTA')) return 'BOGOTA';
+  if (n.includes('ARCHIPIELAGO') || n.includes('ANDRES')) return 'SAN ANDRES';
+  return n;
 }
 
+// Coincidencia estricta: "CAUCA" no debe confundirse con "VALLE DEL CAUCA"
+function matchDeptoName(geoName: string, deptoTarget: string): boolean {
+  return claveDepto(geoName) === claveDepto(deptoTarget);
+}
+
+function claveMpio(s: string): string {
+  let n = norm(s).replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  n = n.replace('MOMPOX', 'MOMPOS'); // DANE 2021: "Santa Cruz de Mompox"
+  // La BD agrupa por zona comercial: "Barranquila y Municipios", "Cali y Valle", "Popayán y Cauca"…
+  // En el mapa esa cifra se muestra sobre la ciudad cabecera.
+  const zona = n.match(/^(.+?) Y (MUNICIPIOS|VALLE|CAUCA|EJE CAFETERO)$/);
+  if (zona) return zona[1];
+  return n;
+}
+
+function contienePalabras(largo: string, corto: string): boolean {
+  return corto.length >= 4 && new RegExp(`(^| )${corto}( |$)`).test(largo);
+}
+
+// Varias filas de la BD pueden caer en el mismo polígono ("Barranquilla" + "Barranquilla y Municipios"): se suman
 function matchMunicipio(geoMpio: string, listaMpios: ItemMunicipio[]): ItemMunicipio | undefined {
-  const gm = norm(geoMpio);
-  return listaMpios.find((m) => {
-    const lm = norm(m.municipio);
-    if (gm === lm) return true;
-    if (gm.includes('CARTAGENA') && lm.includes('CARTAGENA')) return true;
-    if (gm.includes('BARRANQUILLA') && lm.includes('BARRANQUILLA')) return true;
-    if (gm.includes('CALI') && lm.includes('CALI')) return true;
-    if (gm.includes('BOGOTA') && lm.includes('BOGOTA')) return true;
-    if (gm.includes('POPAYAN') && lm.includes('POPAYAN')) return true;
-    if (gm.includes('MANIZALES') && lm.includes('MANIZALES')) return true;
-    return gm.includes(lm) || lm.includes(gm);
-  });
+  const gm = claveMpio(geoMpio);
+  let hits = listaMpios.filter((m) => claveMpio(m.municipio) === gm);
+  // Respaldo: "CARTAGENA DE INDIAS" vs "Cartagena", "BOGOTA D C" vs "Bogota"
+  if (hits.length === 0) {
+    hits = listaMpios.filter((m) => {
+      const lm = claveMpio(m.municipio);
+      return contienePalabras(gm, lm) || contienePalabras(lm, gm);
+    });
+  }
+  if (hits.length <= 1) return hits[0];
+  return hits.reduce((acc, m) => ({ ...acc, total: acc.total + m.total, pagado: acc.pagado + m.pagado }));
 }
 
 function getColorMpio(total: number, isSelected: boolean): string {
@@ -110,7 +127,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
     } catch {}
 
     let vivo = true;
-    fetch('/data/colombia.geo.json')
+    fetch(ruta('/data/colombia.geo.json'))
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {
@@ -137,7 +154,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
       return;
     }
     try {
-      const enSesion = sessionStorage.getItem('xuma_geo_mpios');
+      const enSesion = sessionStorage.getItem('xuma_geo_mpios_v2');
       if (enSesion) {
         const d = JSON.parse(enSesion);
         memoriaGeoMpios = d;
@@ -149,7 +166,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
 
     let vivo = true;
     setCargandoMpios(true);
-    fetch('/data/colombia_municipios.geojson')
+    fetch(ruta('/data/colombia_municipios.geojson'))
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {
@@ -158,7 +175,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
         setGeoMpios(d);
         setCargandoMpios(false);
         try {
-          sessionStorage.setItem('xuma_geo_mpios', JSON.stringify(d));
+          sessionStorage.setItem('xuma_geo_mpios_v2', JSON.stringify(d));
         } catch {}
       });
     return () => {

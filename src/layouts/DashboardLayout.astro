@@ -1,6 +1,7 @@
 ---
 import MainLayout from './MainLayout.astro';
 import ThemeToggle from '../components/ui/ThemeToggle.tsx';
+import { ruta, sinBase } from '../lib/base';
 
 interface Props {
   title?: string;
@@ -34,21 +35,21 @@ const nav = [
   { href: '/historicos', label: 'Históricos', svg: svgHistoricos },
   { href: '/proyeccion', label: 'Proyección', svg: svgProyeccion },
 ];
-const actual = Astro.url.pathname;
+const actual = sinBase(Astro.url.pathname);
 ---
 
 <MainLayout title={title}>
   <slot name="head" slot="head" />
   <header class="topbar sticky top-0 z-40 backdrop-blur-xl">
     <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-1.5 md:px-6">
-      <a href="/" class="flex items-center gap-2.5 justify-self-start" aria-label="Volver al inicio">
+      <a href={ruta('/')} class="flex items-center gap-2.5 justify-self-start" aria-label="Volver al inicio">
         <img
-          src="/logos/Transparente_Logo_azul_letra_azul.svg"
+          src={ruta('/logos/Transparente_Logo_azul_letra_azul.svg')}
           alt="Xuma"
           class="h-9 w-auto md:h-10 dark:hidden"
         />
         <img
-          src="/logos/Transparente_Logo_blanco_letra_blanca.svg"
+          src={ruta('/logos/Transparente_Logo_blanco_letra_blanca.svg')}
           alt="Xuma"
           class="hidden h-9 w-auto md:h-10 dark:block"
         />
@@ -61,7 +62,7 @@ const actual = Astro.url.pathname;
         {
           nav.map((item) => (
             <a
-              href={item.href}
+              href={ruta(item.href)}
               data-astro-prefetch="hover"
               class={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-300 md:text-sm md:px-3.5 ${
                 actual === item.href || actual === `${item.href}/`

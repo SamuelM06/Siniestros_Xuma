@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, ArrowRight, Lock, ShieldCheck, User } from 'lucide-react';
 
+import { ruta } from '../../lib/base';
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +21,10 @@ export default function LoginForm() {
       const form = new FormData();
       form.set('username', username);
       form.set('password', password);
-      const res = await fetch('/api/auth/login', { method: 'POST', body: form });
+      const res = await fetch(ruta('/api/auth/login'), { method: 'POST', body: form });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
-        window.location.assign('/dashboard');
+        window.location.assign(ruta('/dashboard'));
         return;
       }
       setError(data.error ?? 'No se pudo iniciar sesión.');

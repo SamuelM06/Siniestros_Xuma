@@ -1,23 +1,46 @@
 // ============================================================================
 // MIDDLEWARE DE SEGURIDAD (Astro)
 // ----------------------------------------------------------------------------
-// 1) Autenticación: TODO el portal exige sesión (excepto /login y assets).
-//    → pages: redirige a /login · API: responde 401.
+// 1) Autenticación: TODO el portal exige la sesión del Hub (cookie xuma_session),
+//    tanto en la web pública como en la red interna. Sin sesión → 401; persona
+//    fuera de ALLOWED_PERSONAS → 403. Los estáticos pasan sin sesión.
 // 2) Endurecimiento: headers de seguridad + CSP en toda respuesta.
 // 3) Rate limiting genérico sobre la API (mitigación de abuso / recolección).
 // ============================================================================
 import { defineMiddleware } from 'astro:middleware';
 import { rateLimit } from './lib/ratelimit';
 import { ENV } from './lib/env';
+import { ruta, sinBase } from './lib/base';
+import { verificarSesionHub } from './lib/hubAuth';
 
 const esRutaApi = (p: string) => p === '/api' || p.startsWith('/api/');
 
+// Estáticos que no llevan datos: pasan sin sesión (healthcheck, logos, fuentes, bundles).
+const ESTATICOS = ['/_astro/', '/fonts/', '/logos/'];
+const esEstatico = (p: string) => p === '/favicon.svg' || ESTATICOS.some((e) => p.startsWith(e));
+
+function respuestaAcceso(estado: 401 | 403): Response {
+  return new Response(
+    JSON.stringify({ error: estado === 401 ? 'Sesión requerida' : 'Sin permiso para este reporte' }),
+    { status: estado, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } },
+  );
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   const { url, redirect, clientAddress } = context;
-  const path = url.pathname;
-  // --- Acceso sin login (login deshabilitado/oculto) -----------------------
+  const path = sinBase(url.pathname);
+
+  // --- Sesión del Hub ------------------------------------------------------------
+  // AUTH_DEV solo vale fuera de producción.
+  // Solo se exige en el despliegue público (REQUIRE_HUB_SESSION=true); la red interna no cambia.
+  const saltarAuth = !ENV.exigirSesionHub || (ENV.authDev && !import.meta.env.PROD);
+  if (!saltarAuth && !esEstatico(path)) {
+    const sesion = verificarSesionHub(context.request.headers.get('cookie'));
+    if (!sesion.ok) return respuestaAcceso(sesion.estado);
+  }
+
   if (path === '/login' || path === '/login/') {
-    return redirect('/dashboard');
+    return redirect(ruta('/dashboard'));
   }
 
   // --- Ratelimit sobre la API autenticada ------------------------------------
@@ -40,7 +63,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // --- Endurecimiento de respuesta --------------------------------------------
   const headers = new Headers(response.headers);
-  headers.set('X-Frame-Options', 'DENY');
+  // Despliegue público: el Hub embebe el reporte en un iframe del mismo origen.
+  headers.set('X-Frame-Options', ENV.exigirSesionHub ? 'SAMEORIGIN' : 'DENY');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'no-referrer');
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
@@ -54,7 +78,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.google.com https://*.googleapis.com https://*.gstatic.com",
       "font-src 'self'",
       "connect-src 'self' ws: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.google.com https://*.googleapis.com https://*.gstatic.com",
-      "frame-ancestors 'none'",
+      ENV.exigirSesionHub ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
       "base-uri 'self'",
       "object-src 'none'",
       "form-action 'self'",

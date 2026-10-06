@@ -7,6 +7,7 @@ import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 
+import { ruta } from '../../lib/base';
 const BarrasMensualesAnio = lazy(() => import('../charts/BarrasMensualesAnio'));
 const TendenciaMensualHist = lazy(() => import('../charts/TendenciaMensualHist'));
 
@@ -59,7 +60,7 @@ export default function HistoricosApp({ datosIniciales, filtrosIniciales, metada
     let vivo = true;
     setCargando(true);
     const q = queryString(filtros);
-    fetch(`/api/historicos?${q}`)
+    fetch(ruta(`/api/historicos?${q}`))
       .then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as HistoricosData;

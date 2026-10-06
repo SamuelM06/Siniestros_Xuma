@@ -21,20 +21,4 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[serve.mjs] SSR + compresión (gzip/brotli) escuchando en http://${HOST}:${PORT}`);
-  
-  // Calentamiento automático inicial de rutas y consultas en segundo plano
-  setTimeout(async () => {
-    try {
-      const base = `http://127.0.0.1:${PORT}`;
-      await Promise.allSettled([
-        fetch(`${base}/dashboard`).then((r) => r.text()),
-        fetch(`${base}/mapa`).then((r) => r.text()),
-        fetch(`${base}/estatus`).then((r) => r.text()),
-        fetch(`${base}/detalle`).then((r) => r.text()),
-      ]);
-      console.log('[serve.mjs] 🔥 Rutas y datos precalentados en RAM: respuestas instantáneas (<20ms)');
-    } catch {
-      // Silencioso en arranque
-    }
-  }, 100);
 });

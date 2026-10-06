@@ -1,3 +1,5 @@
+import { ruta } from './base';
+
 // Carga diferida de Leaflet (vendored en /vendor/leaflet). Evita que el
 // <script> bloqueante retrase el primer pintado de la vista de mapa.
 let promesa: Promise<any> | null = null;
@@ -9,11 +11,11 @@ export function leafletEnPromesa(): Promise<any> {
     promesa = new Promise((resolve, reject) => {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = '/vendor/leaflet/leaflet.css';
+      link.href = ruta('/vendor/leaflet/leaflet.css');
       document.head.appendChild(link);
 
       const s = document.createElement('script');
-      s.src = '/vendor/leaflet/leaflet.js';
+      s.src = ruta('/vendor/leaflet/leaflet.js');
       s.async = true;
       s.onload = () => resolve((window as any).L);
       s.onerror = () => {

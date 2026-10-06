@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { LogOut } from 'lucide-react';
 
+import { ruta } from '../../lib/base';
 export default function LogoutButton() {
   const [cargando, setCargando] = useState(false);
 
   async function salir() {
     setCargando(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(ruta('/api/auth/logout'), { method: 'POST' });
     } finally {
-      window.location.assign('/login');
+      window.location.assign(ruta('/login'));
     }
   }
 
