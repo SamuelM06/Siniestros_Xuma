@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { IdCard, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Filter, IdCard, RefreshCw, SlidersHorizontal, X } from 'lucide-react';
 import type { Filters, Metadatos } from '../../lib/types';
 import { formatNum, mesLabel } from '../../utils/formatters';
 import SelectXuma from '../ui/SelectXuma';
+import MultiSelectXuma from '../ui/MultiSelectXuma';
 
 interface Props {
   filtros: Filters;
@@ -67,8 +68,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
     [metadatos.anios],
   );
   const aseguradoras = useMemo(() => (metadatos.aseguradoras ?? []).map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
+  const clases = useMemo(() => (metadatos.clases ?? []).map((c) => ({ valor: c, etiqueta: c })), [metadatos.clases]);
   const gaseras = useMemo(() => metadatos.gaseras.map((g) => ({ valor: g, etiqueta: g })), [metadatos.gaseras]);
-  const lineas = useMemo(() => [{ valor: 'Deudor', etiqueta: 'Deudor' }, { valor: 'Microseguros', etiqueta: 'Microseguros' }], []);
   const productos = useMemo(() => metadatos.productos.map((p) => ({ valor: p, etiqueta: p })), [metadatos.productos]);
   const estados = useMemo(
     () => metadatos.estados.map((e) => ({ valor: e.estado, etiqueta: `${e.estado} (${formatNum(e.total)})` })),
@@ -89,28 +90,28 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
     onChange({ anio: v || undefined, mes });
   }, [onChange, filtros.mes]);
 
-  const elegirAseguradora = useCallback((v: string) => {
-    onChange({ aseguradora: v || undefined });
+  const elegirClase = useCallback((v: string[]) => {
+    onChange({ clase: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirGasera = useCallback((v: string) => {
-    onChange({ gasera: v || undefined });
+  const elegirAseguradora = useCallback((v: string[]) => {
+    onChange({ aseguradora: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirProducto = useCallback((v: string) => {
-    onChange({ producto: v || undefined });
+  const elegirGasera = useCallback((v: string[]) => {
+    onChange({ gasera: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirLinea = useCallback((v: string) => {
-    onChange({ linea: v || undefined });
+  const elegirProducto = useCallback((v: string[]) => {
+    onChange({ producto: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirEstado = useCallback((v: string) => {
-    onChange({ estado: v || undefined });
+  const elegirEstado = useCallback((v: string[]) => {
+    onChange({ estado: v.length > 0 ? v : undefined });
   }, [onChange]);
 
-  const elegirTipoSiniestro = useCallback((v: string) => {
-    onChange({ tipo_siniestro: v || undefined });
+  const elegirTipoSiniestro = useCallback((v: string[]) => {
+    onChange({ tipo_siniestro: v.length > 0 ? v : undefined });
   }, [onChange]);
 
   useEffect(() => {
@@ -127,6 +128,39 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
       transition={{ duration: 0.35 }}
       className="glass relative z-20 rounded-2xl px-3 py-2 shadow-md"
     >
+      {/* Badge superior: solo filtros activos + X para limpiar todo */}
+      <AnimatePresence mode="wait">
+        {activos > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{
+              opacity: 0,
+              y: -12,
+              scale: 0.9,
+              filter: 'blur(4px)',
+              transition: { duration: 0.4, ease: [0.33, 1, 0.68, 1] },
+            }}
+            transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="mb-2 flex items-center gap-2 rounded-lg border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-2 text-sm font-medium text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+            role="status"
+            aria-live="polite"
+          >
+            <Filter className="h-4 w-4 flex-shrink-0" />
+            <span>{activos} filtro{activos > 1 ? 's' : ''} activo{activos > 1 ? 's' : ''}</span>
+            <button
+              type="button"
+              title="Limpiar todos los filtros"
+              onClick={() => { setTexto(''); onReset(); }}
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-xuma-verde-claro/20"
+              aria-label="Limpiar todos los filtros"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
         {/* Etiqueta / Ícono */}
         <div className="flex items-center gap-1.5 font-bold text-tinta text-xs whitespace-nowrap shrink-0 mr-1">
@@ -177,11 +211,27 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         </div>
         )}
 
+        {/* Clase de cartera (Deudor / Microseguros / Salvafactura / Otros).
+            En todas las vistas, incluso proyección: la data manda y la clase
+            recorta Gasera y Producto en cascada. */}
+        {clases.length > 0 && (
+          <div className="min-w-[125px] flex-1">
+            <MultiSelectXuma
+              valores={filtros.clase ?? []}
+              opciones={clases}
+              alCambiar={elegirClase}
+              placeholder="Clase"
+              etiquetaTodo="Todas las clases"
+              compact
+            />
+          </div>
+        )}
+
         {/* Aseguradora */}
         {aseguradoras.length > 0 && (
           <div className="min-w-[125px] flex-1">
-            <SelectXuma
-              valor={filtros.aseguradora ?? ''}
+            <MultiSelectXuma
+              valores={filtros.aseguradora ?? []}
               opciones={aseguradoras}
               alCambiar={elegirAseguradora}
               placeholder="Aseguradora"
@@ -193,8 +243,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
 
         {/* Gasera */}
         <div className="min-w-[120px] flex-1">
-          <SelectXuma
-            valor={filtros.gasera ?? ''}
+          <MultiSelectXuma
+            valores={filtros.gasera ?? []}
             opciones={gaseras}
             alCambiar={elegirGasera}
             placeholder="Gasera"
@@ -203,22 +253,10 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           />
         </div>
 
-        {/* Línea de negocio */}
-        <div className="min-w-[120px] flex-1">
-          <SelectXuma
-            valor={filtros.linea ?? ''}
-            opciones={lineas}
-            alCambiar={elegirLinea}
-            placeholder="Línea"
-            etiquetaTodo="Deudor y Microseguros"
-            compact
-          />
-        </div>
-
         {/* Producto */}
         <div className="min-w-[130px] flex-1">
-          <SelectXuma
-            valor={filtros.producto ?? ''}
+          <MultiSelectXuma
+            valores={filtros.producto ?? []}
             opciones={productos}
             alCambiar={elegirProducto}
             placeholder="Producto"
@@ -230,8 +268,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         {/* Estado (oculto en modo año y en proyección) */}
         {!modoAnio && !modoProyeccion && (
         <div className="min-w-[130px] flex-1">
-          <SelectXuma
-            valor={filtros.estado ?? ''}
+          <MultiSelectXuma
+            valores={filtros.estado ?? []}
             opciones={estados}
             alCambiar={elegirEstado}
             placeholder="Estado"
@@ -244,8 +282,8 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
         {/* Tipo Siniestro (sólo para vistas que lo necesiten, e.j. mapa; oculto en proyección) */}
         {!modoAnio && !modoProyeccion && mostrarTipoSiniestro && tiposSiniestro.length > 0 && (
           <div className="min-w-[140px] flex-1">
-            <SelectXuma
-              valor={filtros.tipo_siniestro ?? ''}
+            <MultiSelectXuma
+              valores={filtros.tipo_siniestro ?? []}
               opciones={tiposSiniestro}
               alCambiar={elegirTipoSiniestro}
               placeholder="Tipo Siniestro"
@@ -255,45 +293,23 @@ export default function FiltrosPanel({ filtros, metadatos, onChange, onReset, ac
           </div>
         )}
 
-        {/* Acciones y Estados */}
-        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          <AnimatePresence>
-            {cargando && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-center gap-1 rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2 py-0.5 text-[10px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
-              >
-                <RefreshCw className="h-2.5 w-2.5 animate-spin" />
-                <span className="hidden md:inline">Actualizando</span>
-              </motion.span>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {activos > 0 && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-2 py-0.5 text-[10px] font-bold text-xuma-verde-oscuro dark:text-xuma-verde-claro"
-              >
-                {activos} act.
-              </motion.span>
-            )}
-          </AnimatePresence>
-
-          <button
-            type="button"
-            title="Restablecer filtros del reporte"
-            onClick={() => { setTexto(''); onReset(); }}
-            className="flex cursor-pointer items-center gap-1 rounded-lg border border-tinta/15 bg-tinta/5 px-2.5 py-1.5 text-xs font-semibold text-tinta/70 transition-colors hover:border-red-300/40 hover:bg-red-500/10 hover:text-red-300"
-          >
-            <RotateCcw className="h-3 w-3" />
-            <span className="hidden sm:inline">Restablecer</span>
-          </button>
-        </div>
+        {/* Acciones: solo indicador de carga inline al final */}
+        <AnimatePresence mode="wait">
+          {cargando && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8, x: 10 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.8, x: 10 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="flex items-center gap-1.5 shrink-0 ml-auto rounded-full border border-xuma-verde-claro/40 bg-xuma-verde-claro/10 px-3 py-1.5 text-xs font-medium text-xuma-verde-oscuro dark:text-xuma-verde-claro"
+              role="status"
+              aria-live="polite"
+            >
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <span>Actualizando…</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
     </motion.section>
   );

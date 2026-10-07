@@ -5,13 +5,13 @@ export interface Filters {
   desde?: string;   // YYYY-MM-DD
   hasta?: string;   // YYYY-MM-DD
   mes?: string;     // YYYY-MM (tiene prioridad sobre desde/hasta)
-  gasera?: string;
-  producto?: string;
-  linea?: string;   // Deudor | Microseguros
+  gasera?: string[];          // selección múltiple (vacío/ausente = Todos)
+  producto?: string[];        // selección múltiple (vacío/ausente = Todos)
   anio?: string;       // YYYY (vista de estatus)
-  estado?: string;
-  aseguradora?: string;
-  tipo_siniestro?: string;
+  estado?: string[];          // selección múltiple (vacío/ausente = Todos)
+  aseguradora?: string[];     // selección múltiple (vacío/ausente = Todos)
+  tipo_siniestro?: string[];  // selección múltiple (vacío/ausente = Todos)
+  clase?: string[];           // Deudor | Microseguros | Salvafactura | Otros (vacío/ausente = Todas)
 }
 
 export interface KpisData {
@@ -70,6 +70,7 @@ export interface RegistroTabla {
   aseguradora: string;
   gasera: string;
   producto: string;
+  clase: string;
   estado: string;
   fecha_radicacion: string | null;
   monto: number | null;
@@ -90,10 +91,12 @@ export interface Metadatos {
   estados: { estado: string; total: number }[];
   aseguradoras: string[];
   tipos_siniestro: { tipo_siniestro: string; total: number }[];
+  clases: string[];
 }
 
 export interface FilaEstatus {
   gasera: string;
+  estado: string;
   mes: number;   // 1..12
   total: number;
 }
@@ -101,6 +104,7 @@ export interface FilaEstatus {
 export interface EstatusData {
   anio: number;
   gaseras: string[];
+  estados: string[];
   filas: FilaEstatus[];
 }
 

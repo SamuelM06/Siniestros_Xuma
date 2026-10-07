@@ -9,7 +9,7 @@ export default function LogoutButton() {
   async function salir() {
     setCargando(true);
     try {
-      await fetch(ruta('/api/auth/logout'), { method: 'POST' });
+      await fetch(ruta(ruta('/api/auth/logout')), { method: 'POST' });
     } finally {
       window.location.assign(ruta('/login'));
     }

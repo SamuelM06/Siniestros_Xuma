@@ -12,6 +12,10 @@ dist/
 .env.*.local
 config/
 
+# Scripts de consulta a la DB con credenciales embebidas (¡NO subir!)
+query_db.mjs
+query_observ.mjs
+
 
 # Logs (auditoría / seguridad)
 logs/

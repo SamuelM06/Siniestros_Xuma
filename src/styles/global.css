@@ -71,46 +71,92 @@
    TEMA CLARO / OSCURO (conmutador persistido · por defecto OSCURO)
    Las variables base son el tema CLARO; `.dark` en <html> activa el oscuro.
    ========================================================================== */
+/* ------------------------------------------------------------------------------
+   TEMA CLARO — calibrado para que las superficies se lean y los colores no
+   canten. Los tres problemas que se corregieron aqui:
+
+   1) Los orbes iban al 50% de opacidad. Sobre un fondo casi blanco, tres manchas
+      violeta+verde+azul a media opacidad producian un lavado pastel, mezcla de
+      tonos coldidos y la sensacion de "todo brillante". Ahora son un tinte de 10-13%.
+   2) El fondo era #e9edf8 y las tarjetas casi blancas: no habia separacion, solo
+      una mancha lechosa. El suelo baja un punto de luminosidad y la tarjeta gana
+      una sombra de dos capas que la eleva de verdad.
+   3) El hover usaba un halo violeta de 45px (--shadow-glow), que en claro se
+      convierte en una mancha brillante. En claro se sustituye por una sombra
+      teñida de marca, compacta y sin halo.
+   -------------------------------------------------------------------------- */
 :root {
   color-scheme: light;
-  --ctinta: #0c102a;
-  --ctinta-suave: rgba(12, 16, 42, 0.86);
-  --ctinta-dim: rgba(12, 16, 42, 0.65);
-  --csuelo: #e9edf8;
-  --cpanel-fondo: rgba(246, 248, 253, 0.96);
-  --cglass-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
-  --cglass-borde: rgba(12, 16, 42, 0.16);
-  --csombra-panel: 0 18px 50px -24px rgba(12, 16, 42, 0.35);
-  --chorver-borde: rgba(18, 1, 128, 0.5);
-  --csk: rgba(12, 16, 42, 0.08);
-  --csk-shine: rgba(12, 16, 42, 0.12);
-  --topbarbg: rgba(233, 237, 248, 0.82);
-  --ccurtina: rgba(12, 16, 42, 0.16);
-  --csombra-cursor: rgba(12, 16, 42, 0.06);
+  --ctinta: #10142e;
+  --ctinta-suave: rgba(16, 20, 46, 0.88);
+  --ctinta-dim: rgba(16, 20, 46, 0.62);
+  --csuelo: #e9edf5;
+  --cpanel-fondo: rgba(255, 255, 255, 0.94);
+  --cglass-bg: linear-gradient(168deg, rgba(255, 255, 255, 0.99), rgba(247, 249, 254, 0.93));
+  --cglass-borde: rgba(16, 20, 46, 0.10);
+  --csombra-panel:
+    0 1px 2px rgba(16, 20, 46, 0.05),
+    0 12px 28px -18px rgba(16, 20, 46, 0.28);
+  --chorver-borde: rgba(18, 1, 128, 0.40);
+  --csk: rgba(16, 20, 46, 0.06);
+  --csk-shine: rgba(16, 20, 46, 0.09);
+  --topbarbg: rgba(238, 241, 247, 0.88);
+  --ccurtina: rgba(16, 20, 46, 0.10);
+  --csombra-cursor: rgba(16, 20, 46, 0.05);
+  --cseleccion: rgba(18, 1, 128, 0.13);
+  --cscroll-thumb: rgba(16, 20, 46, 0.20);
+  --cscroll-color: rgba(16, 20, 46, 0.28);
+
+  /* En claro el "brillo" de los titulos es un degrade de azules profundos: el
+     verde vivo (#00cd93) y el violeta claro (#8b7bff) sobre blanco no llegaban
+     a 4.5:1 y ademas se peleaban entre si. */
   --brillo-1: #120180;
-  --brillo-2: #00cd93;
-  --brillo-3: #8b7bff;
+  --brillo-2: #0a5f78;
+  --brillo-3: #2f1bb8;
+
   --fondo-grad:
-    radial-gradient(1200px 700px at 85% -10%, rgba(18, 1, 128, 0.12), transparent 60%),
-    radial-gradient(1000px 600px at -10% 20%, rgba(0, 205, 147, 0.12), transparent 60%),
-    linear-gradient(180deg, #dde3f4 0%, #e9edf8 45%, #e4e9f6 100%);
-  --alfa-orbe-1: 0.5;
-  --alfa-orbe-2: 0.55;
-  --alfa-orbe-3: 0.5;
-  --alfa-linea: 0.45;
-  --qtooltip-fondo: rgba(255, 255, 255, 0.98);
-  --qtooltip-tinta: #0c102a;
-  --qtooltip-borde: rgba(18, 1, 128, 0.35);
-  --qtooltip-sombra: 0 18px 50px -20px rgba(12, 16, 42, 0.45);
-  --cgraf-1: #00875a;
-  --cgraf-2: #120180;
-  --cgraf-3: #6c5ce7;
-  --cgraf-4: #2a12a3;
-  --cgraf-5: #d97f06;
-  --cgraf-6: #d9533f;
-  --cgraf-7: #098aa8;
-  --cgraf-8: #6f7ad8;
-  --cgraf-otro: #8e97a8;
+    radial-gradient(1100px 620px at 86% -14%, rgba(18, 1, 128, 0.07), transparent 62%),
+    radial-gradient(900px 520px at -10% 14%, rgba(0, 138, 118, 0.06), transparent 60%),
+    linear-gradient(180deg, #e3e8f2 0%, #eaeef6 46%, #e5e9f2 100%);
+  --alfa-orbe-1: 0.13;
+  --alfa-orbe-2: 0.11;
+  --alfa-orbe-3: 0.10;
+  --alfa-linea: 0.16;
+  --cblur-orbe: 130px;
+
+  /* Trazo decorativo: en claro el verde neón (#5ae280) se leía como un barrido
+     fluorescente en la parte baja de la pantalla. Aquí va azul -> teal -> azul. */
+  --trazo-1: #120180;
+  --trazo-2: #0a5f78;
+  --trazo-3: #1e3a8a;
+
+  /* El verde de marca (#00cd93) da ~2:1 de contraste sobre blanco: se usaba como
+     color de texto en claro (pills, iconos, codigo) y era ilegible. En claro el
+     token pasa a un verde profundo; en oscuro sigue siendo el neón. */
+  --color-xuma-verde-oscuro: #0f766e;
+
+  /* Sombra de hover: teñida de marca y compacta. Sin halo. */
+  --shadow-glow:
+    0 14px 30px -18px rgba(18, 1, 128, 0.34),
+    0 2px 6px -3px rgba(16, 20, 46, 0.12);
+
+  --qtooltip-fondo: rgba(255, 255, 255, 0.99);
+  --qtooltip-tinta: #10142e;
+  --qtooltip-borde: rgba(16, 20, 46, 0.12);
+  --qtooltip-sombra: 0 12px 30px -16px rgba(16, 20, 46, 0.30);
+
+  /* Paleta de graficos: 8 tonos de luminosidad pareja y bien separados en matiz,
+     todos legibles sobre blanco. Antes conviven cuatro azules/violetas casi
+     indistinguibles (#120180, #2a12a3, #6c5ce7, #6f7ad8). */
+  --cgraf-1: #0f766e; /* verde azulado */
+  --cgraf-2: #1e3a8a; /* azul profundo de marca */
+  --cgraf-3: #7c3aed; /* violeta */
+  --cgraf-4: #b45309; /* ambar */
+  --cgraf-5: #be123c; /* carmesi */
+  --cgraf-6: #0369a1; /* cian */
+  --cgraf-7: #4d7c0f; /* oliva */
+  --cgraf-8: #64748b; /* pizarra */
+  --cgraf-otro: #94a3b8;
 }
 
 .dark {
@@ -129,6 +175,9 @@
   --topbarbg: rgba(7, 11, 34, 0.72);
   --ccurtina: rgba(255, 255, 255, 0.08);
   --csombra-cursor: rgba(255, 255, 255, 0.05);
+  --cseleccion: rgba(90, 226, 128, 0.28);
+  --cscroll-thumb: rgba(139, 123, 255, 0.45);
+  --cscroll-color: rgba(139, 123, 255, 0.5);
   --brillo-1: #ffffff;
   --brillo-2: #5ae280;
   --brillo-3: #8b7bff;
@@ -140,6 +189,13 @@
   --alfa-orbe-2: 1;
   --alfa-orbe-3: 1;
   --alfa-linea: 0.3;
+  --cblur-orbe: 90px;
+  --trazo-1: #120180;
+  --trazo-2: #5ae280;
+  --trazo-3: #00cd93;
+  --color-xuma-verde-oscuro: #00cd93;
+  /* En oscuro el halo de marca si funciona: es la firma visual del tema. */
+  --shadow-glow: 0 0 45px -12px rgba(139, 123, 255, 0.55);
   --qtooltip-fondo: rgba(255, 255, 255, 0.97);
   --qtooltip-tinta: #141a3d;
   --qtooltip-borde: rgba(18, 1, 128, 0.28);
@@ -157,7 +213,7 @@
 
 /* ---------- Base ---------- */
 html {
-  scrollbar-color: rgba(139, 123, 255, 0.5) transparent;
+  scrollbar-color: var(--cscroll-color) transparent;
 }
 
 body {
@@ -171,15 +227,18 @@ body {
 }
 
 ::selection {
-  background: rgba(90, 226, 128, 0.35);
+  background: var(--cseleccion);
   color: var(--ctinta);
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(139, 123, 255, 0.6), rgba(0, 205, 147, 0.5));
+  background: var(--cscroll-thumb);
   border-radius: 999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(139, 123, 255, 0.6), rgba(0, 205, 147, 0.5));
 }
 
 /* ---------- Fondos animados (orbes con blur) ---------- */
@@ -195,7 +254,7 @@ body {
 .orbe {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(90px);
+  filter: blur(var(--cblur-orbe));
   will-change: transform;
 }
 .orbe-1 { background: radial-gradient(circle, rgba(18, 1, 128, 0.85), transparent 70%); animation: var(--animate-orbe-1); opacity: var(--alfa-orbe-1); }
@@ -242,6 +301,18 @@ body {
   .linea-corte { animation: none; }
 }
 
+/* Pill ACTUALIDAD: pulso sutil + brillo para acompañar la línea */
+.actualidad-pill {
+  animation: actualidad-pulso 2.2s ease-in-out infinite;
+}
+@keyframes actualidad-pulso {
+  0%, 100% { transform: scale(1); box-shadow: 0 1px 8px rgba(0,0,0,0.08); }
+  50% { transform: scale(1.03); box-shadow: 0 2px 14px rgba(0,0,0,0.14); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .actualidad-pill { animation: none; }
+}
+
 @keyframes orbe1 {
   0%   { transform: translate3d(-8%, -6%, 0) scale(1); }
   100% { transform: translate3d(28%, 18%, 0) scale(1.25); }
@@ -278,6 +349,24 @@ body {
   border-color: var(--chorver-borde);
   box-shadow: var(--shadow-glow);
 }
+
+/* ---------- Halo de acento de las tarjetas KPI ----------
+   Cada tarjeta llevaba un glow permanente de 35px; en oscuro es la firma de la
+   marca, pero en claro cinco halos de colores juntos se leían como "todo
+   brillando". En claro se convierte en una sombra baja y teñida.
+   Se declara con :where() para tener especificidad 0 y no pisar el box-shadow
+   de .glass-hover:hover (0,2,0), que siempre gana. */
+:where(.kpi-halo-azul)         { box-shadow: 0 6px 16px -13px rgba(30, 58, 138, 0.55); }
+:where(.kpi-halo-verde-claro)  { box-shadow: 0 6px 16px -13px rgba(21, 128, 61, 0.5); }
+:where(.kpi-halo-verde-oscuro) { box-shadow: 0 6px 16px -13px rgba(15, 118, 110, 0.5); }
+:where(.kpi-halo-violeta)      { box-shadow: 0 6px 16px -13px rgba(109, 40, 217, 0.5); }
+:where(.kpi-halo-ambar)        { box-shadow: 0 6px 16px -13px rgba(180, 83, 9, 0.45); }
+
+.dark :where(.kpi-halo-azul)         { box-shadow: 0 0 35px -10px rgba(106, 79, 216, 0.6); }
+.dark :where(.kpi-halo-verde-claro)  { box-shadow: 0 0 35px -10px rgba(90, 226, 128, 0.6); }
+.dark :where(.kpi-halo-verde-oscuro) { box-shadow: 0 0 35px -10px rgba(0, 205, 147, 0.6); }
+.dark :where(.kpi-halo-violeta)      { box-shadow: 0 0 35px -10px rgba(139, 123, 255, 0.6); }
+.dark :where(.kpi-halo-ambar)        { box-shadow: 0 0 35px -10px rgba(240, 180, 41, 0.55); }
 
 /* ---------- Superficie superior (topbar) ---------- */
 .topbar {
@@ -316,11 +405,13 @@ body {
   transition: background 0.4s ease;
 }
 
-/* ---------- Colores de cifras KPI según acento (claro/oscuro) ---------- */
-.num-azul    { color: #3d22c8; }
-.num-verde   { color: #007a54; }
-.num-teal    { color: #008a63; }
-.num-violeta { color: #5b3df0; }
+/* ---------- Colores de cifras KPI según acento (claro/oscuro) ----------
+   En claro se separaron verde (#15803d) de verde azulado (#0f766e): antes
+   eran #007a54 y #008a63, practicamente el mismo color con dos nombres. */
+.num-azul    { color: #1e3a8a; }
+.num-verde   { color: #15803d; }
+.num-teal    { color: #0f766e; }
+.num-violeta { color: #6d28d9; }
 .num-ambar   { color: #b45309; }
 .dark .num-azul    { color: #b8c0ff; }
 .dark .num-verde   { color: #7df0a0; }

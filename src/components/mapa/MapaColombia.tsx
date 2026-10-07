@@ -127,7 +127,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
     } catch {}
 
     let vivo = true;
-    fetch(ruta('/data/colombia.geo.json'))
+    fetch(ruta(ruta('/data/colombia.geo.json')))
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {
@@ -166,7 +166,7 @@ export default function MapaColombia({ data, deptoSeleccionado, onSelectDepto }:
 
     let vivo = true;
     setCargandoMpios(true);
-    fetch(ruta('/data/colombia_municipios.geojson'))
+    fetch(ruta(ruta('/data/colombia_municipios.geojson')))
       .then((r) => r.json())
       .catch(() => null)
       .then((d) => {

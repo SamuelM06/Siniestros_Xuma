@@ -1,6 +1,6 @@
 import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
-import { DEPARTAMENTO_SQL, ESTADO_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
+import { DEPARTAMENTO_SQL, CLASE_SQL, ESTADO_SQL, FECHA_EFECTIVA_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
 import {
   backtest, chiCuadradoP, distribucion, indicesEstacionales, mannKendall, pronosticar, theilSen,
 } from './estadistica';
@@ -12,21 +12,27 @@ import type {
 // ============================================================================
 // CTE base: agrega las columnas normalizadas + aseguradora canónica.
 // Alias de la tabla origen: SIEMPRE `c`. Join a catálogo de aseguradoras.
-// Promigas no es una gasera (dato escrito mal en la fuente): se excluye para
-// que no aparezca en ningún gráfico, filtro ni total.
+// - Promigas no es una gasera (dato escrito mal en la fuente): se excluye para
+//   que no aparezca en ningún gráfico, filtro ni total.
+// - Las hojas `*PLANILLA*` son soportes de pago, no siniestros: se excluyen para
+//   no duplicar el conteo (la data manda: un siniestro = una fila base).
+// - `c.vigente`: las recargas NO borran, dan de baja logica (`vigente=false` +
+//   fila en casos_historial). Sin este filtro el tablero contaba tambien las
+//   versiones retiradas: 2.191 filas fantasma (2.126 del Caribe viejito y 59
+//   del Efigas renombrado) inflando todos los KPIs.
+// - `fecha_efectiva` consume la fecha real de la DB: fecha_radicacion primero,
+//   luego FECHA RECIBIDO (Salvafactura) y MES+AÑO (PROEXEQUIAL). Lo que no trae
+//   fecha útil queda NULL y se excluye de los rangos.
 // ============================================================================
 const BASE = `
-  SELECT sub.*,
-    -- Línea de negocio: Deudor (Vida Deudor / Grupo Deudores) vs Microseguros (el resto)
-    CASE
-      WHEN sub.producto_norm = 'Grupo Deudores' OR sub.nombre_archivo_origen ILIKE '%deudor%' THEN 'Deudor'
-      ELSE 'Microseguros'
-    END AS linea_norm
+  SELECT sub.*
   FROM (
     SELECT c.*,
       ${ESTADO_SQL}       AS estado_norm,
       ${GASERA_SQL}       AS gasera_norm,
       ${PRODUCTO_SQL}     AS producto_norm,
+      ${CLASE_SQL}        AS clase_norm,
+      ${FECHA_EFECTIVA_SQL} AS fecha_efectiva,
       ${DEPARTAMENTO_SQL} AS departamento_norm,
       ${MUNICIPIO_SQL}    AS municipio_norm,
       ${MONTO_SQL}        AS monto,
@@ -40,9 +46,10 @@ const BASE = `
       END               AS aseguradora_norm
     FROM siniestros.casos c
     JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
+    WHERE c.vigente
+      AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
   ) sub
   WHERE sub.gasera_norm <> 'Promigas'
-    AND sub.vigente
 `;
 
 const ANIO_REPORTE = 2026;
@@ -72,10 +79,27 @@ function parseTexto(raw: string | null | undefined, max = 80): string | undefine
   return v === '' ? undefined : v;
 }
 
-const LINEAS = ['Deudor', 'Microseguros'];
-function parseLinea(raw: string | null | undefined): string | undefined {
-  const v = parseTexto(raw, 20);
-  return v && LINEAS.includes(v) ? v : undefined;
+// Lee un filtro de selección múltiple: recoge todas las repeticiones del
+// parámetro (?gasera=A&gasera=B), limpia y descarta vacíos.
+// Devuelve undefined cuando no hay selección (= Todos).
+function parseLista(raw: (string | null)[] | null | undefined, max = 80): string[] | undefined {
+  if (!raw) return undefined;
+  const vistos = new Set<string>();
+  for (const r of raw) {
+    if (!r) continue;
+    const v = r.trim().slice(0, max);
+    if (v !== '') vistos.add(v);
+  }
+  return vistos.size > 0 ? [...vistos] : undefined;
+}
+
+// Agrega una condición `columna = ANY($n)` cuando la lista trae valores.
+// pg serializa el arreglo JS como text[], así que un solo parámetro basta.
+function empujarLista(params: unknown[], cond: string[], columna: string, valores?: string[]): void {
+  const lista = (valores ?? []).map((v) => v.trim()).filter((v) => v !== '');
+  if (lista.length === 0) return;
+  params.push(lista);
+  cond.push(`${columna} = ANY($${params.length})`);
 }
 
 const VAL_ANIO = /^\d{4}$/;
@@ -103,15 +127,15 @@ function clampMinMax(desde?: string, hasta?: string): { desde: string; hasta: st
 export function parseFilters(url: URL): Filters {
   const rango = clampMinMax(parseFecha(url.searchParams.get('desde')), parseFecha(url.searchParams.get('hasta')));
   const contrato = parseTexto(url.searchParams.get('contrato'));
-  const gasera = parseTexto(url.searchParams.get('gasera'), 120);
-  const producto = parseTexto(url.searchParams.get('producto'), 160);
-  const linea = parseLinea(url.searchParams.get('linea'));
-  const estado = parseTexto(url.searchParams.get('estado'), 80);
-  const aseguradora = parseTexto(url.searchParams.get('aseguradora'), 80);
-  const tipo_siniestro = parseTexto(url.searchParams.get('tipo_siniestro'), 80);
+  const gasera = parseLista(url.searchParams.getAll('gasera'), 120);
+  const producto = parseLista(url.searchParams.getAll('producto'), 160);
+  const estado = parseLista(url.searchParams.getAll('estado'), 80);
+  const aseguradora = parseLista(url.searchParams.getAll('aseguradora'), 80);
+  const tipo_siniestro = parseLista(url.searchParams.getAll('tipo_siniestro'), 80);
+  const clase = parseLista(url.searchParams.getAll('clase'), 40);
   const anio = parseAnio(url.searchParams.get('anio'));
   const mes = parseMes(url.searchParams.get('mes'));
-  return { contrato, gasera, producto, linea, estado, aseguradora, tipo_siniestro, anio, mes, desde: rango.desde, hasta: rango.hasta };
+  return { contrato, gasera, producto, estado, aseguradora, tipo_siniestro, clase, anio, mes, desde: rango.desde, hasta: rango.hasta };
 }
 
 // Convierte fecha (Date de pg o texto) a ISO YYYY-MM-DD sin desfase de zona.
@@ -128,30 +152,211 @@ export function filtrosPorDefecto(): Filters {
   return { desde: `${ANIO_REPORTE}-01-01`, hasta: `${ANIO_REPORTE}-12-31` };
 }
 
+// ---- Seeds de respaldo para el render del servidor ---------------------------------
+// Las paginas .astro piden estos datos ANTES de enviar el HTML, para pintar la
+// primera pantalla sin esperas. El problema: si PostgreSQL no responde en ese
+// instante, el `await` lanza y Astro aborta el render a mitad de camino. La isla
+// de React nunca llega al HTML y el usuario ve una pagina EN BLANCO, sin ningun
+// mensaje que explique por que.
+//
+// Se reprodujo en dev: con el pool frio (5 conexiones) y varias paginas pidiendo
+// a la vez, `pg` agotaba su `connectionTimeoutMillis` (10 s) y /detalle salia vacio.
+//
+// La salida no es dejar de pedir datos en el servidor (eso es lo que hace rapido el
+// portal) sino que el fallo degrade con elegancia: si no hay seed, se manda uno
+// vacio y la isla, que ya pide los datos en su `useEffect` al montar, los carga
+// en el navegador. La pagina SIEMPRE sale; solo se pierde el instante de "datos ya
+// listos" y se reemplaza por "datos en ~300 ms".
+
+export const METADATOS_VACIOS: Metadatos = {
+  anios: [],
+  rangoFechas: { min: null, max: null },
+  gaseras: [],
+  productos: [],
+  estados: [],
+  aseguradoras: [],
+  tipos_siniestro: [],
+  clases: [],
+};
+
+export function paginaVacia(size = 10): PaginaTabla {
+  return { registros: [], total: 0, page: 1, pageSize: size };
+}
+
+// Semilla vacia pero de la FORMA CORRECTA. Importa que sea un objeto valido y no
+// `null`: estos componentes hacen `useState<T>(semilla)` y despues leen
+// `data.departamentos`, `data.forecast`, etc. Un `null` los reventaria en el
+// cliente, que es el mismo fallo que estamos evitando en el servidor.
+export const MAPA_VACIO: MapaData = {
+  totalNacional: 0,
+  totalPagadoNacional: 0,
+  departamentos: [],
+};
+
+export const HISTORICOS_VACIO: HistoricosData = {
+  anios: [],
+  mensual: [],
+  tendencia: [],
+  sinFecha: 0,
+};
+
+export const PROYECCION_VACIA: ProyeccionData = {
+  anioObjetivo: ANIO_REPORTE,
+  aniosEntrenamiento: [],
+  forecast: [],
+  forecast2026: [],
+  estacionalidad: [],
+  tendencia: {
+    pendienteAnual: 0,
+    pValue: 1,
+    significante: false,
+    direccion: 'estable',
+    totalProyAnual: 0,
+    montoProyAnual: 0,
+    crecimientoVsPrevio: 0,
+  },
+  departamentos: [],
+  tiposSiniestro: [],
+  backtest: { mape: null, confiable: false, detalle: [] },
+  cambios: [],
+  supuestos: [],
+};
+
+export const ESTATUS_VACIO: EstatusData = {
+  anio: ANIO_REPORTE,
+  gaseras: [],
+  estados: [],
+  filas: [],
+};
+
+// El dashboard junta seis consultas en un solo `Promise.all` y las mete en un
+// objeto. Con la BD caida, una sola de las seis que falle tumba el grupo entero.
+export const KPIS_VACIOS: KpisData = {
+  total: 0,
+  pagados: 0,
+  objetados: 0,
+  solicitudDocs: 0,
+  enTramite: 0,
+  totalPagado: 0,
+  sinEstado: 0,
+  comparativo: { total2025: 0, total2026: 0, deltaPct: 0 },
+};
+
+export const TENDENCIA_VACIA: PuntoTendencia[] = [];
+export const POR_ASEGURADORA_VACIA: SerieAseguradora[] = [];
+export const POR_GASERA_VACIA: ItemGasera[] = [];
+export const POR_PRODUCTO_VACIA: ItemProducto[] = [];
+export const POR_TIPO_SINUESTRO_VACIA: ItemTipoSiniestro[] = [];
+
+/**
+ * Envuelve una carga de datos del render del servidor. Si falla, devuelve el
+ * respaldo y deja rastro en el log en vez de romper la pagina.
+ */
+export async function cargaSSR<T>(etiqueta: string, promise: Promise<T>, respaldo: T): Promise<T> {
+  try {
+    return await promise;
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : String(e);
+    console.error(`[ssr] ${etiqueta} fallo al cargar el seed del servidor: ${motivo}`);
+    return respaldo;
+  }
+}
+
+// ---- Control manual de la caché ------------------------------------------------
+// Se llama desde /api/cache (botón "refrescar" del header) para forzar que la
+// siguiente lectura vaya a PostgreSQL en vez de servir un valor stale.
+//
+// Se descartan TAMBIÉN las promesas en vuelo: si no, una revalidación que ya
+// estaba corriendo escribiría su resultado viejo de vuelta en la caché después
+// del purgado, y el botón "refrescar" no serviría de nada.
+export function purgarCache(): { entradas: number; enVuelo: number; bytesLiberados: number } {
+  const entradas = cacheConsultas.size;
+  const pendientes = enVuelo.size;
+  const bytesLiberados = bytesEnCache;
+  cacheConsultas.clear();
+  enVuelo.clear();
+  bytesEnCache = 0;
+  return { entradas, enVuelo: pendientes, bytesLiberados };
+}
+
+export function estadisticasCache(): {
+  entradas: number;
+  maxEntradas: number;
+  bytes: number;
+  maxBytes: number;
+  enVuelo: number;
+  suaveTtlMin: number;
+  staleTtlMin: number;
+  heapMb: number;
+} {
+  return {
+    entradas: cacheConsultas.size,
+    maxEntradas: CACHE_MAX_ENTRIES,
+    bytes: bytesEnCache,
+    maxBytes: CACHE_MAX_BYTES,
+    enVuelo: enVuelo.size,
+    suaveTtlMin: Math.round(CACHE_SOFT_TTL_MS / 60_000),
+    staleTtlMin: Math.round(CACHE_STALE_TTL_MS / 60_000),
+    heapMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+  };
+}
+
 type RowBase = Record<string, unknown>;
 
 // ============================================================================
 // CACHÉ EN MEMORIA ULTRA-RÁPIDO CON STALE-WHILE-REVALIDATE
 // ----------------------------------------------------------------------------
-// 1. Soft TTL (15 min): Datos 100% frescos.
-// 2. Stale TTL (2 horas): Si pasaron más de 15 min, se sirve de INMEDIATO (<5ms)
+// 1. Soft TTL (10 min): Datos 100% frescos.
+// 2. Stale TTL (30 min): Si pasaron más de 10 min, se sirve de INMEDIATO (<5ms)
 //    y se revalida en background sin bloquear la navegación ni la carga.
 // 3. Deduplicación en vuelo: múltiples peticiones concurrentes a la misma clave
 //    comparten una única promesa hacia PostgreSQL.
+//
+// ANTES: 15 min frescos / 2 h utilizables stale. Con 2 h, cargar siniestros
+// nuevos en la BD y recargar la página NO los mostraba: había que esperar
+// hasta 2 horas (o reiniciar el contenedor). 30 min acota ese desfase sin
+// castigar la latencia, y /api/cache permite purgar a mano en cualquier
+// momento (botón "refrescar" en el header).
 // ============================================================================
-const CACHE_SOFT_TTL_MS = 15 * 60_000;  // 15 minutos fresco
-const CACHE_STALE_TTL_MS = 120 * 60_000; // 2 horas utilizable stale
+const CACHE_SOFT_TTL_MS = 10 * 60_000;  // 10 minutos fresco
+const CACHE_STALE_TTL_MS = 30 * 60_000; // 30 minutos utilizable stale
 const CACHE_MAX_ENTRIES = 300;           // tope de entradas en memoria (LRU)
-const CACHE_SWEEP_MS = 10 * 60_000;      // barrido de expiración cada 10 min
+const CACHE_MAX_BYTES = 24 * 1024 * 1024; // tope de 24 MB: 300 entradas de geodata
+                                               // o matrices pesan mucho más que un KPI
+const CACHE_SWEEP_MS = 5 * 60_000;       // barrido de expiración cada 5 min
 
 interface EntradaCache<T> {
   t: number;    // cuándo se validó por última vez contra la BD
   last: number; // último acceso (lectura o escritura), para LRU
+  bytes: number;// tamaño aproximado del payload, para el tope en MB
   v: T;
 }
 
 const cacheConsultas = new Map<string, EntradaCache<unknown>>();
-const enVuelo = new Map<string, Promise<unknown>>();
+const enVuelo = new Map<string, { t: number; p: Promise<unknown> }>();
+let bytesEnCache = 0;
+
+// Tamaño aproximado en bytes. JSON.stringify es nativo y sobre payloads de BD
+// cuesta microsegundos; evita tener un tope solo por número de entradas, que
+// trataría igual un KPI de 2 KB que un mapa con miles de puntos.
+function tamanoAprox(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'string') return v.length * 2;
+  try {
+    return JSON.stringify(v)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function guardar(clave: string, v: unknown): void {
+  const anterior = cacheConsultas.get(clave);
+  const bytes = tamanoAprox(v);
+  if (anterior) bytesEnCache -= anterior.bytes;
+  bytesEnCache += bytes;
+  cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), bytes, v });
+  if (bytesEnCache > CACHE_MAX_BYTES) barrerCache();
+}
 
 // Marca un acceso (en branches de lectura) o escritura.
 function tocar(clave: string, e: EntradaCache<unknown>): void {
@@ -159,29 +364,53 @@ function tocar(clave: string, e: EntradaCache<unknown>): void {
   cacheConsultas.set(clave, e);
 }
 
-// Evita que la caché crezca sin límite: si llegó al tope, expulsa la entrada
-// con acceso más antiguo (least-recently-used).
+// Evita que la caché crezca sin límite: expulsa entradas con acceso más antiguo
+// (least-recently-used) hasta cumplir los dos topes, el de entradas y el de bytes.
 function expulsarSiLleno(): void {
-  if (cacheConsultas.size < CACHE_MAX_ENTRIES) return;
-  let viejaClave: string | null = null;
-  let viejoLast = Infinity;
-  for (const [k, e] of cacheConsultas) {
-    if (e.last < viejoLast) {
-      viejoLast = e.last;
-      viejaClave = k;
+  while (
+    cacheConsultas.size >= CACHE_MAX_ENTRIES ||
+    (bytesEnCache > CACHE_MAX_BYTES && cacheConsultas.size > 0)
+  ) {
+    let viejaClave: string | null = null;
+    let viejoLast = Infinity;
+    for (const [k, e] of cacheConsultas) {
+      if (e.last < viejoLast) {
+        viejoLast = e.last;
+        viejaClave = k;
+      }
     }
+    if (viejaClave == null) return;
+    const saliendo = cacheConsultas.get(viejaClave);
+    if (saliendo) bytesEnCache -= saliendo.bytes;
+    cacheConsultas.delete(viejaClave);
   }
-  if (viejaClave != null) cacheConsultas.delete(viejaClave);
 }
 
-// Barrido periódico: descarta entradas que no se usan desde hace más de
-// CACHE_STALE_TTL_MS (2 h). Libera memoria y datos (incluidos los delicados
+// Barrido periódico: descarta entradas sin uso desde hace más de
+// CACHE_STALE_TTL_MS. Libera memoria y datos (incluidos los delicados
 // que aún puedan quedar) aunque nunca se vuelvan a pedir esas combinaciones.
+// También suelta promesas en vuelo que quedaron colgadas.
 function barrerCache(): void {
   const ahora = Date.now();
+  let libres = 0;
   for (const [k, e] of cacheConsultas) {
-    if (ahora - e.last > CACHE_STALE_TTL_MS) cacheConsultas.delete(k);
+    if (ahora - e.last > CACHE_STALE_TTL_MS) {
+      bytesEnCache -= e.bytes;
+      libres++;
+      cacheConsultas.delete(k);
+    }
   }
+  if (libres) console.log(`[cache] barrido: ${libres} entradas liberadas`);
+
+  // Red de seguridad: una promesa que no se resuelve en 2 min queda huérfana.
+  for (const [k, en] of enVuelo) {
+    if (ahora - en.t > 2 * 60_000) {
+      enVuelo.delete(k);
+      console.log(`[cache] promesa en vuelo abandonada: ${k.slice(0, 60)}`);
+    }
+  }
+
+  if (bytesEnCache > CACHE_MAX_BYTES) expulsarSiLleno();
 }
 
 async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
@@ -200,14 +429,14 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
     if (!enVuelo.has(clave)) {
       const p = fn()
         .then((nuevo) => {
-          cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: nuevo });
+          guardar(clave, nuevo);
           enVuelo.delete(clave);
           return nuevo;
         })
         .catch(() => {
           enVuelo.delete(clave);
         });
-      enVuelo.set(clave, p);
+      enVuelo.set(clave, { t: Date.now(), p });
     }
     return hit.v as T;
   }
@@ -216,13 +445,13 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
   // Reutilizar promesa en vuelo si existe para no duplicar queries
   const pendiente = enVuelo.get(clave);
   if (pendiente) {
-    return pendiente as Promise<T>;
+    return pendiente.p as Promise<T>;
   }
 
   expulsarSiLleno();
   const promesa = fn()
     .then((resultado) => {
-      cacheConsultas.set(clave, { t: Date.now(), last: Date.now(), v: resultado });
+      guardar(clave, resultado);
       enVuelo.delete(clave);
       return resultado;
     })
@@ -232,16 +461,17 @@ async function conCache<T>(clave: string, fn: () => Promise<T>): Promise<T> {
       throw err;
     });
 
-  enVuelo.set(clave, promesa);
+  enVuelo.set(clave, { t: Date.now(), p: promesa });
   return promesa;
 }
 
-// Clave de caché estable para un conjunto de filtros.
+// Clave de caché estable para un conjunto de filtros (listas ordenadas).
 function serializarFiltros(f: Filters | EstatusFiltros): string {
   const ordenado: Record<string, unknown> = {};
   for (const k of Object.keys(f).sort()) {
     const v = (f as Record<string, unknown>)[k];
-    if (v !== undefined && v !== null) ordenado[k] = v;
+    if (v === undefined || v === null) continue;
+    ordenado[k] = Array.isArray(v) ? [...v].sort() : v;
   }
   return JSON.stringify(ordenado);
 }
@@ -252,6 +482,7 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
 
   // Si se busca un contrato específico, buscar de forma flexible en numero_contrato
   // y campos originales (incluso identificaciones), sin que el rango estricto de fechas lo oculte
+  // La fecha que manda es `fecha_efectiva` (radicación o fecha propia del archivo).
   if (f.contrato) {
     params.push(f.contrato);
     cond.push(`(
@@ -267,36 +498,31 @@ function construirWhere(f: Filters): { cond: string; params: unknown[] } {
     // Si el usuario fijó fechas personalizadas (distintas al año default), se respetan
     if (f.desde && f.hasta && (f.desde !== `${ANIO_REPORTE}-01-01` || f.hasta !== `${ANIO_REPORTE}-12-31`)) {
       params.push(f.desde, f.hasta);
-      cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
+      cond.push(`fecha_efectiva >= $${params.length - 1}::date AND fecha_efectiva < ($${params.length}::date + interval '1 day')`);
     }
   } else {
     params.push(f.desde, f.hasta);
-    cond.push(`fecha_radicacion >= $${params.length - 1}::date AND fecha_radicacion < ($${params.length}::date + interval '1 day')`);
+    cond.push(`fecha_efectiva >= $${params.length - 1}::date AND fecha_efectiva < ($${params.length}::date + interval '1 day')`);
   }
 
-  if (f.gasera) {
-    params.push(f.gasera);
-    cond.push(`gasera_norm = $${params.length}`);
+  if (f.clase?.length) {
+    empujarLista(params, cond, 'clase_norm', f.clase);
   }
-  if (f.producto) {
-    params.push(f.producto);
-    cond.push(`producto_norm = $${params.length}`);
+
+  if (f.gasera?.length) {
+    empujarLista(params, cond, 'gasera_norm', f.gasera);
   }
-  if (f.linea) {
-    params.push(f.linea);
-    cond.push(`linea_norm = $${params.length}`);
+  if (f.producto?.length) {
+    empujarLista(params, cond, 'producto_norm', f.producto);
   }
-  if (f.estado) {
-    params.push(f.estado);
-    cond.push(`estado_norm = $${params.length}`);
+  if (f.estado?.length) {
+    empujarLista(params, cond, 'estado_norm', f.estado);
   }
-  if (f.aseguradora) {
-    params.push(f.aseguradora);
-    cond.push(`aseguradora_norm = $${params.length}`);
+  if (f.aseguradora?.length) {
+    empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
   }
-  if (f.tipo_siniestro) {
-    params.push(f.tipo_siniestro);
-    cond.push(`tipo_siniestro_norm = $${params.length}`);
+  if (f.tipo_siniestro?.length) {
+    empujarLista(params, cond, 'tipo_siniestro_norm', f.tipo_siniestro);
   }
   return { cond: cond.join(' AND '), params };
 }
@@ -315,7 +541,7 @@ export async function getKpis(f: Filters): Promise<KpisData> {
         count(*) FILTER (WHERE estado_norm = 'Solicitud de documentos')::int AS solicitud_docs,
         count(*) FILTER (WHERE estado_norm = 'En trámite')::int    AS en_tramite,
         count(*) FILTER (WHERE estado_norm = 'Sin estado')::int    AS sin_estado,
-        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS total_pagado
+        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS total_pagado
       FROM base
       WHERE ${w.cond}
     )
@@ -347,10 +573,12 @@ async function getTotalAnio(anio: number): Promise<number | null> {
     `
     SELECT count(*)::int AS n
     FROM (
-      SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
+      SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
       FROM siniestros.casos c
+      WHERE c.vigente
+        AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
     ) sub
-    WHERE sub.fecha_radicacion BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
+    WHERE sub.fecha_efectiva BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
     `,
     [`${anio}-01-01`, `${anio}-12-31`],
   );
@@ -367,7 +595,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   if (f.mes) {
     const sqlDia = `
       WITH base AS (${BASE})
-      SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+      SELECT EXTRACT(DAY FROM fecha_efectiva)::int AS dia,
              count(*)::int            AS total,
              COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
       FROM base
@@ -379,7 +607,7 @@ export async function getTendencia(f: Filters): Promise<PuntoTendencia[]> {
   }
   const sql = `
     WITH base AS (${BASE})
-    SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
+    SELECT to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') AS mes,
            count(*)::int            AS total,
            COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS valor
     FROM base
@@ -456,7 +684,7 @@ export async function getPorAseguradora(f: Filters): Promise<SerieAseguradora[]>
   const w = construirWhere(f);
   const sql = `
     WITH base AS (${BASE})
-    SELECT to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') AS mes,
+    SELECT to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') AS mes,
            aseguradora_norm AS aseguradora,
            count(*)::int AS total
     FROM base
@@ -536,10 +764,11 @@ export async function getPorTipoSiniestro(f: Filters, top = 6): Promise<ItemTipo
 // sin datos personales); las páginas se consultan a BD bajo demanda.
 const CAMPOS_TABLA = `
   id_caso, numero_contrato, nombre_asegurado,
-  fecha_radicacion,
+  fecha_efectiva AS fecha_radicacion,
   aseguradora_norm AS aseguradora,
   gasera_norm AS gasera,
   producto_norm AS producto,
+  clase_norm AS clase,
   estado_norm AS estado,
   monto
 `;
@@ -558,25 +787,73 @@ export async function getTabla(f: Filters, page: number, pageSize: number): Prom
     SELECT ${CAMPOS_TABLA}
     FROM base
     WHERE ${w.cond}
-    ORDER BY fecha_radicacion DESC NULLS LAST, id_caso DESC
+    ORDER BY fecha_efectiva DESC NULLS LAST, id_caso DESC
     LIMIT $${w.params.length + 1} OFFSET $${w.params.length + 2}
   `;
   const filas = await query<RegistroTabla>(sql, [...w.params, pageSize, off]);
   return {
-    registros: filas.map((r) => ({
-      id_caso: Number(r.id_caso),
-      numero_contrato: r.numero_contrato,
-      nombre_asegurado: r.nombre_asegurado,
-      aseguradora: r.aseguradora ?? '',
-      gasera: r.gasera ?? '',
-      producto: r.producto ?? '',
-      estado: r.estado ?? '',
-      fecha_radicacion: r.fecha_radicacion,
-      monto: r.monto == null ? null : Number(r.monto),
-    })),
+    registros: mapearFilasTabla(filas),
     total,
     page,
     pageSize,
+  };
+}
+
+// Normaliza los tipos que entrega pg (numeric → number, null → cadena vacía).
+function mapearFilasTabla(filas: RegistroTabla[]): RegistroTabla[] {
+  return filas.map((r) => ({
+    id_caso: Number(r.id_caso),
+    numero_contrato: r.numero_contrato,
+    nombre_asegurado: r.nombre_asegurado,
+    aseguradora: r.aseguradora ?? '',
+    gasera: r.gasera ?? '',
+    producto: r.producto ?? '',
+    clase: r.clase ?? '',
+    estado: r.estado ?? '',
+    fecha_radicacion: r.fecha_radicacion,
+    monto: r.monto == null ? null : Number(r.monto),
+  }));
+}
+
+// ---- Exportación del detalle (servidor) ----------------------------------------
+// El .xlsx se arma en el servidor con UNA sola consulta (sin paginación en el
+// navegador): el cliente antes encadenaba cientos de peticiones a /api/tabla, lo
+// que agotaba el rate limit de la API (429) y saturaba la DB compartida (53300).
+export const LIMITE_EXPORT_FILAS = 50_000;
+
+export interface DetalleExport {
+  registros: RegistroTabla[];
+  total: number;
+  truncado: boolean;
+}
+
+export async function getDetalleExport(
+  f: Filters,
+  offset: number,
+  limite: number,
+): Promise<DetalleExport> {
+  const w = construirWhere(f);
+  const total = await conCache(`tabla-total:${serializarFiltros(f)}`, async () => {
+    const totalRow = await queryOne<{ n: number }>(
+      `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${w.cond}`, w.params,
+    );
+    return Number(totalRow ? totalRow.n : 0);
+  });
+  const top = Math.max(1, Math.min(Math.floor(limite) || LIMITE_EXPORT_FILAS, LIMITE_EXPORT_FILAS));
+  const off = Math.max(0, Math.floor(offset) || 0);
+  const sql = `
+    WITH base AS (${BASE})
+    SELECT ${CAMPOS_TABLA}
+    FROM base
+    WHERE ${w.cond}
+    ORDER BY fecha_efectiva DESC NULLS LAST, id_caso DESC
+    LIMIT $${w.params.length + 1} OFFSET $${w.params.length + 2}
+  `;
+  const filas = await query<RegistroTabla>(sql, [...w.params, top, off]);
+  return {
+    registros: mapearFilasTabla(filas),
+    total,
+    truncado: off + filas.length < total,
   };
 }
 
@@ -587,7 +864,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
     const sql = `
       WITH base AS (${BASE}),
       filtrado AS (
-        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_radicacion, tipo_siniestro_norm
+        SELECT gasera_norm, producto_norm, estado_norm, aseguradora_norm, fecha_efectiva, tipo_siniestro_norm, clase_norm
         FROM base
         WHERE ${w.cond}
       )
@@ -597,8 +874,9 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         (SELECT json_agg(e) FROM (SELECT COALESCE(estado_norm,'Sin estado') AS estado, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) e) AS estados,
         (SELECT json_agg(a.aseguradora) FROM (SELECT DISTINCT aseguradora_norm AS aseguradora FROM filtrado ORDER BY 1) a) AS aseguradoras,
         (SELECT json_agg(t) FROM (SELECT COALESCE(btrim(tipo_siniestro_norm),'Sin tipo') AS tipo_siniestro, count(*)::int AS total FROM filtrado GROUP BY 1 ORDER BY total DESC) t) AS tipos_siniestro,
-        min(fecha_radicacion) AS min_fecha,
-        max(fecha_radicacion) AS max_fecha
+        (SELECT json_agg(c.clase) FROM (SELECT DISTINCT clase_norm AS clase FROM filtrado WHERE clase_norm IS NOT NULL ORDER BY 1) c) AS clases,
+        min(fecha_efectiva) AS min_fecha,
+        max(fecha_efectiva) AS max_fecha
       FROM filtrado
     `;
     const [row, aniosR] = await Promise.all([
@@ -608,16 +886,19 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         estados: { estado: string; total: number }[] | null;
         aseguradoras: string[] | null;
         tipos_siniestro: { tipo_siniestro: string; total: number }[] | null;
+        clases: string[] | null;
         min_fecha: string | null;
         max_fecha: string | null;
       }>(sql, w.params),
       query<{ anio: number }>(
-        `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_radicacion)::int AS anio
+        `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_efectiva)::int AS anio
         FROM (
-          SELECT c.fecha_radicacion, ${GASERA_SQL} AS gasera_norm
-          FROM siniestros.casos c
-        ) sub
-        WHERE sub.fecha_radicacion IS NOT NULL AND sub.gasera_norm <> 'Promigas'
+          SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
+FROM siniestros.casos c
+      WHERE c.vigente
+        AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
+    ) sub
+    WHERE sub.fecha_efectiva IS NOT NULL AND sub.gasera_norm <> 'Promigas'
         ORDER BY 1 DESC`,
       ),
     ]);
@@ -628,6 +909,7 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
       estados: (row?.estados ?? []).map((e) => ({ estado: e.estado, total: Number(e.total) })),
       aseguradoras: row?.aseguradoras ?? [],
       tipos_siniestro: (row?.tipos_siniestro ?? []).map((t) => ({ tipo_siniestro: t.tipo_siniestro, total: Number(t.total) })),
+      clases: row?.clases ?? [],
       anios: aniosR.map((r) => Number(r.anio)),
       rangoFechas: { min: aISO(row?.min_fecha), max: aISO(row?.max_fecha) },
     };
@@ -637,57 +919,72 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
 // ---- Estatus de siniestros por gasera y mes (matriz) --------------------------
 export interface EstatusFiltros {
   anio: number;
-  gasera?: string;
-  producto?: string;
-  linea?: string;
-  estado?: string;
-  aseguradora?: string;
+  gasera?: string[];
+  producto?: string[];
+  aseguradora?: string[];
+  clase?: string[];
+  estado?: string[];
 }
 
 export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   return conCache(`estatus:${serializarFiltros(ef)}`, async () => {
   const cond: string[] = [];
   const params: unknown[] = [`${ef.anio}-01-01`, `${ef.anio}-12-31`];
-  cond.push('fecha_radicacion >= $1::date AND fecha_radicacion <= $2::date');
-  if (ef.gasera) {
-    params.push(ef.gasera);
-    cond.push(`gasera_norm = $${params.length}`);
+  cond.push('fecha_efectiva >= $1::date AND fecha_efectiva <= $2::date');
+  if (ef.gasera?.length) {
+    empujarLista(params, cond, 'gasera_norm', ef.gasera);
   }
-  if (ef.producto) {
-    params.push(ef.producto);
-    cond.push(`producto_norm = $${params.length}`);
+  if (ef.producto?.length) {
+    empujarLista(params, cond, 'producto_norm', ef.producto);
   }
-  if (ef.linea) {
-    params.push(ef.linea);
-    cond.push(`linea_norm = $${params.length}`);
+  if (ef.aseguradora?.length) {
+    empujarLista(params, cond, 'aseguradora_norm', ef.aseguradora);
   }
-  if (ef.estado) {
-    params.push(ef.estado);
-    cond.push(`estado_norm = $${params.length}`);
+  if (ef.clase?.length) {
+    empujarLista(params, cond, 'clase_norm', ef.clase);
   }
-  if (ef.aseguradora) {
-    params.push(ef.aseguradora);
-    cond.push(`aseguradora_norm = $${params.length}`);
+  if (ef.estado?.length) {
+    empujarLista(params, cond, 'estado_norm', ef.estado);
   }
   const sql = `
     WITH base AS (${BASE})
     SELECT COALESCE(gasera_norm,'Sin gasera') AS gasera,
-           EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+           COALESCE(estado_norm,'Sin estado')   AS estado,
+           EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
            count(*)::int AS total
     FROM base
     WHERE ${cond.join(' AND ')}
-    GROUP BY 1, 2 ORDER BY 1, 2
+    GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
   `;
   const rows = await query<FilaEstatus>(sql, params);
-  const gaseras = [...new Set(rows.map((r) => r.gasera))].sort((a, b) => {
-    const ta = rows.filter((r) => r.gasera === a).reduce((s, r) => s + Number(r.total), 0);
-    const tb = rows.filter((r) => r.gasera === b).reduce((s, r) => s + Number(r.total), 0);
+  const mapa = new Map<string, number[]>();
+  const mapaEstados = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (!mapa.has(r.gasera)) mapa.set(r.gasera, Array.from({ length: 12 }, () => 0));
+    const idx = (r.mes - 1) % 12;
+    const fila = mapa.get(r.gasera);
+    if (fila !== undefined) {
+      fila[idx] = fila[idx]! + r.total;
+    }
+    if (!mapaEstados.has(r.gasera)) mapaEstados.set(r.gasera, new Map());
+    const em = mapaEstados.get(r.gasera)!;
+    em.set(r.estado, (em.get(r.estado) ?? 0) + r.total);
+  }
+  const gaseras = [...mapa.keys()].sort((a, b) => {
+    const ta = mapa.get(a)!.reduce((s, n) => s + n, 0);
+    const tb = mapa.get(b)!.reduce((s, n) => s + n, 0);
+    return tb - ta;
+  });
+  const estados = [...mapaEstados.keys()].sort((a, b) => {
+    const ta = mapaEstados.get(a)!.values().reduce((s, n) => s + n, 0);
+    const tb = mapaEstados.get(b)!.values().reduce((s, n) => s + n, 0);
     return tb - ta;
   });
   return {
     anio: ef.anio,
     gaseras,
-    filas: rows.map((r) => ({ gasera: r.gasera, mes: Number(r.mes), total: Number(r.total) })),
+    estados,
+    filas: rows.map((r) => ({ gasera: r.gasera, estado: r.estado, mes: Number(r.mes), total: Number(r.total) })),
   };
   });
 }
@@ -700,41 +997,37 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
 // por mes calendario) para el panel inferior de la vista.
 export async function getHistoricos(f: Filters): Promise<HistoricosData> {
   const rel = serializarFiltros({
-    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto, linea: f.linea,
+    anio: f.anio, mes: f.mes, gasera: f.gasera, aseguradora: f.aseguradora, producto: f.producto, clase: f.clase,
   });
   return conCache(`historicos:${rel}`, async () => {
     const cond: string[] = [
-      'fecha_radicacion IS NOT NULL',
-      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+      'fecha_efectiva IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_efectiva) BETWEEN $1 AND $2',
     ];
     const params: unknown[] = [ANIO_HIST_MIN, ANIO_HIST_MAX];
     if (f.anio) {
       params.push(Number(f.anio));
-      cond.push('EXTRACT(YEAR FROM fecha_radicacion) = $' + params.length);
+      cond.push('EXTRACT(YEAR FROM fecha_efectiva) = $' + params.length);
     }
     if (f.mes) {
       params.push(f.mes);
-      cond.push(`to_char(date_trunc('month', fecha_radicacion), 'YYYY-MM') = $${params.length}`);
+      cond.push(`to_char(date_trunc('month', fecha_efectiva), 'YYYY-MM') = $${params.length}`);
     }
-    if (f.gasera) {
-      params.push(f.gasera);
-      cond.push('gasera_norm = $' + params.length);
+    if (f.gasera?.length) {
+      empujarLista(params, cond, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params.push(f.producto);
-      cond.push('producto_norm = $' + params.length);
+    if (f.producto?.length) {
+      empujarLista(params, cond, 'producto_norm', f.producto);
     }
-    if (f.linea) {
-      params.push(f.linea);
-      cond.push('linea_norm = $' + params.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
     }
-    if (f.aseguradora) {
-      params.push(f.aseguradora);
-      cond.push('aseguradora_norm = $' + params.length);
+    if (f.clase?.length) {
+      empujarLista(params, cond, 'clase_norm', f.clase);
     }
     const sql = `
       WITH base AS (${BASE})
-      SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
+      SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
              count(*)::int AS total,
              count(*) FILTER (WHERE estado_norm = 'Pagado')::int AS pagados,
              count(*) FILTER (WHERE estado_norm = 'Objetado')::int AS objetados,
@@ -747,8 +1040,8 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       query<{ anio: number; total: number; pagados: number; objetados: number; total_pagado: string }>(sql, params),
       query<{ anio: number; mes: number; total: number }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total
          FROM base
          WHERE ${cond.join(' AND ')}
@@ -757,8 +1050,8 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       ),
       query<{ anio: number; mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -767,12 +1060,12 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
         params,
       ),
       (async () => {
-        const condSF: string[] = ['fecha_radicacion IS NULL'];
+        const condSF: string[] = ['fecha_efectiva IS NULL'];
         const paramsSF: unknown[] = [];
-        if (f.gasera) { paramsSF.push(f.gasera); condSF.push(`gasera_norm = $${paramsSF.length}`); }
-        if (f.producto) { paramsSF.push(f.producto); condSF.push(`producto_norm = $${paramsSF.length}`); }
-        if (f.linea) { paramsSF.push(f.linea); condSF.push(`linea_norm = $${paramsSF.length}`); }
-        if (f.aseguradora) { paramsSF.push(f.aseguradora); condSF.push(`aseguradora_norm = $${paramsSF.length}`); }
+        if (f.gasera?.length) { empujarLista(paramsSF, condSF, 'gasera_norm', f.gasera); }
+        if (f.producto?.length) { empujarLista(paramsSF, condSF, 'producto_norm', f.producto); }
+        if (f.aseguradora?.length) { empujarLista(paramsSF, condSF, 'aseguradora_norm', f.aseguradora); }
+        if (f.clase?.length) { empujarLista(paramsSF, condSF, 'clase_norm', f.clase); }
         return queryOne<{ n: number }>(
           `WITH base AS (${BASE}) SELECT count(*)::int AS n FROM base WHERE ${condSF.join(' AND ')}`,
           paramsSF,
@@ -783,7 +1076,7 @@ export async function getHistoricos(f: Filters): Promise<HistoricosData> {
       f.mes
         ? query<{ dia: number; total: number; valor: string }>(
             `WITH base AS (${BASE})
-             SELECT EXTRACT(DAY FROM fecha_radicacion)::int AS dia,
+             SELECT EXTRACT(DAY FROM fecha_efectiva)::int AS dia,
                     count(*)::int AS total,
                     COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
              FROM base
@@ -900,57 +1193,49 @@ const ANIO_OBJETIVO = ANIO_REPORTE + 1; // 2027
 const ANIO_CORTE_CAMBIO = 2022; // temprano 2018–2022 vs reciente 2023–2025
 
 export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
-  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, linea: f.linea, aseguradora: f.aseguradora });
+  const rel = serializarFiltros({ gasera: f.gasera, producto: f.producto, aseguradora: f.aseguradora, clase: f.clase });
   return conCache(`proyeccion:${rel}`, async () => {
     const cond: string[] = [
-      'fecha_radicacion IS NOT NULL',
-      'EXTRACT(YEAR FROM fecha_radicacion) BETWEEN $1 AND $2',
+      'fecha_efectiva IS NOT NULL',
+      'EXTRACT(YEAR FROM fecha_efectiva) BETWEEN $1 AND $2',
     ];
     const params: unknown[] = [ANIO_HIST_MIN, ANIO_ENTRENA_MAX];
-    if (f.gasera) {
-      params.push(f.gasera);
-      cond.push('gasera_norm = $' + params.length);
+    if (f.gasera?.length) {
+      empujarLista(params, cond, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params.push(f.producto);
-      cond.push('producto_norm = $' + params.length);
+    if (f.producto?.length) {
+      empujarLista(params, cond, 'producto_norm', f.producto);
     }
-    if (f.linea) {
-      params.push(f.linea);
-      cond.push('linea_norm = $' + params.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params, cond, 'aseguradora_norm', f.aseguradora);
     }
-    if (f.aseguradora) {
-      params.push(f.aseguradora);
-      cond.push('aseguradora_norm = $' + params.length);
+    if (f.clase?.length) {
+      empujarLista(params, cond, 'clase_norm', f.clase);
     }
     const where = cond.join(' AND ');
     // Mismos filtros dimensionales pero apuntando al año en curso (2026) para
     // el cierre real; el `where` principal corta en 2018–2025 (entrenamiento).
-    const cond2026: string[] = ['fecha_radicacion IS NOT NULL', 'EXTRACT(YEAR FROM fecha_radicacion) = ' + ANIO_REPORTE];
+    const cond2026: string[] = ['fecha_efectiva IS NOT NULL', 'EXTRACT(YEAR FROM fecha_efectiva) = ' + ANIO_REPORTE];
     const params2026: unknown[] = [];
-    if (f.gasera) {
-      params2026.push(f.gasera);
-      cond2026.push('gasera_norm = $' + params2026.length);
+    if (f.gasera?.length) {
+      empujarLista(params2026, cond2026, 'gasera_norm', f.gasera);
     }
-    if (f.producto) {
-      params2026.push(f.producto);
-      cond2026.push('producto_norm = $' + params2026.length);
+    if (f.producto?.length) {
+      empujarLista(params2026, cond2026, 'producto_norm', f.producto);
     }
-    if (f.linea) {
-      params2026.push(f.linea);
-      cond2026.push('linea_norm = $' + params2026.length);
+    if (f.aseguradora?.length) {
+      empujarLista(params2026, cond2026, 'aseguradora_norm', f.aseguradora);
     }
-    if (f.aseguradora) {
-      params2026.push(f.aseguradora);
-      cond2026.push('aseguradora_norm = $' + params2026.length);
+    if (f.clase?.length) {
+      empujarLista(params2026, cond2026, 'clase_norm', f.clase);
     }
     const where2026 = cond2026.join(' AND ');
-    const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_radicacion) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
+    const corte = `CASE WHEN EXTRACT(YEAR FROM fecha_efectiva) <= ${ANIO_CORTE_CAMBIO} THEN 'temprano' ELSE 'reciente' END`;
     const [mensual, deptos, tipos, tiposPeriodo, deptosPeriodo, reales2026] = await Promise.all([
       query<{ anio: number; mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(YEAR FROM fecha_radicacion)::int AS anio,
-                EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(YEAR FROM fecha_efectiva)::int AS anio,
+                EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -993,7 +1278,7 @@ export async function getProyeccion(f: Filters): Promise<ProyeccionData> {
       // Reales 2026 mes a mes (siniestros + pagado) para el cierre del año.
       query<{ mes: number; total: number; valor: string }>(
         `WITH base AS (${BASE})
-         SELECT EXTRACT(MONTH FROM fecha_radicacion)::int AS mes,
+         SELECT EXTRACT(MONTH FROM fecha_efectiva)::int AS mes,
                 count(*)::int AS total,
                 COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS valor
          FROM base
@@ -1267,10 +1552,12 @@ export async function precalentarCache(): Promise<void> {
       const topGaseras = meta.gaseras.slice(0, 4);
       const topAseg = meta.aseguradoras.slice(0, 3);
       const topProd = meta.productos.slice(0, 3);
+      const topClases = (meta.clases ?? []).slice(0, 4);
       await Promise.allSettled([
-        ...topGaseras.map((g) => getProyeccion({ gasera: g })),
-        ...topAseg.map((a) => getProyeccion({ aseguradora: a })),
-        ...topProd.map((p) => getProyeccion({ producto: p })),
+        ...topGaseras.map((g) => getProyeccion({ gasera: [g] })),
+        ...topAseg.map((a) => getProyeccion({ aseguradora: [a] })),
+        ...topProd.map((p) => getProyeccion({ producto: [p] })),
+        ...topClases.map((c) => getProyeccion({ clase: [c] })),
       ]);
     } catch {}
   } catch {
@@ -1281,7 +1568,14 @@ export async function precalentarCache(): Promise<void> {
 // Iniciar precalentamiento únicamente al arrancar el servidor. Después de eso,
 // la caché se revalida bajo demanda (SWR): no hay trabajo innecesario de BD con
 // cero usuarios.
-if (typeof process !== 'undefined') {
+//
+// Se registra una sola vez por proceso: en desarrollo, Vite reevalúa este módulo
+// en cada recarga en caliente, y sin este candado se acumulaban un precalentado
+// y un intervalo de mantenimiento por recarga (cada uno disparando consultas).
+const gQuery = globalThis as typeof globalThis & { __initMantenimiento?: boolean };
+if (typeof process !== 'undefined' && !gQuery.__initMantenimiento) {
+  gQuery.__initMantenimiento = true;
+
   // Disparar precalentamiento inicial tras 100ms
   setTimeout(() => {
     precalentarCache();
@@ -1290,12 +1584,15 @@ if (typeof process !== 'undefined') {
   // Higiene del rate-limiter (descarta buckets vencidos por IP).
   configurarLimpieza();
 
-  // Mantenimiento periódico de la caché: barre entradas sin uso > 2 h y
-  // registra el tamaño del cache y la memoria del heap para detectar fugas.
+  // Mantenimiento periódico de la caché: barre entradas sin uso > 2 h, aplica
+  // el tope de MB y registra tamaño y heap para detectar fugas de memoria.
   const mantenimiento = setInterval(() => {
     barrerCache();
     const heapMb = Math.round(process.memoryUsage().heapUsed / 1048576);
-    console.log(`[cache] ${cacheConsultas.size}/${CACHE_MAX_ENTRIES} entradas · heap ${heapMb} MB`);
+    const cacheMb = Math.round((bytesEnCache / 1048576) * 10) / 10;
+    console.log(
+      `[cache] ${cacheConsultas.size}/${CACHE_MAX_ENTRIES} entradas · ${cacheMb}/${Math.round(CACHE_MAX_BYTES / 1048576)} MB · heap ${heapMb} MB · ${enVuelo.size} en vuelo`,
+    );
   }, CACHE_SWEEP_MS);
   if (mantenimiento.unref) mantenimiento.unref();
 }

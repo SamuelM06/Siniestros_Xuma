@@ -21,7 +21,7 @@ export default function LoginForm() {
       const form = new FormData();
       form.set('username', username);
       form.set('password', password);
-      const res = await fetch(ruta('/api/auth/login'), { method: 'POST', body: form });
+      const res = await fetch(ruta(ruta('/api/auth/login')), { method: 'POST', body: form });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
         window.location.assign(ruta('/dashboard'));

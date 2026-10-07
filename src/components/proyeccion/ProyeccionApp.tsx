@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { Filters, Metadatos, ProyeccionData } from '../../lib/types';
-import { queryString } from '../../utils/fetcher';
+import { queryString, queryStringOpciones } from '../../utils/fetcher';
 import { formatNum } from '../../utils/formatters';
 import Panel from '../dashboard/Panel';
 import KpiCard from '../kpi/KpiCard';
@@ -23,13 +23,14 @@ interface Props {
 export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metadatos }: Props) {
   const [filtros, setFiltros] = useState<Filters>(filtrosIniciales);
   const [data, setData] = useState<ProyeccionData>(datosIniciales);
+  const [opciones, setOpciones] = useState<Metadatos>(metadatos);
   const [cargando, setCargando] = useState(false);
   const primeraCarga = useRef(true);
   const cacheRef = useRef<Map<string, ProyeccionData>>(new Map());
   const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   if (cacheRef.current.size === 0) {
-    const k0 = JSON.stringify({ gasera: filtrosIniciales.gasera ?? null, producto: filtrosIniciales.producto ?? null, linea: filtrosIniciales.linea ?? null, aseguradora: filtrosIniciales.aseguradora ?? null });
+    const k0 = JSON.stringify({ gasera: filtrosIniciales.gasera ?? null, producto: filtrosIniciales.producto ?? null, aseguradora: filtrosIniciales.aseguradora ?? null, clase: filtrosIniciales.clase ?? null });
     cacheRef.current.set(k0, datosIniciales);
   }
 
@@ -44,16 +45,47 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
   const resetFiltros = useCallback(() => {
     setFiltros({
-      anio: undefined, gasera: undefined, producto: undefined, linea: undefined,
+      anio: undefined, gasera: undefined, producto: undefined,
       aseguradora: undefined, contrato: undefined, mes: undefined,
-      estado: undefined, tipo_siniestro: undefined,
+      estado: undefined, tipo_siniestro: undefined, clase: undefined,
       desde: '2018-01-01', hasta: '2026-12-31',
     });
   }, []);
 
+  // Cascada Clase → Gasera/Producto con data en tiempo real.
+  const claseKey = JSON.stringify(filtros.clase ?? null);
+  useEffect(() => {
+    let vivo = true;
+    fetch(ruta(`/api/metadatos?${queryStringOpciones(filtros)}`))
+      .then(async (res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return (await res.json()) as Metadatos;
+      })
+      .then((m) => {
+        if (!vivo) return;
+        setOpciones(m);
+        setFiltros((prev) => {
+          const gaserasOk = (prev.gasera ?? []).filter((g) => m.gaseras.includes(g));
+          const productosOk = (prev.producto ?? []).filter((p) => m.productos.includes(p));
+          const ng = gaserasOk.length > 0 ? gaserasOk : undefined;
+          const np = productosOk.length > 0 ? productosOk : undefined;
+          if (
+            (ng?.length ?? 0) === (prev.gasera?.length ?? 0) &&
+            (np?.length ?? 0) === (prev.producto?.length ?? 0)
+          ) return prev;
+          return { ...prev, gasera: ng, producto: np };
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claseKey]);
+
   useEffect(() => {
     if (primeraCarga.current) { primeraCarga.current = false; return; }
-    const key = JSON.stringify({ gasera: filtros.gasera ?? null, producto: filtros.producto ?? null, linea: filtros.linea ?? null, aseguradora: filtros.aseguradora ?? null });
+    const key = JSON.stringify({ gasera: filtros.gasera ?? null, producto: filtros.producto ?? null, aseguradora: filtros.aseguradora ?? null, clase: filtros.clase ?? null });
     const cached = cacheRef.current.get(key);
     if (cached) {
       setData(cached);
@@ -91,7 +123,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
   const { forecast, forecast2026, tendencia, departamentos, tiposSiniestro, anioObjetivo, aniosEntrenamiento } = data;
 
   const activos =
-    (filtros.gasera ? 1 : 0) + (filtros.producto ? 1 : 0) + (filtros.linea ? 1 : 0) + (filtros.aseguradora ? 1 : 0);
+    ((filtros.clase?.length ?? 0) > 0 ? 1 : 0) + ((filtros.gasera?.length ?? 0) > 0 ? 1 : 0) + ((filtros.producto?.length ?? 0) > 0 ? 1 : 0) + ((filtros.aseguradora?.length ?? 0) > 0 ? 1 : 0);
 
   const deptoTop = useMemo(() => {
     if (departamentos.length === 0) return null;
@@ -111,7 +143,7 @@ export default function ProyeccionApp({ datosIniciales, filtrosIniciales, metada
 
       <FiltrosPanel
         filtros={filtros}
-        metadatos={metadatos}
+        metadatos={opciones}
         onChange={cambioFiltro}
         onReset={resetFiltros}
         activos={activos}

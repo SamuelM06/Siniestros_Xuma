@@ -25,7 +25,7 @@ export const ENV = {
   dbUser: env('DB_USER'),
   dbPassword: env('DB_PASSWORD'),
   dbSsl: env('DB_SSL') === 'true',
-  dbPoolMax: num('DB_POOL_MAX', 8),
+  dbPoolMax: num('DB_POOL_MAX', 5),
 
   adminUser: env('ADMIN_USER', 'analista'),
   adminPasswordHash: env('ADMIN_PASSWORD_HASH'),

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Compass, Coins, Globe, MapPin, Trophy } from 'lucide-react';
 import type { Filters, MapaData, Metadatos } from '../../lib/types';
-import { queryString } from '../../utils/fetcher';
+import { queryString, queryStringOpciones } from '../../utils/fetcher';
 import { formatCOP, formatNum } from '../../utils/formatters';
 import FiltrosPanel from '../filtros/FiltrosPanel';
 import MapaColombia from './MapaColombia';
@@ -35,10 +35,10 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
       hasta: DEFAULT_HASTA,
       gasera: undefined,
       producto: undefined,
-      linea: undefined,
       estado: undefined,
       aseguradora: undefined,
       tipo_siniestro: undefined,
+      clase: undefined,
     });
     setDeptoSeleccionado(null);
   }, []);
@@ -51,9 +51,9 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
     deptoActualRef.current = deptoSeleccionado;
   }, [deptoSeleccionado]);
 
-  // Al cambiar los filtros: refrescar MAPA + METADATOS (para que los selects
-  // del panel se reduzcan según los filtros cruzados y el usuario tenga feedback
-  // inmediato de que el filtro sí hizo efecto).
+  // Al cambiar los filtros: refrescar MAPA + OPCIONES (cascada Clase → Gasera/Producto
+  // con data en tiempo real; las opciones excluyen gasera/producto para no colapsar
+  // las listas sobre la selección actual) y podar lo incompatible con la clase.
   const primerRender = useRef(true);
   useEffect(() => {
     if (primerRender.current) {
@@ -68,7 +68,7 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as MapaData;
       }),
-      fetch(ruta(`/api/metadatos?${q}`)).then(async (res) => {
+      fetch(ruta(`/api/metadatos?${queryStringOpciones(filtros)}`)).then(async (res) => {
         if (!res.ok) throw new Error(res.statusText);
         return (await res.json()) as Metadatos;
       }),
@@ -77,6 +77,17 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
         if (!vivo) return;
         setData(nuevoMapa);
         setMetadatos(nuevosMeta);
+        setFiltros((prev) => {
+          const gaserasOk = (prev.gasera ?? []).filter((g) => nuevosMeta.gaseras.includes(g));
+          const productosOk = (prev.producto ?? []).filter((p) => nuevosMeta.productos.includes(p));
+          const ng = gaserasOk.length > 0 ? gaserasOk : undefined;
+          const np = productosOk.length > 0 ? productosOk : undefined;
+          if (
+            (ng?.length ?? 0) === (prev.gasera?.length ?? 0) &&
+            (np?.length ?? 0) === (prev.producto?.length ?? 0)
+          ) return prev;
+          return { ...prev, gasera: ng, producto: np };
+        });
         // Si el departamento seleccionado ya no existe en los datos nuevos
         // (el filtro lo eliminó), limpiar la selección para no mostrar un panel vacío
         const actual = deptoActualRef.current;
@@ -96,12 +107,12 @@ export default function MapaApp({ metadatos: metadatosServer, filtrosIniciales, 
 
   const activos =
     (filtros.contrato ? 1 : 0) +
-    (filtros.gasera ? 1 : 0) +
-    (filtros.producto ? 1 : 0) +
-    (filtros.linea ? 1 : 0) +
-    (filtros.estado ? 1 : 0) +
-    (filtros.aseguradora ? 1 : 0) +
-    (filtros.tipo_siniestro ? 1 : 0) +
+    ((filtros.clase?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.gasera?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.producto?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.estado?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.aseguradora?.length ?? 0) > 0 ? 1 : 0) +
+    ((filtros.tipo_siniestro?.length ?? 0) > 0 ? 1 : 0) +
     (filtros.mes ? 1 : 0) +
     ((filtros.desde && filtros.desde !== DEFAULT_DESDE && !filtros.mes) ? 1 : 0) +
     ((filtros.hasta && filtros.hasta !== DEFAULT_HASTA && !filtros.mes) ? 1 : 0);

@@ -28,8 +28,10 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.3",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.47.0",
     "motion": "^13.4.0",
+    "pdfkit": "^0.20.2",
     "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.6.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.23.1",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

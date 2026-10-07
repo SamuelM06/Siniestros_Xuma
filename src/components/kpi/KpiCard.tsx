@@ -20,19 +20,22 @@ interface Props {
   compacto?: boolean;
 }
 
-const ACENTOS: Record<Props['acento'], { barra: string; glow: string; num: string }> = {
-  azul: { barra: 'from-[#120180] to-[#6a4fd8]', glow: 'shadow-[0_0_35px_-10px_rgba(106,79,216,0.6)]', num: 'num-azul' },
-  'verde-claro': { barra: 'from-[#5ae280] to-[#00cd93]', glow: 'shadow-[0_0_35px_-10px_rgba(90,226,128,0.6)]', num: 'num-verde' },
-  'verde-oscuro': { barra: 'from-[#00cd93] to-[#5ae280]', glow: 'shadow-[0_0_35px_-10px_rgba(0,205,147,0.6)]', num: 'num-teal' },
-  violeta: { barra: 'from-[#8b7bff] to-[#3d22c8]', glow: 'shadow-[0_0_35px_-10px_rgba(139,123,255,0.6)]', num: 'num-violeta' },
-  ambar: { barra: 'from-[#f0b429] to-[#ef7a6b]', glow: 'shadow-[0_0_35px_-10px_rgba(240,180,41,0.55)]', num: 'num-ambar' },
+// La barra superior y el halo cambian con el tema: en claro usan tonos profundos
+// (una barra verde neón sobre blanco canta demasiado); en oscuro conservan el
+// verde de marca y el glow, que ahí sí funciona.
+const ACENTOS: Record<Props['acento'], { barra: string; halo: string; num: string }> = {
+  azul: { barra: 'from-[#1e3a8a] to-[#6a4fd8] dark:from-[#120180] dark:to-[#6a4fd8]', halo: 'kpi-halo-azul', num: 'num-azul' },
+  'verde-claro': { barra: 'from-[#22a06b] to-[#0f766e] dark:from-[#5ae280] dark:to-[#00cd93]', halo: 'kpi-halo-verde-claro', num: 'num-verde' },
+  'verde-oscuro': { barra: 'from-[#0f766e] to-[#22a06b] dark:from-[#00cd93] dark:to-[#5ae280]', halo: 'kpi-halo-verde-oscuro', num: 'num-teal' },
+  violeta: { barra: 'from-[#7c3aed] to-[#4c1d95] dark:from-[#8b7bff] dark:to-[#3d22c8]', halo: 'kpi-halo-violeta', num: 'num-violeta' },
+  ambar: { barra: 'from-[#d97706] to-[#be123c] dark:from-[#f0b429] dark:to-[#ef7a6b]', halo: 'kpi-halo-ambar', num: 'num-ambar' },
 };
 
 const icCls = {
-  azul: 'text-[#6a4fd8] dark:text-[#b8c0ff]',
-  'verde-claro': 'text-[#007a54] dark:text-[#7df0a0]',
-  'verde-oscuro': 'text-[#008a63] dark:text-[#63e2b9]',
-  violeta: 'text-[#6a4fd8] dark:text-[#b8c0ff]',
+  azul: 'text-[#1e3a8a] dark:text-[#b8c0ff]',
+  'verde-claro': 'text-[#15803d] dark:text-[#7df0a0]',
+  'verde-oscuro': 'text-[#0f766e] dark:text-[#63e2b9]',
+  violeta: 'text-[#6d28d9] dark:text-[#b8c0ff]',
   ambar: 'text-[#b45309] dark:text-[#ffd98a]',
 } as const;
 
@@ -65,7 +68,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${hero ? 'flex h-full min-h-48 flex-col justify-between gap-4 @container' : ''} ${className} ${cfg.glow}`}
+        className={`glass glass-hover relative overflow-hidden rounded-3xl p-4 ${hero ? 'flex h-full min-h-48 flex-col justify-between gap-4 @container' : ''} ${className} ${cfg.halo}`}
       >
         <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${cfg.barra}`} />
         {hero ? (
@@ -110,7 +113,7 @@ export default function KpiCard({ titulo, valor, icono, moneda = false, acento, 
       initial={{ opacity: 0, y: 26 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`glass glass-hover relative min-w-0 overflow-hidden rounded-3xl p-4 ${cfg.glow}${centrado ? ' flex h-full flex-col items-center justify-center text-center' : ''}`}
+      className={`glass glass-hover relative min-w-0 overflow-hidden rounded-3xl p-4 ${cfg.halo}${centrado ? ' flex h-full flex-col items-center justify-center text-center' : ''}`}
     >
       <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${cfg.barra}`} />
       {centrado ? (

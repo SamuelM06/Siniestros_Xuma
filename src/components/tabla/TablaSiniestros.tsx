@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Download, FileSearch, FileSpreadsheet, Loader2, Table2, Upload, X } from 'lucide-react';
-import type { Filters, PaginaTabla, RegistroTabla } from '../../lib/types';
-import { formatCOP, formatFecha, formatNum } from '../../utils/formatters';
+import { AlertTriangle, Download, FileSearch, FileSpreadsheet, FileText, Loader2, Table2, Upload, X } from 'lucide-react';
+import type { Filters, PaginaTabla } from '../../lib/types';
+import { formatAsegurado, formatCOP, formatFecha, formatNum } from '../../utils/formatters';
 import { queryString } from '../../utils/fetcher';
-import { descargarExcel } from '../../utils/excel';
-import { estadoColorCat } from '../../lib/normalizacion';
+import { descargarDetalle } from '../../utils/excel';
+import { estadoBadge } from '../../components/estatus/estados';
 
 import { ruta } from '../../lib/base';
 interface Props {
@@ -15,31 +15,8 @@ interface Props {
 
 export const TAMANO_PAGINA = 15;
 
-const ESTADO_STYLE: Record<string, string> = {
-  verde: 'bg-emerald-100/80 text-emerald-800 border-emerald-300/80 dark:bg-xuma-verde-claro/15 dark:text-xuma-verde-claro dark:border-xuma-verde-claro/40',
-  rojo: 'bg-red-500/15 text-red-700 border-red-300/70 dark:text-red-300 dark:border-red-400/40',
-  ambar: 'bg-amber-400/15 text-amber-800 border-amber-300/70 dark:text-amber-300 dark:border-amber-300/40',
-  azul: 'bg-sky-400/15 text-sky-800 border-sky-300/70 dark:text-sky-300 dark:border-sky-300/40',
-  cyan: 'bg-cyan-300/15 text-cyan-800 border-cyan-300/70 dark:text-cyan-200 dark:border-cyan-300/40',
-  morado: 'bg-violet-400/15 text-violet-800 border-violet-300/70 dark:text-violet-300 dark:border-violet-300/40',
-  gris: 'bg-tinta/10 text-tinta/75 border-tinta/20',
-};
-
 type ModoExport = 'pagina' | 'rango' | 'todo';
-
-// Trae todas las filas del rango de páginas indicado (páginas de la vista actual).
-async function obtenerPaginas(q: string, desdePag: number, hastaPag: number, tamano: number): Promise<RegistroTabla[]> {
-  const filas: RegistroTabla[] = [];
-  const tope = Math.min(hastaPag, 2000);
-  for (let p = desdePag; p <= tope; p++) {
-    const res = await fetch(ruta(`/api/tabla?${q}&page=${p}&size=${tamano}`));
-    if (!res.ok) throw new Error('No autorizado o error de servidor');
-    const d = (await res.json()) as PaginaTabla;
-    filas.push(...d.registros);
-    if (d.registros.length === 0) break;
-  }
-  return filas;
-}
+type FormatoExport = 'excel' | 'pdf';
 
 // Tabla de detalle paginada, animada y exportable a Excel.
 export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
@@ -50,6 +27,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
   const [error, setError] = useState('');
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoExport, setModoExport] = useState<ModoExport>('todo');
+  const [formatoExport, setFormatoExport] = useState<FormatoExport>('excel');
   const [rangoDesde, setRangoDesde] = useState(1);
   const [rangoHasta, setRangoHasta] = useState(1);
   const [exportando, setExportando] = useState(false);
@@ -88,10 +66,11 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
   const totalPaginas = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const mostrando = data ? Math.min(data.pageSize, data.total) : 0;
 
-  const abrirExportar = () => {
+  const abrirExportar = (formato: FormatoExport) => {
     setRangoDesde(1);
     setRangoHasta(totalPaginas);
     setModoExport('todo');
+    setFormatoExport(formato);
     setErrorExport('');
     setModalAbierto(true);
   };
@@ -101,27 +80,20 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
     setExportando(true);
     setErrorExport('');
     try {
-      const q = queryString(filtros);
-      let desde = 1;
-      let hasta = totalPaginas;
-      let extra = '_total';
-      if (modoExport === 'pagina') {
-        desde = pagina;
-        hasta = pagina;
-        extra = `_pagina${pagina}`;
-      } else if (modoExport === 'rango') {
-        const d = Math.max(1, Math.min(rangoDesde, totalPaginas));
-        const h = Math.max(d, Math.min(rangoHasta, totalPaginas));
-        desde = d;
-        hasta = h;
-        extra = h === d ? `_pagina${d}` : `_paginas${d}_a_${h}`;
-      }
-      const filas = await obtenerPaginas(q, desde, hasta, tamano);
-      if (filas.length === 0) throw new Error('No hay registros para exportar.');
-      await descargarExcel(filas, extra);
+      const d = Math.max(1, Math.min(rangoDesde, totalPaginas));
+      const h = Math.max(d, Math.min(rangoHasta, totalPaginas));
+      await descargarDetalle({
+        filtros,
+        formato: formatoExport,
+        modo: modoExport,
+        pagina,
+        desde: d,
+        hasta: h,
+        tamano,
+      });
       setModalAbierto(false);
-    } catch {
-      setErrorExport('No se pudo exportar. Intente nuevamente.');
+    } catch (err) {
+      setErrorExport(err instanceof Error ? err.message : 'No se pudo exportar. Intente nuevamente.');
     } finally {
       setExportando(false);
     }
@@ -152,15 +124,26 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               )}
             </span>
           )}
-          <button
-            type="button"
-            onClick={abrirExportar}
-            disabled={!data || data.total === 0 || cargando}
-            className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-xuma-verde-claro/40 dark:bg-xuma-verde-claro/10 dark:text-xuma-verde-claro dark:hover:bg-xuma-verde-claro/20"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Exportar Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => abrirExportar('pdf')}
+              disabled={!data || data.total === 0 || cargando}
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/40 dark:bg-red-400/10 dark:text-red-300 dark:hover:bg-red-400/20"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => abrirExportar('excel')}
+              disabled={!data || data.total === 0 || cargando}
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-xuma-verde-claro/40 dark:bg-xuma-verde-claro/10 dark:text-xuma-verde-claro dark:hover:bg-xuma-verde-claro/20"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Exportar Excel
+            </button>
+          </div>
         </div>
       </header>
 
@@ -171,7 +154,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-tinta/15 bg-white/40 dark:bg-transparent">
+      <div className="overflow-x-auto rounded-2xl border border-tinta/10 bg-transparent dark:border-tinta/15">
         <table
           aria-busy={cargando}
           className={`w-full min-w-[880px] border-collapse text-sm transition-opacity ${cargando && data ? 'opacity-60' : ''}`}
@@ -182,6 +165,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               <th className="py-3.5 pr-4">Asegurado</th>
               <th className="py-3.5 pr-4">Aseguradora</th>
               <th className="py-3.5 pr-4">Gasera</th>
+              <th className="py-3.5 pr-4">Clase</th>
               <th className="py-3.5 pr-4">Producto</th>
               <th className="py-3.5 pr-4">Estado</th>
               <th className="py-3.5 pr-4">Radicación</th>
@@ -192,7 +176,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  {Array.from({ length: 8 }).map((__, j) => (
+                  {Array.from({ length: 9 }).map((__, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="skeleton h-4" />
                     </td>
@@ -211,21 +195,21 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                 >
                   {data && data.registros.length > 0 ? (
                     data.registros.map((r) => {
-                      const cat = estadoColorCat(r.estado);
                       return (
                         <tr
                           key={r.id_caso}
                           className="border-t border-tinta/10 transition-colors hover:bg-tinta/[0.04]"
                         >
-                          <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
-                          <td className="py-3.5 pr-4 font-medium text-tinta/90">{r.nombre_asegurado ?? '—'}</td>
+                           <td className="py-3.5 pr-4 pl-4 font-bold text-tinta">{r.numero_contrato ?? '—'}</td>
+                           <td className="py-3.5 pr-4 font-medium capitalize text-tinta/90" title={r.nombre_asegurado ?? ''}>{formatAsegurado(r.nombre_asegurado)}</td>
                           <td className="py-3.5 pr-4 text-tinta/80">{r.aseguradora}</td>
-                          <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
-                          <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
-                          <td className="py-3.5 pr-4">
-                            <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${ESTADO_STYLE[cat] ?? ESTADO_STYLE.gris}`}>
-                              {r.estado}
-                            </span>
+                           <td className="py-3.5 pr-4 text-tinta/80">{r.gasera}</td>
+                           <td className="py-3.5 pr-4 text-tinta/80">{r.clase}</td>
+                           <td className="max-w-[180px] truncate py-3.5 pr-4 font-semibold text-tinta/90" title={r.producto}>{r.producto}</td>
+                           <td className="py-3.5 pr-4">
+                             <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-bold ${estadoBadge(r.estado).cls}`}>
+                               {r.estado}
+                             </span>
                           </td>
                           <td className="whitespace-nowrap py-3.5 pr-4 text-xs text-tinta/75">{formatFecha(r.fecha_radicacion)}</td>
                           <td className="py-3.5 pr-4 text-right font-bold text-emerald-800 tabular dark:text-xuma-verde-claro">
@@ -236,7 +220,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-tinta/50">
+                      <td colSpan={9} className="py-12 text-center text-tinta/50">
                         <FileSearch className="mx-auto mb-2 h-10 w-10 text-tinta-dim" />
                         <p className="mt-2">No hay siniestros que coincidan con los filtros.</p>
                       </td>
@@ -309,13 +293,17 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
               className="glass w-full max-w-md rounded-3xl p-6"
               role="dialog"
               aria-modal="true"
-              aria-label="Exportar a Excel"
+              aria-label={formatoExport === 'pdf' ? 'Exportar a PDF' : 'Exportar a Excel'}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-bold text-tinta">
-                    <FileSpreadsheet className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
-                    Exportar a Excel
+                    {formatoExport === 'pdf' ? (
+                      <FileText className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <FileSpreadsheet className="h-5 w-5 text-xuma-verde-oscuro dark:text-xuma-verde-claro" />
+                    )}
+                    Exportar a {formatoExport === 'pdf' ? 'PDF' : 'Excel'}
                   </h3>
                   <p className="mt-1 text-xs text-tinta/60">
                     {formatNum(data?.total ?? 0)} registros coinciden con los filtros. Elige qué páginas incluir.
@@ -431,7 +419,7 @@ export default function TablaSiniestros({ filtros, datosIniciales }: Props) {
                   ) : (
                     <>
                       <Download className="h-4 w-4" />
-                      Descargar Excel
+                      Descargar {formatoExport === 'pdf' ? 'PDF' : 'Excel'}
                     </>
                   )}
                 </button>

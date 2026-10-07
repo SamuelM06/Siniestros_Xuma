@@ -72,3 +72,36 @@ export function formatFecha(iso?: string | null): string {
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+// Nombre de asegurado en Título (cada palabra inicia en mayúscula) para evitar TODO MAYÚSCULAS/minúsculas.
+export function formatAsegurado(nombre?: string | null): string {
+  if (!nombre) return '—';
+  const t = nombre.trim();
+  if (!t) return '—';
+  return t
+    .toLocaleLowerCase('es-CO')
+    .split(/\s+/)
+    .map((palabra) =>
+      palabra
+        .split('-')
+        .map((parte) => (parte ? parte.charAt(0).toLocaleUpperCase('es-CO') + parte.slice(1) : ''))
+        .join('-'),
+    )
+    .join(' ');
+}
+
+export function formatAseguradoExcel(nombre?: string | null): string {
+  if (!nombre) return '';
+  const t = nombre.trim();
+  if (!t) return '';
+  return t
+    .toLocaleLowerCase('es-CO')
+    .split(/\s+/)
+    .map((palabra) =>
+      palabra
+        .split('-')
+        .map((parte) => (parte ? parte.charAt(0).toLocaleUpperCase('es-CO') + parte.slice(1) : ''))
+        .join('-'),
+    )
+    .join(' ');
+}

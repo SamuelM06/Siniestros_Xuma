@@ -52,12 +52,7 @@ function FormaCorte(props: { x1?: number | string; y1?: number | string; x2?: nu
   const x2 = Number(props.x2);
   const y2 = Number(props.y2);
   if (![x1, y1, x2, y2].every(Number.isFinite)) return null;
-  return (
-    <g>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={COLOR_CORTE} strokeWidth={2.5} strokeLinecap="round" className="linea-corte" />
-      <text x={x1 + 6} y={y1 + 12} fill={COLOR_CORTE} fontSize={10} fontWeight={800} fontFamily="'Raleway', sans-serif">proyectado →</text>
-    </g>
-  );
+  return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={COLOR_CORTE} strokeWidth={2.5} strokeLinecap="round" className="linea-corte" />;
 }
 
 export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact = false }: Props) {
@@ -69,11 +64,61 @@ export default function ForecastChart({ data, anioObjetivo, anioPrevio, compact 
   }));
   // Primer mes proyectado: ahí se dibuja el separador animado (si lo hay).
   const corte = filas.find((f) => f.proyectado)?.label;
+  const corteIdx = filas.findIndex((f) => f.proyectado);
+  const tieneCorte = corteIdx > 0 && corteIdx < filas.length;
+  // Mes actual automático: último mes real observado (ej. Sep si Oct-Dic proyectados).
+  const mesActualLabel = tieneCorte ? filas[corteIdx - 1]?.label : null;
   const barSize = compact ? 22 : 36;
   return (
     <div className="flex min-h-0 flex-col overflow-hidden gap-0">
-      <div className={compact ? "h-[190px] w-full xl:h-[180px]" : "h-[285px] w-full xl:h-[270px]"}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div className={compact ? "relative h-[190px] w-full xl:h-[180px]" : "relative h-[285px] w-full xl:h-[270px]"}>
+        {/* Bandas de fondo: izquierda = Actualidad (glass blur), derecha = Proyectado.
+            - Si hay corte interno (ej. cierre 2026 con 9 reales + 3 proyectados Oct-Dic): divide proporcional.
+            - Si todo es proyectado (corteIdx===0): banda completa PROYECTADO. */}
+        {tieneCorte ? (
+          <>
+            {/* Banda de fondo dividida */}
+            <div
+              className="pointer-events-none absolute bottom-[26px] top-[28px] z-0 flex overflow-hidden rounded-xl"
+              style={{ left: 62, right: 78 }}
+              aria-hidden
+            >
+              <div className="flex-1" style={{ flex: corteIdx }} />
+              <div
+                className="flex-1 border-l-2 border-dashed bg-amber-400/10 backdrop-blur-[1px] dark:bg-amber-500/12"
+                style={{ flex: filas.length - corteIdx, borderColor: COLOR_CORTE }}
+              />
+            </div>
+            {/* Etiquetas arriba, a la misma altura — ACTUALIDAD anclada a Sep, PROYECTADO centrado en Oct-Dic */}
+            <div
+              className="pointer-events-none absolute z-[2] flex"
+              style={{ left: 62, right: 78, top: 0, height: 16 }}
+              aria-hidden
+            >
+              <div className="flex flex-1 justify-end pr-1" style={{ flex: corteIdx }}>
+                <span className="actualidad-pill h-fit -translate-y-0.5 rounded-full border border-white/35 bg-white/65 px-2.5 py-1 text-[9px] font-extrabold tracking-[0.16em] text-tinta shadow-sm backdrop-blur-md dark:border-white/15 dark:bg-white/[0.08] dark:text-white/90">
+                  ACTUALIDAD{mesActualLabel ? ` · ${mesActualLabel.toUpperCase()}` : ''}
+                </span>
+              </div>
+              <div className="flex flex-1 justify-center" style={{ flex: filas.length - corteIdx }}>
+                <span className="h-fit -translate-y-0.5 rounded-full bg-amber-500 px-2.5 py-1 text-[9px] font-extrabold tracking-[0.16em] text-white shadow-md ring-1 ring-amber-600/20">
+                  PROYECTADO
+                </span>
+              </div>
+            </div>
+          </>
+        ) : corteIdx === 0 && filas.length > 0 ? (
+          <div
+            className="pointer-events-none absolute z-0 flex items-start justify-center overflow-hidden rounded-xl bg-amber-400/10 pt-1 backdrop-blur-[1px] dark:bg-amber-500/12"
+            style={{ left: 62, right: 78, top: 2, bottom: 26 }}
+            aria-hidden
+          >
+            <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[9px] font-extrabold tracking-[0.16em] text-white shadow-md ring-1 ring-amber-600/20">
+              PROYECTADO
+            </span>
+          </div>
+        ) : null}
+        <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
           <ComposedChart data={filas} margin={{ top: 28, right: 8, left: 8, bottom: 4 }} barCategoryGap="14%">
             <CartesianGrid strokeDasharray="3 6" stroke="var(--ccurtina)" vertical={false} />
             <XAxis dataKey="label" tick={{ fill: 'var(--ctinta)', fontSize: 13, fontWeight: 800 }} axisLine={false} tickLine={false} interval={0} height={22} tickMargin={4} />
