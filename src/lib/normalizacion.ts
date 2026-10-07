@@ -11,14 +11,19 @@
 // ---- ESTADO → categoría canónica -------------------------------------------
 export const ESTADO_SQL = `
 CASE
+  -- 0. Negaciones ANTES de la regla de pago: 'SIN PAGO' y 'NO PROCEDE A PAGO'
+  --    contienen la palabra 'PAGO', asi que sin esta guarda se contaban como
+  --    Pagado (109 filas del archivo Efigas Vida Deudor quedaban al reves).
+  WHEN c.estado IS NULL OR btrim(c.estado) = '' THEN 'Sin estado'
+  WHEN c.estado ~* '(^|[^A-Z])(SIN|NO)[[:space:]]+(PROCEDE[[:space:]]+)?(A[[:space:]]+)?PAGO' THEN 'Negado / Anulado'
   WHEN c.estado ILIKE '%PAGAD%' OR c.estado ILIKE '%PAGO%' THEN 'Pagado'
   WHEN c.estado ILIKE '%OBJETAD%' THEN 'Objetado'
   WHEN c.estado ILIKE '%DOCUMENTO%' OR c.estado ILIKE '%PENDIENTE%' OR c.estado ILIKE '%LLAMADA%' THEN 'Solicitud de documentos'
   WHEN c.estado ILIKE '%TRAMIT%' OR c.estado ILIKE '%TRÁMIT%' OR c.estado ILIKE '%SEGUIMIENTO%' OR c.estado ILIKE '%ABIERT%' OR c.estado ILIKE '%SUSPENSO%' OR c.estado ILIKE '%COORDINAR%' OR c.estado ILIKE '%APERTUR%' THEN 'En trámite'
   WHEN c.estado ILIKE '%CONCLU%' OR c.estado ILIKE '%CERRADO%' OR c.estado ILIKE '%DIRECTO%' OR c.estado ILIKE '%EXHUMACION%' THEN 'Concluido'
   WHEN c.estado ILIKE '%NEGAD%' OR c.estado ILIKE '%ANULAD%' OR c.estado ILIKE '%NO FALLECID%' OR c.estado ILIKE '%NO PRESTAD%' OR c.estado ILIKE '%RETORNO%' OR c.estado ILIKE '%VOLTEO%' THEN 'Negado / Anulado'
-  WHEN c.estado ILIKE '%REVISION%' THEN 'En revisión'
-  WHEN c.estado IS NULL OR btrim(c.estado) = '' THEN 'Sin estado'
+  -- 'REVISAR' (Efigas Vida Deudor) es revision, no estado suelto.
+  WHEN c.estado ILIKE '%REVISION%' OR c.estado ILIKE '%REVISAR%' THEN 'En revisión'
   ELSE initcap(NULLIF(btrim(c.estado),''))
 END`;
 
@@ -48,8 +53,20 @@ END`;
 // SEGURO, Ramo_Desc, PRODUCTO, etc.) y se descartan valores espurios puramente numéricos.
 export const PRODUCTO_SQL = `
 CASE
-  -- 1. Vida Deudor / Grupo Deudores (archivos, ramos o valores explícitos)
-  WHEN c.nombre_archivo_origen ILIKE '%vida deudor%' THEN 'Grupo Deudores'
+  -- 0. Vida Deudor por ORIGEN DE CARPETA (primero, es lo mas especifico).
+  --    Efigas y Guajira subtree su producto unicamente en el nombre de la
+  --    carpeta: la columna PRODUCTO de Efigas trae codigos numericos
+  --    (591629, 844559) que la regla 7 descarta, y Guajira no trae columna.
+  --    Sin esta guarda esos registros caian en 'Sin producto'.
+  WHEN c.nombre_archivo_origen ILIKE '%vida deudor%'
+    OR c.nombre_archivo_origen ILIKE '%vidadeudor%'
+    OR c.nombre_archivo_origen ILIKE '%vida deudor gasguajira%'
+    OR c.nombre_archivo_origen ILIKE 'deudor %'
+    OR c.nombre_archivo_origen ILIKE 'deudor 20%'
+    OR c.nombre_archivo_origen ILIKE '%siniestros deudor%'
+    THEN 'Grupo Deudores'
+
+  -- 1. Vida Deudor / Grupo Deudores (ramos o valores explicitos)
   WHEN btrim(COALESCE(c.datos_originales->>'RAMO','')) ILIKE '%DEUDOR%' THEN 'Grupo Deudores'
   WHEN btrim(COALESCE(c.datos_originales->>'PRODUCTO','')) ILIKE '%DEUDOR%' THEN 'Grupo Deudores'
 
@@ -113,9 +130,15 @@ END`;
 export const CLASE_SQL = `
 CASE
   WHEN c.nombre_archivo_origen ILIKE '%vida deudor%' THEN 'Deudor'
+  WHEN c.nombre_archivo_origen ILIKE '%vidadeudor%' THEN 'Deudor'
   WHEN c.nombre_archivo_origen ILIKE '%salvafactura%' THEN 'Salvafactura'
   WHEN c.nombre_archivo_origen ILIKE '%deudor%' THEN 'Deudor'
+  -- Microseguros. Los nombres reales de archivo son 'SINIESTROS MICRO 2026 - EFIGAS'
+  -- (con MICRO, no SINIESTROS) y 'SINIESTROS MICROSEGUROS GASGUAJIRA' (que no
+  -- matchea '%microseguro%' porque esa palabra no esta en el nombre del archivo).
+  -- Antes ambos caian en 'Otros'.
   WHEN c.nombre_archivo_origen ILIKE '%microseguro%' THEN 'Microseguros'
+  WHEN c.nombre_archivo_origen ILIKE '%SINIESTROS MICRO %' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'BASE SINIESTROS CARIBE%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'SINIESTROS 2026 - EFIGAS%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'Siniestros CEO%' THEN 'Microseguros'
@@ -181,6 +204,18 @@ COALESCE(
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'Valor pagado'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR COBRAR SEGURO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR_SOLICITUD_GIRO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  -- Vida Deudor de Efigas: el monto real va en 'VALIDACIÓN PAGO' (con tilde y
+  -- espacio final en la cabecera). Sin esto su Total Pagado salía en $0.
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALIDACIÓN PAGO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALIDACION PAGO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  -- Vida Deudor de Guajira: 'MONTO' (con prefijo $ y separador de miles) y
+  -- 'MONTO CANCELADO' / 'COMPARATIVO' como respaldo.
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'MONTO CANCELADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'COMPARATIVO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'MONTO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
+  -- Efigas: 'VALOR ASEGURADO' es el valor del contrato, no lo pagado. Se deja
+  -- al final a proposito: es el ultimo recurso, no el primero.
+  NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR ASEGURADO'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR '), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'VALOR'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,
   NULLIF(regexp_replace(regexp_replace(btrim(c.datos_originales->>'PagoReal'), '[,.]\\d{2}$', ''), '[^0-9]', '', 'g'), '')::numeric,

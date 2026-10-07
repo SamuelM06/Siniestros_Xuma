@@ -16,6 +16,10 @@ import type {
 //   que no aparezca en ningún gráfico, filtro ni total.
 // - Las hojas `*PLANILLA*` son soportes de pago, no siniestros: se excluyen para
 //   no duplicar el conteo (la data manda: un siniestro = una fila base).
+// - `c.vigente`: las recargas NO borran, dan de baja logica (`vigente=false` +
+//   fila en casos_historial). Sin este filtro el tablero contaba tambien las
+//   versiones retiradas: 2.191 filas fantasma (2.126 del Caribe viejito y 59
+//   del Efigas renombrado) inflando todos los KPIs.
 // - `fecha_efectiva` consume la fecha real de la DB: fecha_radicacion primero,
 //   luego FECHA RECIBIDO (Salvafactura) y MES+AÑO (PROEXEQUIAL). Lo que no trae
 //   fecha útil queda NULL y se excluye de los rangos.
@@ -42,7 +46,8 @@ const BASE = `
       END               AS aseguradora_norm
     FROM siniestros.casos c
     JOIN siniestros.aseguradoras a ON a.id_aseguradora = c.id_aseguradora
-    WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
+    WHERE c.vigente
+      AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
   ) sub
   WHERE sub.gasera_norm <> 'Promigas'
 `;
@@ -147,22 +152,177 @@ export function filtrosPorDefecto(): Filters {
   return { desde: `${ANIO_REPORTE}-01-01`, hasta: `${ANIO_REPORTE}-12-31` };
 }
 
+// ---- Seeds de respaldo para el render del servidor ---------------------------------
+// Las paginas .astro piden estos datos ANTES de enviar el HTML, para pintar la
+// primera pantalla sin esperas. El problema: si PostgreSQL no responde en ese
+// instante, el `await` lanza y Astro aborta el render a mitad de camino. La isla
+// de React nunca llega al HTML y el usuario ve una pagina EN BLANCO, sin ningun
+// mensaje que explique por que.
+//
+// Se reprodujo en dev: con el pool frio (5 conexiones) y varias paginas pidiendo
+// a la vez, `pg` agotaba su `connectionTimeoutMillis` (10 s) y /detalle salia vacio.
+//
+// La salida no es dejar de pedir datos en el servidor (eso es lo que hace rapido el
+// portal) sino que el fallo degrade con elegancia: si no hay seed, se manda uno
+// vacio y la isla, que ya pide los datos en su `useEffect` al montar, los carga
+// en el navegador. La pagina SIEMPRE sale; solo se pierde el instante de "datos ya
+// listos" y se reemplaza por "datos en ~300 ms".
+
+export const METADATOS_VACIOS: Metadatos = {
+  anios: [],
+  rangoFechas: { min: null, max: null },
+  gaseras: [],
+  productos: [],
+  estados: [],
+  aseguradoras: [],
+  tipos_siniestro: [],
+  clases: [],
+};
+
+export function paginaVacia(size = 10): PaginaTabla {
+  return { registros: [], total: 0, page: 1, pageSize: size };
+}
+
+// Semilla vacia pero de la FORMA CORRECTA. Importa que sea un objeto valido y no
+// `null`: estos componentes hacen `useState<T>(semilla)` y despues leen
+// `data.departamentos`, `data.forecast`, etc. Un `null` los reventaria en el
+// cliente, que es el mismo fallo que estamos evitando en el servidor.
+export const MAPA_VACIO: MapaData = {
+  totalNacional: 0,
+  totalPagadoNacional: 0,
+  departamentos: [],
+};
+
+export const HISTORICOS_VACIO: HistoricosData = {
+  anios: [],
+  mensual: [],
+  tendencia: [],
+  sinFecha: 0,
+};
+
+export const PROYECCION_VACIA: ProyeccionData = {
+  anioObjetivo: ANIO_REPORTE,
+  aniosEntrenamiento: [],
+  forecast: [],
+  forecast2026: [],
+  estacionalidad: [],
+  tendencia: {
+    pendienteAnual: 0,
+    pValue: 1,
+    significante: false,
+    direccion: 'estable',
+    totalProyAnual: 0,
+    montoProyAnual: 0,
+    crecimientoVsPrevio: 0,
+  },
+  departamentos: [],
+  tiposSiniestro: [],
+  backtest: { mape: null, confiable: false, detalle: [] },
+  cambios: [],
+  supuestos: [],
+};
+
+export const ESTATUS_VACIO: EstatusData = {
+  anio: ANIO_REPORTE,
+  gaseras: [],
+  estados: [],
+  filas: [],
+};
+
+// El dashboard junta seis consultas en un solo `Promise.all` y las mete en un
+// objeto. Con la BD caida, una sola de las seis que falle tumba el grupo entero.
+export const KPIS_VACIOS: KpisData = {
+  total: 0,
+  pagados: 0,
+  objetados: 0,
+  solicitudDocs: 0,
+  enTramite: 0,
+  totalPagado: 0,
+  sinEstado: 0,
+  comparativo: { total2025: 0, total2026: 0, deltaPct: 0 },
+};
+
+export const TENDENCIA_VACIA: PuntoTendencia[] = [];
+export const POR_ASEGURADORA_VACIA: SerieAseguradora[] = [];
+export const POR_GASERA_VACIA: ItemGasera[] = [];
+export const POR_PRODUCTO_VACIA: ItemProducto[] = [];
+export const POR_TIPO_SINUESTRO_VACIA: ItemTipoSiniestro[] = [];
+
+/**
+ * Envuelve una carga de datos del render del servidor. Si falla, devuelve el
+ * respaldo y deja rastro en el log en vez de romper la pagina.
+ */
+export async function cargaSSR<T>(etiqueta: string, promise: Promise<T>, respaldo: T): Promise<T> {
+  try {
+    return await promise;
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : String(e);
+    console.error(`[ssr] ${etiqueta} fallo al cargar el seed del servidor: ${motivo}`);
+    return respaldo;
+  }
+}
+
+// ---- Control manual de la caché ------------------------------------------------
+// Se llama desde /api/cache (botón "refrescar" del header) para forzar que la
+// siguiente lectura vaya a PostgreSQL en vez de servir un valor stale.
+//
+// Se descartan TAMBIÉN las promesas en vuelo: si no, una revalidación que ya
+// estaba corriendo escribiría su resultado viejo de vuelta en la caché después
+// del purgado, y el botón "refrescar" no serviría de nada.
+export function purgarCache(): { entradas: number; enVuelo: number; bytesLiberados: number } {
+  const entradas = cacheConsultas.size;
+  const pendientes = enVuelo.size;
+  const bytesLiberados = bytesEnCache;
+  cacheConsultas.clear();
+  enVuelo.clear();
+  bytesEnCache = 0;
+  return { entradas, enVuelo: pendientes, bytesLiberados };
+}
+
+export function estadisticasCache(): {
+  entradas: number;
+  maxEntradas: number;
+  bytes: number;
+  maxBytes: number;
+  enVuelo: number;
+  suaveTtlMin: number;
+  staleTtlMin: number;
+  heapMb: number;
+} {
+  return {
+    entradas: cacheConsultas.size,
+    maxEntradas: CACHE_MAX_ENTRIES,
+    bytes: bytesEnCache,
+    maxBytes: CACHE_MAX_BYTES,
+    enVuelo: enVuelo.size,
+    suaveTtlMin: Math.round(CACHE_SOFT_TTL_MS / 60_000),
+    staleTtlMin: Math.round(CACHE_STALE_TTL_MS / 60_000),
+    heapMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+  };
+}
+
 type RowBase = Record<string, unknown>;
 
 // ============================================================================
 // CACHÉ EN MEMORIA ULTRA-RÁPIDO CON STALE-WHILE-REVALIDATE
 // ----------------------------------------------------------------------------
-// 1. Soft TTL (15 min): Datos 100% frescos.
-// 2. Stale TTL (2 horas): Si pasaron más de 15 min, se sirve de INMEDIATO (<5ms)
+// 1. Soft TTL (10 min): Datos 100% frescos.
+// 2. Stale TTL (30 min): Si pasaron más de 10 min, se sirve de INMEDIATO (<5ms)
 //    y se revalida en background sin bloquear la navegación ni la carga.
 // 3. Deduplicación en vuelo: múltiples peticiones concurrentes a la misma clave
 //    comparten una única promesa hacia PostgreSQL.
+//
+// ANTES: 15 min frescos / 2 h utilizables stale. Con 2 h, cargar siniestros
+// nuevos en la BD y recargar la página NO los mostraba: había que esperar
+// hasta 2 horas (o reiniciar el contenedor). 30 min acota ese desfase sin
+// castigar la latencia, y /api/cache permite purgar a mano en cualquier
+// momento (botón "refrescar" en el header).
 // ============================================================================
-const CACHE_SOFT_TTL_MS = 15 * 60_000;  // 15 minutos fresco
-const CACHE_STALE_TTL_MS = 120 * 60_000; // 2 horas utilizable stale
+const CACHE_SOFT_TTL_MS = 10 * 60_000;  // 10 minutos fresco
+const CACHE_STALE_TTL_MS = 30 * 60_000; // 30 minutos utilizable stale
 const CACHE_MAX_ENTRIES = 300;           // tope de entradas en memoria (LRU)
 const CACHE_MAX_BYTES = 24 * 1024 * 1024; // tope de 24 MB: 300 entradas de geodata
-                                              // o matrices pesan mucho más que un KPI
+                                               // o matrices pesan mucho más que un KPI
 const CACHE_SWEEP_MS = 5 * 60_000;       // barrido de expiración cada 5 min
 
 interface EntradaCache<T> {
@@ -226,8 +386,8 @@ function expulsarSiLleno(): void {
   }
 }
 
-// Barrido periódico: descarta entradas que no se usan desde hace más de
-// CACHE_STALE_TTL_MS (2 h). Libera memoria y datos (incluidos los delicados
+// Barrido periódico: descarta entradas sin uso desde hace más de
+// CACHE_STALE_TTL_MS. Libera memoria y datos (incluidos los delicados
 // que aún puedan quedar) aunque nunca se vuelvan a pedir esas combinaciones.
 // También suelta promesas en vuelo que quedaron colgadas.
 function barrerCache(): void {
@@ -381,7 +541,7 @@ export async function getKpis(f: Filters): Promise<KpisData> {
         count(*) FILTER (WHERE estado_norm = 'Solicitud de documentos')::int AS solicitud_docs,
         count(*) FILTER (WHERE estado_norm = 'En trámite')::int    AS en_tramite,
         count(*) FILTER (WHERE estado_norm = 'Sin estado')::int    AS sin_estado,
-        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado'), 0)::numeric AS total_pagado
+        COALESCE(sum(monto) FILTER (WHERE estado_norm = 'Pagado' AND monto <= ${MONTO_MAX_VALIDO}), 0)::numeric AS total_pagado
       FROM base
       WHERE ${w.cond}
     )
@@ -415,7 +575,8 @@ async function getTotalAnio(anio: number): Promise<number | null> {
     FROM (
       SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
       FROM siniestros.casos c
-      WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
+      WHERE c.vigente
+        AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
     ) sub
     WHERE sub.fecha_efectiva BETWEEN $1::date AND $2::date AND sub.gasera_norm <> 'Promigas'
     `,
@@ -733,10 +894,11 @@ export async function getMetadatos(f: Filters): Promise<Metadatos> {
         `SELECT DISTINCT EXTRACT(YEAR FROM sub.fecha_efectiva)::int AS anio
         FROM (
           SELECT ${FECHA_EFECTIVA_SQL} AS fecha_efectiva, ${GASERA_SQL} AS gasera_norm
-          FROM siniestros.casos c
-          WHERE c.nombre_archivo_origen NOT ILIKE '%planilla%'
-        ) sub
-        WHERE sub.fecha_efectiva IS NOT NULL AND sub.gasera_norm <> 'Promigas'
+FROM siniestros.casos c
+      WHERE c.vigente
+        AND c.nombre_archivo_origen NOT ILIKE '%planilla%'
+    ) sub
+    WHERE sub.fecha_efectiva IS NOT NULL AND sub.gasera_norm <> 'Promigas'
         ORDER BY 1 DESC`,
       ),
     ]);
@@ -761,6 +923,7 @@ export interface EstatusFiltros {
   producto?: string[];
   aseguradora?: string[];
   clase?: string[];
+  estado?: string[];
 }
 
 export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
@@ -779,6 +942,9 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   }
   if (ef.clase?.length) {
     empujarLista(params, cond, 'clase_norm', ef.clase);
+  }
+  if (ef.estado?.length) {
+    empujarLista(params, cond, 'estado_norm', ef.estado);
   }
   const sql = `
     WITH base AS (${BASE})
