@@ -23,6 +23,7 @@ export const GET: APIRoute = async ({ url }) => {
     producto: limpiar(url.searchParams.getAll('producto'), 160),
     aseguradora: limpiar(url.searchParams.getAll('aseguradora'), 80),
     clase: limpiar(url.searchParams.getAll('clase'), 40),
+    estado: limpiar(url.searchParams.getAll('estado'), 120),
   };
   return conError(() => getEstatus(ef), 'estatus');
 };

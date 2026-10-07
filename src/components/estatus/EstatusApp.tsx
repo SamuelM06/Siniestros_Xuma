@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarRange, Download, Eye, EyeOff, Fuel, Landmark, Layers, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { CalendarRange, CircleDot, Download, Eye, EyeOff, Fuel, Landmark, Layers, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { EstatusData, Metadatos } from '../../lib/types';
 import { formatNum } from '../../utils/formatters';
 import { descargarExcelEstatus, type FilaEstatusExcel } from '../../utils/excel';
@@ -23,6 +23,7 @@ interface FiltrosEstatus {
   producto?: string[];      // selección múltiple (vacío/ausente = Todos)
   aseguradora?: string[];   // selección múltiple (vacío/ausente = Todas)
   clase?: string[];         // Deudor | Microseguros | Salvafactura | Otros (vacío/ausente = Todas)
+  estado?: string[];        // selección múltiple (vacío/ausente = Todos)
 }
 
 const inputSelectCls = 'w-full min-w-0';
@@ -40,6 +41,7 @@ function construirQs(f: FiltrosEstatus): string {
   lista('producto', f.producto);
   lista('aseguradora', f.aseguradora);
   lista('clase', f.clase);
+  lista('estado', f.estado);
   return p.toString();
 }
 
@@ -59,6 +61,15 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
   const productos = useMemo(() => opciones.productos.map((p) => ({ valor: p, etiqueta: p })), [opciones.productos]);
   const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
   const clases = useMemo(() => (metadatos.clases ?? []).map((c) => ({ valor: c, etiqueta: c })), [metadatos.clases]);
+  // `metadatos.estados` viene como { estado, total }[] (igual que en FiltrosPanel).
+  const estados = useMemo(
+    () =>
+      (opciones.estados ?? []).map((e) => ({
+        valor: e.estado,
+        etiqueta: `${e.estado} (${formatNum(e.total)})`,
+      })),
+    [opciones.estados],
+  );
 
   const cambiar = useCallback((cambio: Partial<FiltrosEstatus>) => {
     setExpandida(null);
@@ -96,14 +107,19 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
         setFiltros((prev) => {
           const gaserasOk = (prev.gasera ?? []).filter((g) => m.gaseras.includes(g));
           const productosOk = (prev.producto ?? []).filter((p) => m.productos.includes(p));
+          const estadosOk = (prev.estado ?? []).filter((e) =>
+            (m.estados ?? []).some((x) => x.estado === e),
+          );
           const ng = gaserasOk.length > 0 ? gaserasOk : undefined;
           const np = productosOk.length > 0 ? productosOk : undefined;
+          const ne = estadosOk.length > 0 ? estadosOk : undefined;
           if (
             (ng?.length ?? 0) === (prev.gasera?.length ?? 0) &&
-            (np?.length ?? 0) === (prev.producto?.length ?? 0)
+            (np?.length ?? 0) === (prev.producto?.length ?? 0) &&
+            (ne?.length ?? 0) === (prev.estado?.length ?? 0)
           ) return prev;
           setExpandida(null);
-          return { ...prev, gasera: ng, producto: np };
+          return { ...prev, gasera: ng, producto: np, estado: ne };
         });
       })
       .catch(() => undefined);
@@ -306,7 +322,7 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
           </div>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <label className="block min-w-0">
             <span className={etiquetaCls}><CalendarRange className="h-3.5 w-3.5" /> Año</span>
             <SelectXuma
@@ -368,6 +384,19 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
               placeholder="Filtrar por aseguradora"
               etiquetaTodo="Todas las aseguradoras"
               icono={<Landmark className="h-4 w-4" />}
+              desplegableClase="w-max min-w-72 max-w-[85vw] right-0"
+            />
+          </label>
+
+          <label className="block min-w-0">
+            <span className={etiquetaCls}><CircleDot className="h-3.5 w-3.5" /> Estado</span>
+            <MultiSelectXuma
+              valores={filtros.estado ?? []}
+              opciones={estados}
+              alCambiar={(v) => cambiar({ estado: v.length > 0 ? v : undefined })}
+              placeholder="Filtrar por estado"
+              etiquetaTodo="Todos los estados"
+              icono={<CircleDot className="h-4 w-4" />}
               desplegableClase="w-max min-w-72 max-w-[85vw] right-0"
             />
           </label>
