@@ -6,7 +6,7 @@
 // con un Proxy, de modo que cualquier intento de escribir (SSR de Astro y el
 // pipe de estáticos de `send`) pase SIEMPRE por el stream de compresión.
 // ============================================================================
-import { createBrotliCompress, createGzip } from 'node:zlib';
+import { constants as zc, createBrotliCompress, createGzip } from 'node:zlib';
 import { Writable } from 'node:stream';
 
 const NO_COMPRIMIR = [
@@ -70,20 +70,66 @@ function crearProxyRespuesta(req, res) {
     const usaGzip = /\bgzip\b/i.test(accept);
     if (!usaBrotli && !usaGzip) return false;
 
-    zlibStream = usaBrotli ? createBrotliCompress() : createGzip();
+    // Brotli a su calidad por defecto (11) tarda ~20 s en comprimir el GeoJSON de municipios (2,3 MB) y satura los
+    // hilos del servidor: durante ese tiempo el resto de peticiones se queda esperando y Nginx responde 502.
+    // Calidad 4 comprime casi igual de bien y en una fraccion del tiempo; gzip a nivel 6 es el estandar.
+    zlibStream = usaBrotli
+      ? createBrotliCompress({ params: { [zc.BROTLI_PARAM_QUALITY]: 4 } })
+      : createGzip({ level: 6 });
 
     raw.removeHeader('content-length');
     raw.setHeader('content-encoding', usaBrotli ? 'br' : 'gzip');
     raw.setHeader('vary', 'accept-encoding');
 
+    // Si el cliente (o Cloudflare) corta la conexion a mitad de respuesta, `res` queda destruido
+    // mientras zlib sigue produciendo datos. Escribir ahi lanza ERR_STREAM_DESTROYED; sin atender
+    // ese caso el error quedaba sin capturar y tumbaba el proceso (502 hasta que Coolify lo levantara).
+    // Ahora se descarta en silencio lo que ya no tiene a quien enviarse.
+    const clienteSeFue = () => res.destroyed || res.writableEnded;
+
     const salida = new Writable({
       write(chunk, _enc, cb) {
-        raw.write(chunk, cb);
+        if (clienteSeFue()) return cb();
+        try {
+          raw.write(chunk, cb);
+        } catch {
+          cb();
+        }
       },
       final(cb) {
-        raw.end();
+        try {
+          if (!clienteSeFue()) raw.end();
+        } catch {
+          /* conexion ya cerrada */
+        }
         cb();
       },
+    });
+    salida.on('error', () => {
+      try {
+        zlibStream.destroy();
+      } catch {
+        /* ya destruido */
+      }
+    });
+
+    // Al cerrarse la conexion: detener la compresion y liberar los callbacks de escritura pendientes
+    // para que `send` (pipe de estaticos) no quede esperando un 'drain' que nunca llegara.
+    res.once('close', () => {
+      try {
+        zlibStream.destroy();
+      } catch {
+        /* ya destruido */
+      }
+      const q = onwritePendientes;
+      onwritePendientes = [];
+      for (const cb of q) {
+        try {
+          cb();
+        } catch {
+          /* ignorar */
+        }
+      }
     });
 
     // Backpressure: cuando zlib drena, despertar el pipe de `send` (res
@@ -146,6 +192,10 @@ function crearProxyRespuesta(req, res) {
               }
               return raw.write(chunk, enc, cb);
             }
+            if (zlibStream.destroyed || res.destroyed) {
+              if (typeof cb === 'function') cb();
+              return true; // cliente ausente: se descarta, sin bloquear al emisor
+            }
             if (typeof cb === 'function') onwritePendientes.push(cb);
             return zlibStream.write(chunk);
           };
@@ -156,6 +206,10 @@ function crearProxyRespuesta(req, res) {
                 return raw.end(chunk, enc);
               }
               return raw.end(chunk, enc, cb);
+            }
+            if (zlibStream.destroyed || res.destroyed) {
+              if (typeof cb === 'function') cb();
+              return res;
             }
             if (chunk != null && chunk.length) zlibStream.end(chunk);
             else zlibStream.end();
