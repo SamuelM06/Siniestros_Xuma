@@ -66,7 +66,10 @@ export function formatFecha(iso?: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  // Las fechas del Excel no traen hora ("2026-03-05"): se interpretan en UTC y se muestran en UTC. Sin fijar la
+  // zona, el servidor (Docker, UTC) pintaba "05 mar" y el navegador en Colombia (UTC-5) "04 mar": la fecha salia un
+  // dia antes y React lanzaba errores de hidratacion (#418/#423/#425) en la tabla de detalle.
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 export function todayISO(): string {
