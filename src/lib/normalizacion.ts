@@ -126,7 +126,15 @@ END`;
 // - Deudor: archivos vida deudor (Caribe + Surtigas) y deudores históricos.
 // - Salvafactura: archivo salvafactura (solo Surtigas).
 // - Microseguros: microseguros Guajira/Efigas, BASE Caribe, seguimiento CEO y CMK GDO.
-// - Otros: Brilla-Cardiff, SURA, Proexequial, Informes (agregados, no siniestros).
+// - CLASE_CONSOLIDADOS: consolidadas por aseguradora (SURA.xlsx, HDI.xlsx) y
+//   reportes de pago de terceros (Cardiff Promigas, Proexequial, INFORME DE PAGOS).
+//   Antes se llamaba 'Otros', que no decía nada: esos archivos NO son cartera de
+//   ninguna gasera (la de Caribe es solo vida deudor + BASE SINIESTROS CARIBE),
+//   asi que el nombre nuevo los deja claros y permite excluir al filtrar gasera.
+
+// Filas que no pertenecen a la cartera propia de ninguna gasera.
+export const CLASE_CONSOLIDADOS = 'Consolidados y pagos';
+
 export const CLASE_SQL = `
 CASE
   WHEN c.nombre_archivo_origen ILIKE '%vida deudor%' THEN 'Deudor'
@@ -136,15 +144,40 @@ CASE
   -- Microseguros. Los nombres reales de archivo son 'SINIESTROS MICRO 2026 - EFIGAS'
   -- (con MICRO, no SINIESTROS) y 'SINIESTROS MICROSEGUROS GASGUAJIRA' (que no
   -- matchea '%microseguro%' porque esa palabra no esta en el nombre del archivo).
-  -- Antes ambos caian en 'Otros'.
+  -- Antes ambos caian en el bucket de consolidados.
   WHEN c.nombre_archivo_origen ILIKE '%microseguro%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE '%SINIESTROS MICRO %' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'BASE SINIESTROS CARIBE%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'SINIESTROS 2026 - EFIGAS%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'Siniestros CEO%' THEN 'Microseguros'
   WHEN c.nombre_archivo_origen ILIKE 'Registro de Siniestros CMK - GDO%' THEN 'Microseguros'
-  ELSE 'Otros'
+  ELSE '${CLASE_CONSOLIDADOS}'
 END`;
+
+// ---- Cartera propia de cada gasera --------------------------------------------
+// Verificado contra los archivos reales de la DB: cada gasera tiene exactamente
+// un libro de Deudor y uno de Microseguros, salvo Surtigas que trae Salvafactura
+// en vez de Microseguros. Las claves son los valores de GASERA_SQL.
+// Lo que cae en CLASE_CONSOLIDADOS no se lista: no es cartera de la gasera, por
+// eso `clasesDeGasera` lo deja fuera cuando hay una gasera filtrada.
+export const CLASES_POR_GASERA: Record<string, readonly string[]> = {
+  'Gases del Caribe': ['Deudor', 'Microseguros'],
+  Efigas: ['Deudor', 'Microseguros'],
+  'Gases de La Guajira': ['Deudor', 'Microseguros'],
+  Gdo: ['Deudor', 'Microseguros'],
+  Ceo: ['Deudor', 'Microseguros'],
+  Surtigas: ['Deudor', 'Salvafactura'],
+};
+
+// Clases admitidas para una selección de gaseras (unión de sus carteras).
+// `undefined` = sin restricción: no hay gasera filtrada, o ninguna de las
+// seleccionadas tiene cartera propia (p. ej. 'Proexequial (aliado)', 'Sin gasera').
+export function clasesDeGasera(gaseras?: readonly string[]): string[] | undefined {
+  if (!gaseras || gaseras.length === 0) return undefined;
+  const propias = gaseras.map((g) => CLASES_POR_GASERA[g]).filter((c) => c !== undefined);
+  if (propias.length === 0) return undefined;
+  return [...new Set(propias.flat())];
+}
 
 // ---- FECHA EFECTIVA → fecha real del siniestro ---------------------------------
 // La data manda: `fecha_radicacion` es la principal, pero hay archivos que no la
@@ -184,7 +217,7 @@ export const CATEGORIAS_CLASES = [
   'Deudor',
   'Microseguros',
   'Salvafactura',
-  'Otros',
+  CLASE_CONSOLIDADOS,
 ] as const;
 
 // ---- MONTO (Total Pagado) ----------------------------------------------------

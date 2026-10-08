@@ -1,6 +1,6 @@
 import { query, queryOne } from './db';
 import { configurarLimpieza } from './ratelimit';
-import { DEPARTAMENTO_SQL, CLASE_SQL, ESTADO_SQL, FECHA_EFECTIVA_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL } from './normalizacion';
+import { DEPARTAMENTO_SQL, CLASE_SQL, ESTADO_SQL, FECHA_EFECTIVA_SQL, GASERA_SQL, MONTO_SQL, MUNICIPIO_SQL, PRODUCTO_SQL, clasesDeGasera } from './normalizacion';
 import {
   backtest, chiCuadradoP, distribucion, indicesEstacionales, mannKendall, pronosticar, theilSen,
 } from './estadistica';
@@ -942,6 +942,16 @@ export async function getEstatus(ef: EstatusFiltros): Promise<EstatusData> {
   }
   if (ef.clase?.length) {
     empujarLista(params, cond, 'clase_norm', ef.clase);
+  }
+  // Con gasera filtrada solo cuenta su cartera propia. Sin esto se colaban las
+  // consolidadas por aseguradora y los reportes de pago de terceros, que la DB
+  // tiene con el nombre de la gasera en la columna `gasera` pero no salen de su
+  // Excel: p. ej. 'SURA.xlsx (BD_SURA, consolidado)' con gasera 'GASES DEL
+  // CARIBE ... GASCARIBE' sumaba 16 en enero y 9 en febrero que no existen ni en
+  // el Excel de vida deudor ni en el de microseguros de Caribe.
+  const clasesPropias = clasesDeGasera(ef.gasera);
+  if (clasesPropias) {
+    empujarLista(params, cond, 'clase_norm', clasesPropias);
   }
   if (ef.estado?.length) {
     empujarLista(params, cond, 'estado_norm', ef.estado);

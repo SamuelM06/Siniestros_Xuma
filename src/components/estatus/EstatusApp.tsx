@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { AnimatePresence, motion } from 'motion/react';
 import { CalendarRange, CircleDot, Download, Eye, EyeOff, Fuel, Landmark, Layers, Package, RefreshCw, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import type { EstatusData, Metadatos } from '../../lib/types';
+import { clasesDeGasera } from '../../lib/normalizacion';
 import { formatNum } from '../../utils/formatters';
 import { descargarExcelEstatus, type FilaEstatusExcel } from '../../utils/excel';
 import SelectXuma from '../ui/SelectXuma';
@@ -60,8 +61,40 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
   const [opciones, setOpciones] = useState<Metadatos>(metadatos);
   const gaseras = useMemo(() => opciones.gaseras.map((g) => ({ valor: g, etiqueta: g })), [opciones.gaseras]);
   const productos = useMemo(() => opciones.productos.map((p) => ({ valor: p, etiqueta: p })), [opciones.productos]);
-  const aseguradoras = useMemo(() => metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a })), [metadatos.aseguradoras]);
-  const clases = useMemo(() => (metadatos.clases ?? []).map((c) => ({ valor: c, etiqueta: c })), [metadatos.clases]);
+
+  const MICROSEGURO_ASEGURADORAS = ['HDI', 'SURA', 'ALFA'] as const;
+  const DEUDOR_ASEGURADORA_CARIBE = 'ALFA';
+  const DEUDOR_GASERA = 'Gases del Caribe';
+
+  const aseguradoras = useMemo(() => {
+    const base = metadatos.aseguradoras.map((a) => ({ valor: a, etiqueta: a }));
+    const tieneDeudor = (filtros.clase ?? []).includes('Deudor');
+    const tieneMicroseguros = (filtros.clase ?? []).includes('Microseguros');
+    if (tieneDeudor) {
+      return base.filter((a) => a.valor === DEUDOR_ASEGURADORA_CARIBE);
+    }
+    if (tieneMicroseguros) {
+      return base.filter((a) => !MICROSEGURO_ASEGURADORAS.includes(a.valor.toUpperCase() as typeof MICROSEGURO_ASEGURADORAS[number]));
+    }
+    return base;
+  }, [metadatos.aseguradoras, filtros.clase]);
+
+  const clases = useMemo(() => {
+    const base = (metadatos.clases ?? []).map((c) => ({ valor: c, etiqueta: c }));
+    const tieneMicroseguroAseguradora = (filtros.aseguradora ?? []).some((a) =>
+      MICROSEGURO_ASEGURADORAS.includes(a.toUpperCase() as typeof MICROSEGURO_ASEGURADORAS[number])
+    );
+    // Con gasera filtrada solo se ofrecen las clases de su cartera propia, asi
+    // 'Consolidados y pagos' (consolidadas de aseguradora y reportes de pago de
+    // terceros) desaparece: esos archivos no son de la gasera aunque traigan su
+    // nombre en la columna `gasera`.
+    const propias = clasesDeGasera(filtros.gasera);
+    const scoped = propias ? base.filter((c) => propias.includes(c.valor)) : base;
+    if (tieneMicroseguroAseguradora) {
+      return scoped.filter((c) => c.valor !== 'Microseguros');
+    }
+    return scoped;
+  }, [metadatos.clases, filtros.aseguradora, filtros.gasera]);
   // `metadatos.estados` viene como { estado, total }[] (igual que en FiltrosPanel).
   const estados = useMemo(
     () =>
@@ -83,6 +116,68 @@ export default function EstatusApp({ metadatos, anioInicial, datosIniciales }: P
     setErrorExport('');
     setFiltros({ anio: anioInicial });
   }, [anioInicial]);
+
+  // Limpiar clase "Microseguros" si se selecciona HDI, SURA o ALFA en aseguradora
+  useEffect(() => {
+    const tieneMicroseguroAseguradora = (filtros.aseguradora ?? []).some((a) =>
+      MICROSEGURO_ASEGURADORAS.includes(a.toUpperCase() as typeof MICROSEGURO_ASEGURADORAS[number])
+    );
+    if (tieneMicroseguroAseguradora && (filtros.clase ?? []).includes('Microseguros')) {
+      setFiltros((prev) => ({
+        ...prev,
+        clase: (prev.clase ?? []).filter((c) => c !== 'Microseguros'),
+      }));
+    }
+  }, [filtros.aseguradora]);
+
+  // Limpiar aseguradoras HDI, SURA, ALFA si se selecciona "Microseguros" en clase
+  useEffect(() => {
+    const tieneMicroseguros = (filtros.clase ?? []).includes('Microseguros');
+    if (tieneMicroseguros) {
+      const tieneConflicto = (filtros.aseguradora ?? []).some((a) =>
+        MICROSEGURO_ASEGURADORAS.includes(a.toUpperCase() as typeof MICROSEGURO_ASEGURADORAS[number])
+      );
+      if (tieneConflicto) {
+        setFiltros((prev) => ({
+          ...prev,
+          aseguradora: (prev.aseguradora ?? []).filter(
+            (a) => !MICROSEGURO_ASEGURADORAS.includes(a.toUpperCase() as typeof MICROSEGURO_ASEGURADORAS[number])
+          ),
+        }));
+      }
+    }
+  }, [filtros.clase]);
+
+  // Limpiar aseguradoras no permitidas si se selecciona "Deudor" en clase
+  useEffect(() => {
+    const tieneDeudor = (filtros.clase ?? []).includes('Deudor');
+    if (tieneDeudor) {
+      const tieneConflicto = (filtros.aseguradora ?? []).some(
+        (a) => a !== DEUDOR_ASEGURADORA_CARIBE
+      );
+      if (tieneConflicto) {
+        setFiltros((prev) => ({
+          ...prev,
+          aseguradora: [DEUDOR_ASEGURADORA_CARIBE],
+        }));
+      }
+    }
+  }, [filtros.clase]);
+
+  // Si la gasera filtrada no tiene esa clase en su cartera, la clase se quita.
+  // Sin esto se quedaba una combinacion imposible (p. ej. Caribe + Consolidados
+  // y pagos) que el dropdown ya no ofrece y que no debe quedar aplicada.
+  const gaseraKey = JSON.stringify(filtros.gasera ?? null);
+  useEffect(() => {
+    const propias = clasesDeGasera(filtros.gasera);
+    if (!propias) return;
+    setFiltros((prev) => {
+      const claseOk = (prev.clase ?? []).filter((c) => propias.includes(c));
+      if (claseOk.length === (prev.clase?.length ?? 0)) return prev;
+      setExpandida(null);
+      return { ...prev, clase: claseOk.length > 0 ? claseOk : undefined };
+    });
+  }, [gaseraKey]);
 
   // Cascada Clase → Gasera/Producto con data en tiempo real: al cambiar la clase
   // (o el año) se re-piden las opciones a la DB y se poda lo incompatible
